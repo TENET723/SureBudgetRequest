@@ -9,7 +9,9 @@ using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Infrastructure.Notifications;
 using SureBudgetRequest.Infrastructure.Persistence;
 using SureBudgetRequest.Infrastructure.Persistence.Repositories;
+using SureBudgetRequest.Infrastructure.Persistence.Services;
 using SureBudgetRequest.Infrastructure.Security;
+using SureBudgetRequest.Infrastructure.Time;
 using SureBudgetRequest.Infrastructure.Seeding;
 using SureBudgetRequest.Infrastructure.Storage;
 
@@ -42,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IBudgetRequestRepository, BudgetRequestRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IDepartmentBudgetPeriodRepository, DepartmentBudgetPeriodRepository>();
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
         services.AddScoped<ICoaRepository, CoaRepository>();
         services.AddScoped<IWithdrawMethodRepository, WithdrawMethodRepository>();
@@ -50,6 +53,12 @@ public static class DependencyInjection
         services.AddScoped<IAppSettingRepository, AppSettingRepository>();
         services.AddScoped<IBudgetRequestModificationRepository, BudgetRequestModificationRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // ── Financial-year / period services ──────────────────────────────────
+        // Clock is stateless and thread-safe → singleton. The FY provider reads an
+        // app setting per call (scoped, alongside the DbContext-bound repository).
+        services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
+        services.AddScoped<IFinancialYearProvider, FinancialYearProvider>();
 
         // ── Security ──────────────────────────────────────────────────────────
         // Singleton: stateless and thread-safe.

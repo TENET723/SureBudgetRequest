@@ -44,11 +44,20 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .IsRequired()
                .HasColumnType("numeric(18,2)");
 
-        // Both nullable — null when the dept had no monthly limit at submission.
-        builder.Property(r => r.MonthlyLimitAtSubmission)
+        // ── Period (cumulative-cap) snapshot ──────────────────────────────────
+        // PeriodType defaults to None (0) so existing rows and the NOT NULL column
+        // add get the same value without a backfill pass. The other four are
+        // nullable — null when the dept had no cumulative cap at submission.
+        builder.Property(r => r.PeriodTypeAtSubmission)
+               .IsRequired()
+               .HasConversion<int>()
+               .HasDefaultValue(BudgetPeriodType.None);
+        builder.Property(r => r.PeriodLimitAtSubmission)
                .HasColumnType("numeric(18,2)");
-        builder.Property(r => r.MonthlySpendBeforeAtSubmission)
+        builder.Property(r => r.PeriodSpendBeforeAtSubmission)
                .HasColumnType("numeric(18,2)");
+        builder.Property(r => r.PeriodStartAtSubmission);
+        builder.Property(r => r.PeriodEndAtSubmission);
 
         builder.Property(r => r.ExchangeRateAtSubmission)
                .IsRequired()

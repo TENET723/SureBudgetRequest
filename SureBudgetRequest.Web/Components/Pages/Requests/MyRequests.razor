@@ -49,9 +49,9 @@
                             <td class="text-end">@r.RequestedAmount.ToString("N2") <span class="text-muted small">@r.CurrencyCode</span></td>
                             <td>
                                 <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
-                                <MonthlyOverrunBadge
-                                    MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
+                                <PeriodOverrunBadge
+                                    PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
+                                    PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>

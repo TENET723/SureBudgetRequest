@@ -1,9 +1,11 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest;
@@ -21,6 +23,8 @@ public sealed class SubmitRequestCommandHandler
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IAppSettingRepository _appSettingRepository;
+    private readonly IDepartmentBudgetPeriodRepository _periodRepository;
+    private readonly IFinancialYearProvider _financialYearProvider;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
@@ -32,6 +36,8 @@ public sealed class SubmitRequestCommandHandler
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
         IAppSettingRepository appSettingRepository,
+        IDepartmentBudgetPeriodRepository periodRepository,
+        IFinancialYearProvider financialYearProvider,
         IBudgetRequestModificationRepository modificationRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
@@ -42,6 +48,8 @@ public sealed class SubmitRequestCommandHandler
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _appSettingRepository = appSettingRepository;
+        _periodRepository = periodRepository;
+        _financialYearProvider = financialYearProvider;
         _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
@@ -101,16 +109,26 @@ public sealed class SubmitRequestCommandHandler
         if (headUser is null)
             return Result.Failure(BudgetRequestErrors.DepartmentHeadNotFound);
 
-        // Monthly spend lookup — only run when the dept has a monthly limit configured.
-        // The "month" of a request is determined by SubmittedAt in UTC; we use today's
-        // UTC year/month here because that's the calendar bucket this submission lands in.
-        decimal? monthlySpendBeforeInMmk = null;
-        if (department.MonthlyLimit.HasValue)
+        // Resolve the department's active cumulative-cap config for the current
+        // financial year, then compute the period window + spend-so-far. Skipped
+        // entirely when the cadence is None (no cumulative cap).
+        var currentFy = await _financialYearProvider.GetCurrentFinancialYearAsync(cancellationToken);
+        var activePeriod = await _periodRepository.GetActiveAsync(department.Id, currentFy, cancellationToken);
+        var periodType = activePeriod?.PeriodType ?? BudgetPeriodType.None;
+
+        decimal? periodLimit = null;
+        decimal? periodSpendBeforeInMmk = null;
+        DateTime? periodStartUtc = null;
+        DateTime? periodEndUtc = null;
+        if (periodType != BudgetPeriodType.None)
         {
-            var nowUtc = DateTime.UtcNow;
-            monthlySpendBeforeInMmk = await _budgetRequestRepository
-                .GetMonthlyApprovedSpendInMmkAsync(
-                    department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
+            var (startUtc, endUtc) = await _financialYearProvider
+                .GetPeriodWindowUtcAsync(periodType, cancellationToken);
+            periodStartUtc = startUtc;
+            periodEndUtc = endUtc;
+            periodLimit = activePeriod!.LimitAmount;
+            periodSpendBeforeInMmk = await _budgetRequestRepository
+                .GetApprovedSpendInMmkAsync(department.Id, startUtc, endUtc, cancellationToken);
         }
 
         // Resolve the chosen withdraw method so the domain can enforce its
@@ -134,8 +152,11 @@ public sealed class SubmitRequestCommandHandler
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
-            department.MonthlyLimit,
-            monthlySpendBeforeInMmk,
+            periodType,
+            periodLimit,
+            periodSpendBeforeInMmk,
+            periodStartUtc,
+            periodEndUtc,
             currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,

@@ -1,8 +1,10 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.CreateDepartment;
@@ -11,22 +13,29 @@ public sealed record CreateDepartmentCommand(
     string Name,
     Guid? HeadUserId,
     decimal BudgetLimit,
-    decimal? MonthlyLimit = null,
+    BudgetPeriodType PeriodType = BudgetPeriodType.None,
+    decimal PeriodLimitAmount = 0m,
     string? SlackWebhookUrl = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateDepartmentCommandHandler
     : IRequestHandler<CreateDepartmentCommand, Result<Guid>>
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly IDepartmentBudgetPeriodRepository _periodRepository;
+    private readonly IFinancialYearProvider _financialYearProvider;
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateDepartmentCommandHandler(
         IDepartmentRepository departmentRepository,
+        IDepartmentBudgetPeriodRepository periodRepository,
+        IFinancialYearProvider financialYearProvider,
         IUserRepository userRepository,
         IUnitOfWork unitOfWork)
     {
         _departmentRepository = departmentRepository;
+        _periodRepository = periodRepository;
+        _financialYearProvider = financialYearProvider;
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
     }
@@ -48,7 +57,6 @@ public sealed class CreateDepartmentCommandHandler
                 command.Name,
                 command.HeadUserId,
                 command.BudgetLimit,
-                command.MonthlyLimit,
                 command.SlackWebhookUrl);
         }
         catch (ArgumentException ex)
@@ -57,6 +65,22 @@ public sealed class CreateDepartmentCommandHandler
         }
 
         await _departmentRepository.AddAsync(dept, ct);
+
+        // A brand-new department's first cumulative-cap config is IMMEDIATE — it
+        // takes effect from the CURRENT financial year (unlike later changes, which
+        // defer to the next FY via SetDepartmentBudgetPeriod).
+        var currentFy = await _financialYearProvider.GetCurrentFinancialYearAsync(ct);
+        try
+        {
+            var period = new DepartmentBudgetPeriod(
+                dept.Id, currentFy, command.PeriodType, command.PeriodLimitAmount);
+            await _periodRepository.UpsertAsync(period, ct);
+        }
+        catch (ArgumentException ex)
+        {
+            return Result.Failure<Guid>(DepartmentErrors.ValidationError(ex.Message));
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success(dept.Id);
     }

@@ -52,21 +52,20 @@ public interface IBudgetRequestRepository
 
     /// <summary>
     /// Returns the sum of <c>RequestedAmountInMmkAtSubmission</c> for the given
-    /// department's requests whose <c>SubmittedAt</c> falls in the given UTC
-    /// calendar month (<paramref name="year"/>, <paramref name="month"/>) and
-    /// whose <c>Status</c> is Finance-approved (<c>Approved</c>,
-    /// <c>PartiallyPaid</c>, or <c>Paid</c>).
+    /// department's requests whose <c>SubmittedAt</c> falls in the half-open UTC
+    /// interval <c>[fromUtc, toUtc)</c> and whose <c>Status</c> is Finance-approved
+    /// (<c>Approved</c>, <c>PartiallyPaid</c>, or <c>Paid</c>).
     ///
     /// Pending*, Draft, SentBack, Rejected, and Cancelled requests are NOT
     /// counted.
     ///
-    /// The "month" of a request is defined by its <c>SubmittedAt</c> timestamp,
-    /// not by when Finance approved it — i.e. a request submitted Jan 30 counts
-    /// toward January even if Finance approves it Feb 2.
+    /// The "period" of a request is defined by its <c>SubmittedAt</c> timestamp,
+    /// not by when Finance approved it — i.e. a request submitted on the last day
+    /// of a period counts toward that period even if Finance approves it later.
     /// </summary>
-    Task<decimal> GetMonthlyApprovedSpendInMmkAsync(
+    Task<decimal> GetApprovedSpendInMmkAsync(
         Guid departmentId,
-        int year,
-        int month,
+        DateTime fromUtc,
+        DateTime toUtc,
         CancellationToken cancellationToken = default);
 }

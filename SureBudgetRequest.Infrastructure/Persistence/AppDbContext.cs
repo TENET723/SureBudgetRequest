@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<AdvanceUsage> AdvanceUsages => Set<AdvanceUsage>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<DepartmentBudgetPeriod> DepartmentBudgetPeriods => Set<DepartmentBudgetPeriod>();
     public DbSet<Currency> Currencies => Set<Currency>();
     public DbSet<CurrencyRateChange> CurrencyRateChanges => Set<CurrencyRateChange>();
     public DbSet<Coa> Coas => Set<Coa>();

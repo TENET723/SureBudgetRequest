@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
-@using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetPeriodSpend
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
 @using SureBudgetRequest.Application.Currencies.Queries
@@ -63,17 +63,17 @@
             <div class="alert alert-danger">@_error</div>
         }
 
-        @if (WouldOverflowMonthly)
+        @if (WouldOverflowPeriod)
         {
             <div class="alert alert-warning d-flex align-items-start gap-2">
                 <span style="font-size:1.25rem; line-height:1">⚠</span>
                 <div class="small">
-                    <strong>This request would push the department over its monthly limit.</strong>
+                    <strong>This request would push the department over its @PeriodAdjective limit.</strong>
                     <div class="mt-1">
-                        This month: <strong>@_monthlySpent.ToString("N2")</strong> MMK used
-                        of <strong>@_monthlyLimit!.Value.ToString("N2")</strong> MMK.
+                        This @PeriodWord: <strong>@_periodSpent.ToString("N2")</strong> MMK used
+                        of <strong>@_periodLimit!.Value.ToString("N2")</strong> MMK.
                         This request adds <strong>@AmountInMmk.ToString("N2")</strong> MMK
-                        (total would be <strong>@((_monthlySpent + AmountInMmk).ToString("N2"))</strong> MMK).
+                        (total would be <strong>@((_periodSpent + AmountInMmk).ToString("N2"))</strong> MMK).
                     </div>
                     <div class="mt-1 text-muted">
                         A written justification will be required when you save or submit.
@@ -143,12 +143,12 @@
                         <span class="text-muted">Current rate: 1 @_currencyCode = @_selectedRate.ToString("N2") MMK</span>
                     }
                     </div>
-                @if (_monthlyLimit.HasValue && !WouldOverflowMonthly)
+                @if (_periodLimit.HasValue && !WouldOverflowPeriod)
                 {
                     <div class="form-text small mb-3 text-muted">
-                        Monthly spending so far: @_monthlySpent.ToString("N2") /
-                        @_monthlyLimit.Value.ToString("N2") MMK
-                        (@((_monthlyLimit.Value - _monthlySpent).ToString("N2")) MMK remaining this month).
+                        This @PeriodWord's spending so far: @_periodSpent.ToString("N2") /
+                        @_periodLimit.Value.ToString("N2") MMK
+                        (@((_periodLimit.Value - _periodSpent).ToString("N2")) MMK remaining this @PeriodWord).
                     </div>
                 }
 
@@ -295,16 +295,16 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title">Monthly limit overrun — justification required</h6>
+                    <h6 class="modal-title">Budget limit overrun — justification required</h6>
                     <button class="btn-close" @onclick="CancelOverrunModal"></button>
                 </div>
                 <div class="modal-body">
                     <p class="small mb-3">
                         This request of <strong>@AmountInMmk.ToString("N2") MMK</strong> would bring
-                        your department's monthly total to
-                        <strong>@((_monthlySpent + AmountInMmk).ToString("N2")) MMK</strong>,
-                        exceeding the configured monthly limit of
-                        <strong>@_monthlyLimit!.Value.ToString("N2") MMK</strong>.
+                        your department's @PeriodAdjective total to
+                        <strong>@((_periodSpent + AmountInMmk).ToString("N2")) MMK</strong>,
+                        exceeding the configured @PeriodAdjective limit of
+                        <strong>@_periodLimit!.Value.ToString("N2") MMK</strong>.
                     </p>
                     <label class="form-label small fw-semibold" for="overrunJustificationEdit">
                         Please justify why this overrun is necessary.
@@ -357,10 +357,27 @@
     private string? _partialDetail;
     private string? _lastSendBackComment;
 
-    // Monthly limit state
-    private decimal? _monthlyLimit;
-    private decimal _monthlySpent;
+    // Period (cumulative-cap) state
+    private BudgetPeriodType _periodType = BudgetPeriodType.None;
+    private decimal? _periodLimit;
+    private decimal _periodSpent;
     private string _monthlyOverrunJustification = "";
+
+    // Lowercase noun ("month") and adjective ("monthly") for the active cadence.
+    private string PeriodWord => _periodType switch
+    {
+        BudgetPeriodType.Monthly => "month",
+        BudgetPeriodType.Quarterly => "quarter",
+        BudgetPeriodType.Yearly => "year",
+        _ => "period"
+    };
+    private string PeriodAdjective => _periodType switch
+    {
+        BudgetPeriodType.Monthly => "monthly",
+        BudgetPeriodType.Quarterly => "quarterly",
+        BudgetPeriodType.Yearly => "yearly",
+        _ => "budget-period"
+    };
 
     // Overrun modal state
     private bool _showOverrunModal;
@@ -380,8 +397,8 @@
             : (_request?.Status == RequestStatus.SentBack ? "Confirm and Save" : "Confirm and Save Draft"));
 
     private decimal AmountInMmk => _amount * _selectedRate;
-    private bool WouldOverflowMonthly =>
-        _monthlyLimit.HasValue && (_monthlySpent + AmountInMmk) > _monthlyLimit.Value;
+    private bool WouldOverflowPeriod =>
+        _periodLimit.HasValue && (_periodSpent + AmountInMmk) > _periodLimit.Value;
 
     private bool SelectedMethodRequiresAttachment =>
         !string.IsNullOrEmpty(_withdrawMethodId)
@@ -472,11 +489,12 @@
             // (CurrentUser.DepartmentId), matching Submit/Resubmit which always re-fetch
             // the current dept. If the user changed dept since first submission, the
             // monthly check applies to the new one — same rule the backend uses.
-            var spendResult = await Mediator.Send(new GetMonthlySpendQuery(CurrentUser.DepartmentId));
+            var spendResult = await Mediator.Send(new GetPeriodSpendQuery(CurrentUser.DepartmentId));
             if (spendResult.IsSuccess)
             {
-                _monthlyLimit = spendResult.Value.MonthlyLimit;
-                _monthlySpent = spendResult.Value.SpentInMmk;
+                _periodType = spendResult.Value.PeriodType;
+                _periodLimit = spendResult.Value.PeriodLimit;
+                _periodSpent = spendResult.Value.SpentInMmk;
             }
 
             if (_request.Status == RequestStatus.SentBack)
@@ -525,7 +543,7 @@
         }
 
         // Over monthly? Pop the justification modal and let the user fill it in.
-        if (WouldOverflowMonthly)
+        if (WouldOverflowPeriod)
         {
             _pendingSubmit = submit;
             _showOverrunModal = true;

@@ -1,8 +1,10 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest;
@@ -19,6 +21,8 @@ public sealed class ResubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IDepartmentBudgetPeriodRepository _periodRepository;
+    private readonly IFinancialYearProvider _financialYearProvider;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -28,6 +32,8 @@ public sealed class ResubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
+        IDepartmentBudgetPeriodRepository periodRepository,
+        IFinancialYearProvider financialYearProvider,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -36,6 +42,8 @@ public sealed class ResubmitRequestCommandHandler
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _periodRepository = periodRepository;
+        _financialYearProvider = financialYearProvider;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -75,16 +83,27 @@ public sealed class ResubmitRequestCommandHandler
         if (!currency.IsActive)
             return Result.Failure(CurrencyErrors.Inactive(currency.Code));
 
-        // Re-check monthly position at resubmission time — the dept's spend may have
-        // changed since the original submission (other requests approved/paid in the
-        // meantime). The justification is required again if still applicable.
-        decimal? monthlySpendBeforeInMmk = null;
-        if (department.MonthlyLimit.HasValue)
+        // Re-check the period position at resubmission time — the dept's spend may
+        // have changed since the original submission (other requests approved/paid
+        // in the meantime), and the active config may have rolled into a new FY.
+        // The justification is required again if still applicable.
+        var currentFy = await _financialYearProvider.GetCurrentFinancialYearAsync(cancellationToken);
+        var activePeriod = await _periodRepository.GetActiveAsync(department.Id, currentFy, cancellationToken);
+        var periodType = activePeriod?.PeriodType ?? BudgetPeriodType.None;
+
+        decimal? periodLimit = null;
+        decimal? periodSpendBeforeInMmk = null;
+        DateTime? periodStartUtc = null;
+        DateTime? periodEndUtc = null;
+        if (periodType != BudgetPeriodType.None)
         {
-            var nowUtc = DateTime.UtcNow;
-            monthlySpendBeforeInMmk = await _budgetRequestRepository
-                .GetMonthlyApprovedSpendInMmkAsync(
-                    department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
+            var (startUtc, endUtc) = await _financialYearProvider
+                .GetPeriodWindowUtcAsync(periodType, cancellationToken);
+            periodStartUtc = startUtc;
+            periodEndUtc = endUtc;
+            periodLimit = activePeriod!.LimitAmount;
+            periodSpendBeforeInMmk = await _budgetRequestRepository
+                .GetApprovedSpendInMmkAsync(department.Id, startUtc, endUtc, cancellationToken);
         }
 
         // Same withdraw-method check as Submit. A method may have been
@@ -106,8 +125,11 @@ public sealed class ResubmitRequestCommandHandler
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
             department.BudgetLimit,
-            department.MonthlyLimit,
-            monthlySpendBeforeInMmk,
+            periodType,
+            periodLimit,
+            periodSpendBeforeInMmk,
+            periodStartUtc,
+            periodEndUtc,
             currency.RateToMmk,
             deptHead.Id,
             deptHead.FullName,

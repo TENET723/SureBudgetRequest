@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SureBudgetRequest.Application.Abstractions.Security;
+using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Infrastructure.Persistence;
+using SureBudgetRequest.Infrastructure.Persistence.Services;
+using SureBudgetRequest.Infrastructure.Time;
 
 namespace SureBudgetRequest.Infrastructure.Seeding;
 
@@ -56,9 +59,16 @@ public sealed class DbSeeder
         _logger.LogInformation("Seeding app settings...");
 
         _db.AppSettings.Add(new AppSetting(
-            "AdvanceBlackoutDays", 
-            "3", 
+            "AdvanceBlackoutDays",
+            "3",
             "Days before month-end when advance requests are blocked."));
+
+        // Company-wide financial-year start month (1-12). Quarters and yearly
+        // windows for department spending caps derive from this. Default: April.
+        _db.AppSettings.Add(new AppSetting(
+            FinancialYearProvider.StartMonthSettingKey,
+            FinancialYearProvider.DefaultStartMonth.ToString(),
+            "Month (1-12) the company financial year starts on. Drives all department budget-period windows."));
 
         await _db.SaveChangesAsync(cancellationToken);
     }
@@ -192,17 +202,28 @@ public sealed class DbSeeder
         var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
 
         // Per-request limit (BudgetLimit) is the threshold for Management routing.
-        // MonthlyLimit is the soft cap that triggers a required justification at
-        // submission. We seed sample values; admins can adjust per-department later.
-        // Pass null for monthlyLimit to disable monthly enforcement on a department.
+        // The cumulative soft cap now lives in department_budget_periods (seeded
+        // just below), not on the department itself.
         var itDept = new Department("Information Technology", deptHeadItId,
-            budgetLimit: 5_000_000, monthlyLimit: 20_000_000);
+            budgetLimit: 5_000_000);
         var hrDept = new Department("Human Resources", deptHeadHrId,
-            budgetLimit: 3_000_000, monthlyLimit: 10_000_000);
+            budgetLimit: 3_000_000);
         var adminDept = new Department("Administration", adminId,
-            budgetLimit: 10_000_000, monthlyLimit: 40_000_000);
+            budgetLimit: 10_000_000);
 
         _db.Departments.AddRange(itDept, hrDept, adminDept);
+
+        // Starter cumulative-cap config, effective from the current financial year.
+        // Monthly cadence with the same amounts the departments used to carry as a
+        // monthly limit. Admins can change cadence/amount (for the next FY) later.
+        var businessNow = DateTime.UtcNow.Add(SystemDateTimeProvider.SingaporeOffset);
+        var currentFy = new FinancialYearCalendar(FinancialYearProvider.DefaultStartMonth)
+            .FinancialYearFor(businessNow);
+
+        _db.DepartmentBudgetPeriods.AddRange(
+            new DepartmentBudgetPeriod(itDept.Id, currentFy, BudgetPeriodType.Monthly, 20_000_000),
+            new DepartmentBudgetPeriod(hrDept.Id, currentFy, BudgetPeriodType.Monthly, 10_000_000),
+            new DepartmentBudgetPeriod(adminDept.Id, currentFy, BudgetPeriodType.Monthly, 40_000_000));
 
         var admin = CreateUser("admin", "Mg Mg (Admin)", "admin@asure.local", adminDeptId, UserRole.Admin);
         var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.DepartmentHead);

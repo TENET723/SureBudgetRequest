@@ -106,17 +106,15 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
     }
 
-    public async Task<decimal> GetMonthlyApprovedSpendInMmkAsync(
+    public async Task<decimal> GetApprovedSpendInMmkAsync(
         Guid departmentId,
-        int year,
-        int month,
+        DateTime fromUtc,
+        DateTime toUtc,
         CancellationToken cancellationToken = default)
     {
-        // Half-open interval [monthStart, monthEnd) in UTC. Using SubmittedAt
-        // because the "month" of a request is defined by submission time, not
-        // Finance-approval time. See IBudgetRequestRepository.GetMonthlyApprovedSpendInMmkAsync.
-        var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthEnd = monthStart.AddMonths(1);
+        // Half-open interval [fromUtc, toUtc) on SubmittedAt — the "period" of a
+        // request is defined by submission time, not Finance-approval time.
+        // See IBudgetRequestRepository.GetApprovedSpendInMmkAsync.
 
         // Statuses that count as "approved by Finance" (i.e. the request has
         // crossed the Finance approval bar).
@@ -134,8 +132,8 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             .Where(r => r.DepartmentIdAtSubmission == departmentId
                      && countedStatuses.Contains(r.Status)
                      && r.SubmittedAt != null
-                     && r.SubmittedAt >= monthStart
-                     && r.SubmittedAt < monthEnd)
+                     && r.SubmittedAt >= fromUtc
+                     && r.SubmittedAt < toUtc)
             .SumAsync(r => r.RequestedAmountInMmkAtSubmission, cancellationToken);
     }
 }

@@ -52,9 +52,10 @@ else
                 <span class="text-muted small font-monospace">@_request.Reference</span>
             </div>
             <span class="badge fs-6 @StatusBadge(_request.Status)">@StatusLabel(_request.Status)</span>
-            <MonthlyOverrunBadge
-                MonthlyLimitAtSubmission="@_request.MonthlyLimitAtSubmission"
-                MonthlySpendBeforeAtSubmission="@_request.MonthlySpendBeforeAtSubmission"
+            <PeriodOverrunBadge
+                PeriodType="@_request.PeriodTypeAtSubmission"
+                PeriodLimitAtSubmission="@_request.PeriodLimitAtSubmission"
+                PeriodSpendBeforeAtSubmission="@_request.PeriodSpendBeforeAtSubmission"
                 RequestedAmountInMmkAtSubmission="@_request.RequestedAmountInMmkAtSubmission" />
         </div>
 
@@ -71,20 +72,20 @@ else
            Shown when the snapshots indicate this request crossed the monthly
            limit at submission time. Independent of whether justification text
            was preserved — uses the saved snapshot math for truthiness. *@
-        @if (_request.MonthlyLimitAtSubmission.HasValue
-             && _request.MonthlySpendBeforeAtSubmission.HasValue
-             && (_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission) > _request.MonthlyLimitAtSubmission.Value)
+        @if (_request.PeriodLimitAtSubmission.HasValue
+             && _request.PeriodSpendBeforeAtSubmission.HasValue
+             && (_request.PeriodSpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission) > _request.PeriodLimitAtSubmission.Value)
         {
             <div class="alert alert-warning d-flex align-items-start gap-2">
                 <span style="font-size:1.25rem; line-height:1">⚠</span>
                 <div class="small">
-                    <strong>This request exceeded the department's monthly limit at submission.</strong>
+                    <strong>This request exceeded the department's @PeriodWord() limit at submission.</strong>
                     <div class="mt-1">
-                        Already spent this month: <strong>@_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2")</strong> MMK
-                        of a <strong>@_request.MonthlyLimitAtSubmission.Value.ToString("N2")</strong> MMK limit.
+                        Already spent this @PeriodWord(): <strong>@_request.PeriodSpendBeforeAtSubmission.Value.ToString("N2")</strong> MMK
+                        of a <strong>@_request.PeriodLimitAtSubmission.Value.ToString("N2")</strong> MMK limit.
                         This request adds <strong>@_request.RequestedAmountInMmkAtSubmission.ToString("N2")</strong> MMK,
                         bringing the total to
-                        <strong>@((_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission).ToString("N2"))</strong> MMK.
+                        <strong>@((_request.PeriodSpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission).ToString("N2"))</strong> MMK.
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
                     {
@@ -141,18 +142,18 @@ else
                     @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
                     {
                         <div class="col-12">
-                            <div class="small text-muted">Monthly overrun justification</div>
+                            <div class="small text-muted">Budget overrun justification</div>
                             <div class="border-start border-warning border-3 ps-2">
                                 @_request.MonthlyOverrunJustification
                             </div>
-                            @if (_request.MonthlyLimitAtSubmission.HasValue
-                                && _request.MonthlySpendBeforeAtSubmission.HasValue)
+                            @if (_request.PeriodLimitAtSubmission.HasValue
+                                && _request.PeriodSpendBeforeAtSubmission.HasValue)
                             {
                                 <div class="small text-muted mt-1">
                                     At submission:
-                                    @_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2") MMK already
-                                    spent this month against a
-                                    @_request.MonthlyLimitAtSubmission.Value.ToString("N2") MMK monthly limit.
+                                    @_request.PeriodSpendBeforeAtSubmission.Value.ToString("N2") MMK already
+                                    spent this @PeriodWord() against a
+                                    @_request.PeriodLimitAtSubmission.Value.ToString("N2") MMK @PeriodWord() limit.
                                 </div>
                             }
                         </div>
@@ -1134,6 +1135,16 @@ else
     private static bool IsImage(string? contentType) =>
         !string.IsNullOrEmpty(contentType) &&
         contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    // Lowercase noun for the request's cumulative-cap cadence at submission,
+    // used in the overrun warning text ("monthly" / "quarterly" / "yearly").
+    private string PeriodWord() => _request?.PeriodTypeAtSubmission switch
+    {
+        BudgetPeriodType.Monthly => "monthly",
+        BudgetPeriodType.Quarterly => "quarterly",
+        BudgetPeriodType.Yearly => "yearly",
+        _ => "period"
+    };
 
     protected override async Task OnInitializedAsync() => await LoadRequest();
 
