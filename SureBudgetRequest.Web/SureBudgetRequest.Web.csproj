@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SureBudgetRequest.Application\SureBudgetRequest.Application.csproj" />
+    <ProjectReference Include="..\SureBudgetRequest.Infrastructure\SureBudgetRequest.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
+    

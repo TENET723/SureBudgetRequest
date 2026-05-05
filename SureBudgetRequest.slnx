@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="SureBudgetRequest.Application/SureBudgetRequest.Application.csproj" />
   <Project Path="SureBudgetRequest.Domain/SureBudgetRequest.Domain.csproj" />
   <Project Path="SureBudgetRequest.Infrastructure/SureBudgetRequest.Infrastructure.csproj" />
