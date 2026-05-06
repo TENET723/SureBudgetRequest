@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.*" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SureBudgetRequest.Domain\SureBudgetRequest.Domain.csproj" />
   </ItemGroup>
 

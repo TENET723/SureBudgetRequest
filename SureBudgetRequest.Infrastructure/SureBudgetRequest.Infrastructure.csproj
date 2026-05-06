@@ -7,6 +7,22 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- EF Core v9 — stable release compatible with .NET 10 targets.
+         EF Core 10 / Npgsql 10 are not yet stable; upgrade when released. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0" />
+    <PackageReference Include="EFCore.NamingConventions" Version="9.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0">
+      <!-- Design-time only — not needed in the published output -->
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SureBudgetRequest.Application\SureBudgetRequest.Application.csproj" />
   </ItemGroup>
 
