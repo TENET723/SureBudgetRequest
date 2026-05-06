@@ -1,0 +1,152 @@
+@page "/requests/mine"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>My Requests</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">My Requests</h5>
+        <a href="requests/new" class="btn btn-sm btn-primary">+ New Request</a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Reason</th>
+                        <th class="text-end">Amount (MMK)</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _requests)
+                    {
+                        <tr>
+                            <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
+                            <td>@Truncate(r.Reasons, 50)</td>
+                            <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
+                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
+                            <td class="text-end">
+                                <a href="requests/@r.Id" class="btn btn-sm btn-outline-secondary">View</a>
+                                @if (r.Status == RequestStatus.PendingDeptHead)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmCancel(r)">Cancel</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!_requests.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-muted py-4">No requests yet. <a href="requests/new">Create one.</a></td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (_cancellingRequest is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Cancel Request</h6>
+                    <button class="btn-close" @onclick="() => _cancellingRequest = null"></button>
+                </div>
+                <div class="modal-body small">
+                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N0") MMK</strong>? This cannot be undone.
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _cancellingRequest = null">No</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoCancel" disabled="@_saving">Yes, Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BudgetRequestSummaryDto> _requests = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+    private BudgetRequestSummaryDto? _cancellingRequest;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Mediator.Send(new ListBudgetRequestsQuery(RequesterId: CurrentUser.UserId));
+        if (result.IsSuccess)
+            _requests = result.Value.OrderByDescending(r => r.CreatedAt).ToList();
+        else
+            _errorMessage = result.Error;
+        _loading = false;
+    }
+
+    private void ConfirmCancel(BudgetRequestSummaryDto r) => _cancellingRequest = r;
+
+    private async Task DoCancel()
+    {
+        if (_cancellingRequest is null) return;
+        _saving = true;
+        var result = await Mediator.Send(new CancelRequestCommand(_cancellingRequest.Id, CurrentUser.UserId));
+        _saving = false;
+        _cancellingRequest = null;
+        if (result.IsFailure) { _errorMessage = result.Error; }
+        else
+        {
+            var r = await Mediator.Send(new ListBudgetRequestsQuery(RequesterId: CurrentUser.UserId));
+            if (r.IsSuccess) _requests = r.Value.OrderByDescending(x => x.CreatedAt).ToList();
+        }
+    }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "…";
+
+    private static string StatusLabel(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft => "Draft",
+        RequestStatus.PendingDeptHead => "Pending Head",
+        RequestStatus.PendingBoss => "Pending Boss",
+        RequestStatus.PendingFinance => "Pending Finance",
+        RequestStatus.SentBack => "Sent Back",
+        RequestStatus.Approved => "Approved",
+        RequestStatus.PartiallyPaid => "Part. Paid",
+        RequestStatus.Paid => "Paid",
+        RequestStatus.Rejected => "Rejected",
+        RequestStatus.Cancelled => "Cancelled",
+        _ => s.ToString()
+    };
+
+    private static string StatusBadge(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft => "bg-light text-dark border",
+        RequestStatus.PendingDeptHead or RequestStatus.PendingBoss or RequestStatus.PendingFinance => "bg-warning text-dark",
+        RequestStatus.SentBack => "bg-info text-dark",
+        RequestStatus.Approved or RequestStatus.PartiallyPaid => "bg-primary",
+        RequestStatus.Paid => "bg-success",
+        RequestStatus.Rejected => "bg-danger",
+        RequestStatus.Cancelled => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

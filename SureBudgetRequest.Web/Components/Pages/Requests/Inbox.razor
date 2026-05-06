@@ -1,0 +1,133 @@
+@page "/requests/inbox"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Inbox</PageTitle>
+
+<div class="container-fluid py-3">
+    <h5 class="mb-3">Inbox</h5>
+
+    @if (CurrentUser.Role == UserRole.Employee)
+    {
+        <div class="alert alert-info">You have no inbox as an employee. <a href="requests/mine">View your requests instead.</a></div>
+    }
+    else if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <p class="text-muted small mb-3">
+            @InboxDescription()
+        </p>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Requester</th>
+                        <th>Reason</th>
+                        <th class="text-end">Amount (MMK)</th>
+                        <th>Status</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _requests)
+                    {
+                        <tr>
+                            <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
+                            <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
+                            <td>@Truncate(r.Reasons, 45)</td>
+                            <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
+                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
+                            <td class="text-end">
+                                <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">Review</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!_requests.Any())
+                    {
+                        <tr><td colspan="7" class="text-center text-muted py-4">Your inbox is empty. 🎉</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<BudgetRequestSummaryDto> _requests = new();
+    private Dictionary<Guid, string> _userNames = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role == UserRole.Employee) { _loading = false; return; }
+
+        // Load requests based on role
+        var statusFilter = CurrentUser.Role switch
+        {
+            UserRole.DepartmentHead => RequestStatus.PendingDeptHead,
+            UserRole.Boss           => RequestStatus.PendingBoss,
+            UserRole.Finance        => RequestStatus.PendingFinance,
+            _                       => (RequestStatus?)null
+        };
+
+        Guid? deptFilter = CurrentUser.Role == UserRole.DepartmentHead
+            ? CurrentUser.DepartmentId
+            : null;
+
+        var result = await Mediator.Send(new ListBudgetRequestsQuery(
+            DepartmentId: deptFilter,
+            Status: statusFilter));
+
+        if (result.IsSuccess)
+        {
+            _requests = result.Value.OrderBy(r => r.SubmittedAt).ToList();
+
+            // Resolve requester names
+            var requesterIds = _requests.Select(r => r.RequesterId).Distinct();
+            foreach (var id in requesterIds)
+            {
+                var u = await Mediator.Send(new GetUserQuery(id));
+                if (u.IsSuccess) _userNames[id] = u.Value.FullName;
+            }
+        }
+
+        _loading = false;
+    }
+
+    private string InboxDescription() => CurrentUser.Role switch
+    {
+        UserRole.DepartmentHead => "Requests from your department awaiting your approval.",
+        UserRole.Boss           => "Over-limit requests awaiting your approval.",
+        UserRole.Finance        => "Requests awaiting finance processing.",
+        UserRole.Admin          => "All pending requests.",
+        _                       => ""
+    };
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "…";
+
+    private static string StatusLabel(RequestStatus s) => s switch
+    {
+        RequestStatus.PendingDeptHead => "Pending Head",
+        RequestStatus.PendingBoss     => "Pending Boss",
+        RequestStatus.PendingFinance  => "Pending Finance",
+        _ => s.ToString()
+    };
+
+    private static string StatusBadge(RequestStatus s) => s switch
+    {
+        RequestStatus.PendingDeptHead or RequestStatus.PendingBoss or RequestStatus.PendingFinance => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}

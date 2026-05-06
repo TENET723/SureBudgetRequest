@@ -1,7 +1,69 @@
-﻿@page "/"
+@page "/"
+@inject ICurrentUser CurrentUser
 
-<PageTitle>Home</PageTitle>
+<PageTitle>aSure Budget Request</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid py-3">
+    <h4 class="mb-1">Welcome, @CurrentUser.FullName</h4>
+    <p class="text-muted mb-4">@CurrentUser.Role</p>
 
-Welcome to your new app.
+    <div class="row g-3">
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">New Request</h6>
+                    <p class="card-text small text-muted">Submit a new budget request for approval.</p>
+                    <a href="requests/new" class="btn btn-sm btn-primary">Create</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-primary">My Requests</h6>
+                    <p class="card-text small text-muted">Track all requests you have submitted.</p>
+                    <a href="requests/mine" class="btn btn-sm btn-outline-primary">View</a>
+                </div>
+            </div>
+        </div>
+
+        @if (CurrentUser.Role is UserRole.DepartmentHead or UserRole.Boss or UserRole.Finance)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-warning">Inbox</h6>
+                        <p class="card-text small text-muted">Requests waiting for your action.</p>
+                        <a href="requests/inbox" class="btn btn-sm btn-warning">Open Inbox</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (CurrentUser.Role == UserRole.Admin)
+        {
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-secondary">Departments</h6>
+                        <p class="card-text small text-muted">Manage departments and budget limits.</p>
+                        <a href="admin/departments" class="btn btn-sm btn-outline-secondary">Manage</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-secondary">Users</h6>
+                        <p class="card-text small text-muted">Create and manage user accounts.</p>
+                        <a href="admin/users" class="btn btn-sm btn-outline-secondary">Manage</a>
+                    </div>
+                </div>
+            </div>
+        }
+
+    </div>
+</div>

@@ -1,6 +1,8 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@inject ICurrentUser CurrentUser
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">SureBudgetRequest.Web</a>
+        <a class="navbar-brand" href="">aSure Budget</a>
     </div>
 </div>
 
@@ -8,23 +10,53 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
+
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
+        <div class="nav-item px-3 mt-2">
+            <span class="nav-link text-muted small text-uppercase fw-semibold" style="font-size:0.7rem">Budget Requests</span>
+        </div>
+
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link" href="requests/new">
+                <span class="bi bi-plus-circle-fill-nav-menu" aria-hidden="true"></span> New Request
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            <NavLink class="nav-link" href="requests/mine">
+                <span class="bi bi-file-text-fill-nav-menu" aria-hidden="true"></span> My Requests
             </NavLink>
         </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="requests/inbox">
+                <span class="bi bi-inbox-fill-nav-menu" aria-hidden="true"></span> Inbox
+            </NavLink>
+        </div>
+
+        @if (CurrentUser.Role == UserRole.Admin)
+        {
+            <div class="nav-item px-3 mt-2">
+                <span class="nav-link text-muted small text-uppercase fw-semibold" style="font-size:0.7rem">Admin</span>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/departments">
+                    <span class="bi bi-building-fill-nav-menu" aria-hidden="true"></span> Departments
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="admin/users">
+                    <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Users
+                </NavLink>
+            </div>
+        }
+
     </nav>
 </div>
-

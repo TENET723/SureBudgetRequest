@@ -1,4 +1,10 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject CurrentUserService CurrentUserService
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="page">
     <div class="sidebar">
@@ -6,8 +12,25 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small">Acting as:</span>
+                @if (_users.Count > 0)
+                {
+                    <select class="form-select form-select-sm" style="width:auto" @onchange="SwitchUser">
+                        @foreach (var u in _users)
+                        {
+                            <option value="@u.Id" selected="@(u.Id == CurrentUserService.UserId)">
+                                @u.FullName (@u.Role)
+                            </option>
+                        }
+                    </select>
+                }
+            </div>
+            @if (CurrentUserService.IsLoaded)
+            {
+                <span class="badge bg-secondary">@CurrentUserService.Role</span>
+            }
         </div>
 
         <article class="content px-4">
@@ -21,3 +44,49 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private List<UserSummary> _users = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Mediator.Send(new SureBudgetRequest.Application.Users.Queries.ListUsersQuery());
+        if (result.IsSuccess)
+        {
+            _users = result.Value
+                .OrderBy(u => u.Role)
+                .ThenBy(u => u.FullName)
+                .Select(u => new UserSummary(u.Id, u.FullName, u.Role))
+                .ToList();
+        }
+
+        var cookieVal = HttpContextAccessor.HttpContext?.Request.Cookies[CurrentUserService.CookieName];
+        Guid? activeId = Guid.TryParse(cookieVal, out var parsed) ? parsed : null;
+
+        var active = activeId.HasValue
+            ? _users.FirstOrDefault(u => u.Id == activeId.Value) ?? _users.FirstOrDefault()
+            : _users.FirstOrDefault();
+
+        if (active is not null)
+        {
+            var userResult = await Mediator.Send(new SureBudgetRequest.Application.Users.Queries.GetUserQuery(active.Id));
+            if (userResult.IsSuccess)
+            {
+                var u = userResult.Value;
+                CurrentUserService.SetUser(u.Id, u.FullName, u.Username, u.Role, u.DepartmentId);
+            }
+        }
+    }
+
+    private async Task SwitchUser(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var userId))
+        {
+            await JS.InvokeVoidAsync("eval",
+                $"document.cookie='{CurrentUserService.CookieName}={userId};path=/;max-age=86400'");
+            Nav.NavigateTo(Nav.Uri, forceLoad: true);
+        }
+    }
+
+    private record UserSummary(Guid Id, string FullName, UserRole Role);
+}

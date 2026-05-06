@@ -1,0 +1,509 @@
+@page "/requests/{Id:guid}"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RejectRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
+@using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Request Detail</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center py-5"><div class="spinner-border"></div></div>
+}
+else if (_request is null)
+{
+    <div class="container py-4"><div class="alert alert-warning">Request not found.</div></div>
+}
+else
+{
+    <div class="container py-3" style="max-width:800px">
+
+        @* ── Header ── *@
+        <div class="d-flex align-items-start justify-content-between mb-3">
+            <div>
+                <a href="requests/mine" class="text-muted small">← Back</a>
+                <h5 class="mb-1 mt-1">Budget Request</h5>
+                <span class="text-muted small font-monospace">@_request.Id.ToString()[..8]…</span>
+            </div>
+            <span class="badge fs-6 @StatusBadge(_request.Status)">@StatusLabel(_request.Status)</span>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_actionError))
+        {
+            <div class="alert alert-danger alert-dismissible">@_actionError <button class="btn-close" @onclick="() => _actionError = null"></button></div>
+        }
+        @if (!string.IsNullOrEmpty(_actionSuccess))
+        {
+            <div class="alert alert-success alert-dismissible">@_actionSuccess <button class="btn-close" @onclick="() => _actionSuccess = null"></button></div>
+        }
+
+        @* ── Request summary card ── *@
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <div class="small text-muted">Requester</div>
+                        <div>@(_userNames.TryGetValue(_request.RequesterId, out var rn) ? rn : "—")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="small text-muted">Request Date</div>
+                        <div>@_request.RequestDate.ToString("dd MMM yyyy")</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="small text-muted">Amount Requested</div>
+                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N0") MMK</div>
+                    </div>
+                    @if (_request.ApprovedAmount > 0)
+                    {
+                        <div class="col-sm-6">
+                            <div class="small text-muted">Approved Amount</div>
+                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N0") MMK</div>
+                        </div>
+                    }
+                    <div class="col-12">
+                        <div class="small text-muted">Reason</div>
+                        <div>@_request.Reasons</div>
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="small text-muted">Withdrawer</div>
+                        <div>@_request.WithdrawerName</div>
+                        <div class="small text-muted">@_request.WithdrawerJobTitle</div>
+                    </div>
+                    @if (_request.SubmittedAt.HasValue)
+                    {
+                        <div class="col-sm-6">
+                            <div class="small text-muted">Submitted</div>
+                            <div>@_request.SubmittedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* ── Action buttons ── *@
+        @{ var actions = GetAvailableActions(); }
+        @if (actions.Any())
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Your Action</h6>
+                    <div class="d-flex flex-wrap gap-2">
+
+                        @* Submit (Draft) *@
+                        @if (actions.Contains("submit"))
+                        {
+                            <button class="btn btn-sm btn-primary" @onclick="DoSubmit" disabled="@_actioning">Submit for Approval</button>
+                        }
+
+                        @* Approve *@
+                        @if (actions.Contains("approve"))
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="DoApprove" disabled="@_actioning">
+                                @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                Approve
+                            </button>
+                        }
+
+                        @* Reject *@
+                        @if (actions.Contains("reject"))
+                        {
+                            <button class="btn btn-sm btn-danger" @onclick="() => _showRejectModal = true">Reject</button>
+                        }
+
+                        @* Send Back (Finance only) *@
+                        @if (actions.Contains("sendback"))
+                        {
+                            <button class="btn btn-sm btn-warning" @onclick="() => _showSendBackModal = true">Send Back to Requester</button>
+                        }
+
+                        @* Record Payment (Finance) *@
+                        @if (actions.Contains("recordpayment"))
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => _showPaymentModal = true">Record Payment</button>
+                        }
+
+                        @* Cancel (Requester, PendingDeptHead) *@
+                        @if (actions.Contains("cancel"))
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => _showCancelModal = true">Cancel Request</button>
+                        }
+
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ── Approval Timeline ── *@
+        @if (_request.ApprovalActions.Any())
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Approval History</h6>
+                    <div class="timeline">
+                        @foreach (var a in _request.ApprovalActions.OrderBy(x => x.ActionedAt))
+                        {
+                            <div class="d-flex gap-3 mb-3">
+                                <div class="flex-shrink-0 mt-1">
+                                    @if (a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved)
+                                    { <span class="badge rounded-pill bg-success">✓</span> }
+                                    else if (a.Decision == ApprovalDecision.Rejected)
+                                    { <span class="badge rounded-pill bg-danger">✗</span> }
+                                    else
+                                    { <span class="badge rounded-pill bg-info text-dark">↩</span> }
+                                </div>
+                                <div>
+                                    <div class="small fw-semibold">
+                                        @a.Stage
+                                        @if (a.Decision == ApprovalDecision.AutoApproved)
+                                        { <span class="text-muted fw-normal">(auto-approved)</span> }
+                                    </div>
+                                    <div class="small text-muted">
+                                        @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
+                                        · @a.ActionedAt.ToString("dd MMM yyyy HH:mm")
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(a.Comment))
+                                    {
+                                        <div class="small mt-1 text-muted fst-italic">"@a.Comment"</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ── Payments ── *@
+        @if (_request.Payments.Any() || _request.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid or RequestStatus.Paid)
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Payments</h6>
+                    @if (_request.Payments.Any())
+                    {
+                        <table class="table table-sm mb-2">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-end">Amount (MMK)</th>
+                                    <th>Reference</th>
+                                    <th>Recorded by</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
+                                {
+                                    <tr>
+                                        <td class="small">@p.PaidAt.ToString("dd MMM yyyy")</td>
+                                        <td class="text-end">@p.Amount.ToString("N0")</td>
+                                        <td class="small text-muted">@(p.Reference ?? "—")</td>
+                                        <td class="small">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <div class="d-flex justify-content-between small text-muted">
+                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N0") MMK</strong></span>
+                            @if (_request.RemainingBalance > 0)
+                            {
+                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N0") MMK</span>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="small text-muted mb-0">No payments recorded yet.</p>
+                    }
+                </div>
+            </div>
+        }
+
+    </div>
+}
+
+@* ── Reject Modal ─────────────────────────────────────────────────────────────── *@
+@if (_showRejectModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Reject Request</h6>
+                    <button class="btn-close" @onclick="() => _showRejectModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label small fw-semibold">Reason for rejection</label>
+                    <textarea class="form-control form-control-sm" rows="3" @bind="_rejectComment" placeholder="Explain why this request is being rejected…"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showRejectModal = false">Cancel</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoReject" disabled="@_actioning">Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Send Back Modal ──────────────────────────────────────────────────────────── *@
+@if (_showSendBackModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Send Back to Requester</h6>
+                    <button class="btn-close" @onclick="() => _showSendBackModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">The request will return to Draft status. The requester can edit and resubmit.</p>
+                    <label class="form-label small fw-semibold">Comment</label>
+                    <textarea class="form-control form-control-sm" rows="3" @bind="_sendBackComment" placeholder="What needs to be fixed?"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showSendBackModal = false">Cancel</button>
+                    <button class="btn btn-sm btn-warning" @onclick="DoSendBack" disabled="@_actioning">Send Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Record Payment Modal ─────────────────────────────────────────────────────── *@
+@if (_showPaymentModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Record Payment</h6>
+                    <button class="btn-close" @onclick="() => _showPaymentModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_paymentError))
+                    {
+                        <div class="alert alert-danger small py-2">@_paymentError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Amount (MMK)</label>
+                        <input class="form-control form-control-sm" type="number" min="1" @bind="_paymentAmount" />
+                        @if (_request is not null)
+                        {
+                            <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") MMK</div>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Payment Date</label>
+                        <input class="form-control form-control-sm" type="date" @bind="_paymentDate" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Reference <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="form-control form-control-sm" @bind="_paymentRef" placeholder="Bank ref, voucher no…" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="form-control form-control-sm" @bind="_paymentNote" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showPaymentModal = false">Cancel</button>
+                    <button class="btn btn-sm btn-success" @onclick="DoRecordPayment" disabled="@_actioning">Record Payment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Cancel Confirm ───────────────────────────────────────────────────────────── *@
+@if (_showCancelModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Cancel Request</h6>
+                    <button class="btn-close" @onclick="() => _showCancelModal = false"></button>
+                </div>
+                <div class="modal-body small">Are you sure you want to cancel this request? This cannot be undone.</div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showCancelModal = false">No</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoCancel" disabled="@_actioning">Yes, Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private BudgetRequestDto? _request;
+    private Dictionary<Guid, string> _userNames = new();
+    private bool _loading = true;
+    private string? _actionError;
+    private string? _actionSuccess;
+    private bool _actioning;
+    private string _actionTarget = "";
+
+    // Modal state
+    private bool _showRejectModal;
+    private string _rejectComment = "";
+    private bool _showSendBackModal;
+    private string _sendBackComment = "";
+    private bool _showPaymentModal;
+    private decimal _paymentAmount;
+    private DateTime _paymentDate = DateTime.Today;
+    private string? _paymentRef;
+    private string? _paymentNote;
+    private string? _paymentError;
+    private bool _showCancelModal;
+
+    protected override async Task OnInitializedAsync() => await LoadRequest();
+
+    private async Task LoadRequest()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new GetBudgetRequestQuery(Id));
+        if (result.IsSuccess)
+        {
+            _request = result.Value;
+            // Resolve all user IDs in one pass
+            var ids = new HashSet<Guid> { _request.RequesterId, _request.DeptHeadIdAtSubmission };
+            if (_request.BossIdAtSubmission.HasValue) ids.Add(_request.BossIdAtSubmission.Value);
+            foreach (var a in _request.ApprovalActions) ids.Add(a.ApproverId);
+            foreach (var p in _request.Payments) ids.Add(p.RecordedByUserId);
+            foreach (var id in ids)
+            {
+                if (!_userNames.ContainsKey(id))
+                {
+                    var u = await Mediator.Send(new GetUserQuery(id));
+                    if (u.IsSuccess) _userNames[id] = u.Value.FullName;
+                }
+            }
+        }
+        _loading = false;
+    }
+
+    private List<string> GetAvailableActions()
+    {
+        if (_request is null) return new();
+        var list = new List<string>();
+        var r = _request;
+        var uid = CurrentUser.UserId;
+        var role = CurrentUser.Role;
+
+        if (r.Status == RequestStatus.Draft && r.RequesterId == uid)
+            list.Add("submit");
+
+        if (r.Status == RequestStatus.PendingDeptHead && role == UserRole.DepartmentHead)
+        { list.Add("approve"); list.Add("reject"); }
+
+        if (r.Status == RequestStatus.PendingBoss && role == UserRole.Boss)
+        { list.Add("approve"); list.Add("reject"); }
+
+        if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance)
+        { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
+
+        if (r.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid && role == UserRole.Finance)
+            list.Add("recordpayment");
+
+        if (r.Status == RequestStatus.PendingDeptHead && r.RequesterId == uid)
+            list.Add("cancel");
+
+        return list;
+    }
+
+    private async Task DoSubmit()
+    {
+        _actioning = true; _actionTarget = "submit";
+        var result = await Mediator.Send(new SubmitRequestCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { _actionSuccess = "Request submitted."; await LoadRequest(); }
+    }
+
+    private async Task DoApprove()
+    {
+        _actioning = true; _actionTarget = "approve";
+        var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { _actionSuccess = "Request approved."; await LoadRequest(); }
+    }
+
+    private async Task DoReject()
+    {
+        if (string.IsNullOrWhiteSpace(_rejectComment)) { _actionError = "A rejection reason is required."; _showRejectModal = false; return; }
+        _actioning = true; _actionTarget = "reject"; _showRejectModal = false;
+        var result = await Mediator.Send(new RejectRequestCommand(Id, CurrentUser.UserId, _rejectComment));
+        _actioning = false; _rejectComment = "";
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { _actionSuccess = "Request rejected."; await LoadRequest(); }
+    }
+
+    private async Task DoSendBack()
+    {
+        if (string.IsNullOrWhiteSpace(_sendBackComment)) { _actionError = "A comment is required when sending back."; _showSendBackModal = false; return; }
+        _actioning = true; _showSendBackModal = false;
+        var result = await Mediator.Send(new SendBackRequestCommand(Id, CurrentUser.UserId, _sendBackComment));
+        _actioning = false; _sendBackComment = "";
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { _actionSuccess = "Request sent back to requester."; await LoadRequest(); }
+    }
+
+    private async Task DoRecordPayment()
+    {
+        _paymentError = null;
+        if (_paymentAmount <= 0) { _paymentError = "Amount must be greater than zero."; return; }
+        _actioning = true; _showPaymentModal = false;
+        var result = await Mediator.Send(new RecordPaymentCommand(Id, CurrentUser.UserId, _paymentAmount, _paymentDate, _paymentRef, _paymentNote));
+        _actioning = false; _paymentAmount = 0; _paymentRef = null; _paymentNote = null;
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { _actionSuccess = "Payment recorded."; await LoadRequest(); }
+    }
+
+    private async Task DoCancel()
+    {
+        _actioning = true; _showCancelModal = false;
+        var result = await Mediator.Send(new CancelRequestCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (result.IsFailure) { _actionError = result.Error; }
+        else { Nav.NavigateTo("requests/mine"); }
+    }
+
+    private static string StatusLabel(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft          => "Draft",
+        RequestStatus.PendingDeptHead => "Pending Dept Head",
+        RequestStatus.PendingBoss    => "Pending Boss",
+        RequestStatus.PendingFinance => "Pending Finance",
+        RequestStatus.SentBack       => "Sent Back",
+        RequestStatus.Approved       => "Approved",
+        RequestStatus.PartiallyPaid  => "Partially Paid",
+        RequestStatus.Paid           => "Paid",
+        RequestStatus.Rejected       => "Rejected",
+        RequestStatus.Cancelled      => "Cancelled",
+        _ => s.ToString()
+    };
+
+    private static string StatusBadge(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft          => "bg-light text-dark border",
+        RequestStatus.PendingDeptHead or RequestStatus.PendingBoss or RequestStatus.PendingFinance => "bg-warning text-dark",
+        RequestStatus.SentBack       => "bg-info text-dark",
+        RequestStatus.Approved       => "bg-primary",
+        RequestStatus.PartiallyPaid  => "bg-primary",
+        RequestStatus.Paid           => "bg-success",
+        RequestStatus.Rejected       => "bg-danger",
+        RequestStatus.Cancelled      => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

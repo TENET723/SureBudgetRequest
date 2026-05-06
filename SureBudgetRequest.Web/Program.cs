@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using SureBudgetRequest.Application;
+using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Infrastructure;
 using SureBudgetRequest.Infrastructure.Persistence;
 using SureBudgetRequest.Infrastructure.Seeding;
 using SureBudgetRequest.Web.Components;
+using SureBudgetRequest.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,11 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Dev impersonation: circuit-scoped current-user service
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUserService>());
 
 var app = builder.Build();
 
