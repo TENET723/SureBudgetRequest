@@ -51,6 +51,7 @@ public sealed class SubmitRequestCommandHandler
         if (requester is null)
             return Result.Failure("Requester not found.");
 
+
         var department = await _departmentRepository.GetByIdAsync(
             requester.DepartmentId, cancellationToken);
         if (department is null)
@@ -60,13 +61,19 @@ public sealed class SubmitRequestCommandHandler
         var isOverLimit = budgetRequest.RequestedAmount > department.BudgetLimit;
 
         Guid? bossId = null;
+        string? bossName = null;
         if (isOverLimit)
         {
             var boss = await _userRepository.FindBossAsync(cancellationToken);
             if (boss is null)
                 return Result.Failure("No Boss is assigned in the system. Cannot submit over-limit request.");
             bossId = boss.Id;
+            bossName = boss.FullName;
         }
+
+        var headUser = await _userRepository.GetByIdAsync(department.HeadUserId, cancellationToken);
+        if (headUser is null)
+            return Result.Failure("Department head not found.");
 
         var previousStatus = budgetRequest.Status;
 
@@ -75,7 +82,11 @@ public sealed class SubmitRequestCommandHandler
             department.Id,
             department.BudgetLimit,
             department.HeadUserId,
-            bossId);
+            headUser.FullName,
+            bossId,
+            bossName,
+            requester.FullName
+            );
 
         if (result.IsFailure) return result;
 

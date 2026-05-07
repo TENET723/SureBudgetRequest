@@ -55,23 +55,32 @@ public sealed class ResubmitRequestCommandHandler
         if (department is null)
             return Result.Failure("Requester's department not found.");
 
+        var deptHead = await _userRepository.GetByIdAsync(department.HeadUserId, cancellationToken);
+        if (deptHead is null)
+            return Result.Failure("Department head not found.");
+
         var isOverLimit = budgetRequest.RequestedAmount > department.BudgetLimit;
 
         Guid? bossId = null;
+        string? bossName = null;
         if (isOverLimit)
         {
             var boss = await _userRepository.FindBossAsync(cancellationToken);
             if (boss is null)
                 return Result.Failure("No Boss is assigned. Cannot resubmit over-limit request.");
             bossId = boss.Id;
+            bossName = boss.FullName;
         }
 
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
             department.BudgetLimit,
-            department.HeadUserId,
-            bossId);
+            deptHead.Id,
+            deptHead.FullName,
+            bossId,
+            bossName,
+            requester.FullName);
 
         if (result.IsFailure) return result;
 

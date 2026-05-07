@@ -109,13 +109,16 @@ public partial class BudgetRequest
         Guid departmentId,
         decimal departmentLimit,
         Guid deptHeadId,
-        Guid? bossId)
+        string deptHeadName,
+        Guid? bossId,
+        string? bossName,
+        string requesterName)
     {
         if (Status != RequestStatus.SentBack)
             return Result.Failure("Only sent-back requests can be resubmitted.");
 
         // R13: restart the chain. Reuses Submit() — the auto-approval logic re-runs
         // because amount/requester/limit may have changed during the fix.
-        return Submit(departmentId, departmentLimit, deptHeadId, bossId);
+        return Submit(departmentId, departmentLimit, deptHeadId, deptHeadName, bossId, bossName, requesterName);
     }
 }

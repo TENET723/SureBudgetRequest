@@ -81,10 +81,18 @@ public partial class BudgetRequest
         Guid departmentId,
         decimal departmentLimit,
         Guid deptHeadId,
-        Guid? bossId)   // null if amount <= limit
+        string deptHeadName,
+        Guid? bossId,           // null if amount <= limit
+        string? bossName,       // null if amount <= limit
+        string requesterName)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
+
+        if (string.IsNullOrWhiteSpace(deptHeadName))
+            return Result.Failure("Dept head name is required.");
+        if (string.IsNullOrWhiteSpace(requesterName))
+            return Result.Failure("Requester name is required.");
 
         // Validate boss presence matches over-limit logic
         var isOverLimit = RequestedAmount > departmentLimit;
@@ -92,12 +100,17 @@ public partial class BudgetRequest
             return Result.Failure("Boss must be provided for over-limit requests.");
         if (!isOverLimit && bossId is not null)
             return Result.Failure("Boss must not be provided for under-limit requests.");
+        if (isOverLimit && string.IsNullOrWhiteSpace(bossName))
+            return Result.Failure("Boss name is required for over-limit requests.");
 
         // Snapshot the routing context
         DepartmentIdAtSubmission = departmentId;
         DepartmentLimitAtSubmission = departmentLimit;
         DeptHeadIdAtSubmission = deptHeadId;
+        DeptHeadNameAtSubmission = deptHeadName;
         BossIdAtSubmission = bossId;
+        BossNameAtSubmission = bossName;
+        RequesterNameAtSubmission = requesterName;
         SubmittedAt = DateTime.UtcNow;
 
         // Fast-forward through stages where requester == approver (R9)

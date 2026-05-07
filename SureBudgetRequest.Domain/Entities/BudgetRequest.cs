@@ -27,7 +27,10 @@ public partial class BudgetRequest
     public Guid DepartmentIdAtSubmission { get; private set; }
     public decimal DepartmentLimitAtSubmission { get; private set; }
     public Guid DeptHeadIdAtSubmission { get; private set; }
-    public Guid? BossIdAtSubmission { get; private set; }   // null if amount <= limit
+    public string DeptHeadNameAtSubmission { get; private set; } = null!;
+    public Guid? BossIdAtSubmission { get; private set; }           // null if amount <= limit
+    public string? BossNameAtSubmission { get; private set; }       // null if amount <= limit
+    public string RequesterNameAtSubmission { get; private set; } = null!;
 
     // === Workflow state ===
     public RequestStatus Status { get; private set; }

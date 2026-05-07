@@ -135,6 +135,11 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("boss_id_at_submission");
 
+                    b.Property<string>("BossNameAtSubmission")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("boss_name_at_submission");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -150,6 +155,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Property<Guid>("DeptHeadIdAtSubmission")
                         .HasColumnType("uuid")
                         .HasColumnName("dept_head_id_at_submission");
+
+                    b.Property<string>("DeptHeadNameAtSubmission")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("dept_head_name_at_submission");
 
                     b.Property<DateTime?>("FinalizedAt")
                         .HasColumnType("timestamp with time zone")
@@ -177,6 +188,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Property<Guid>("RequesterId")
                         .HasColumnType("uuid")
                         .HasColumnName("requester_id");
+
+                    b.Property<string>("RequesterNameAtSubmission")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("requester_name_at_submission");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
