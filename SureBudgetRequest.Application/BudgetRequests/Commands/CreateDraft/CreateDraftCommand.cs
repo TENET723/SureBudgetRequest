@@ -44,12 +44,17 @@ public sealed class CreateDraftCommandHandler
         if (!requester.IsActive)
             return Result.Failure<Guid>("Inactive users cannot create requests.");
 
+
+        var utcRequestDate = DateTime.SpecifyKind(command.RequestDate, DateTimeKind.Utc);
+
+
         BudgetRequest draft;
         try
         {
             draft = BudgetRequest.CreateDraft(
                 command.RequesterId,
-                command.RequestDate,
+                requester.FullName,
+                utcRequestDate,
                 command.RequestedAmount,
                 command.Reasons,
                 command.WithdrawerName,

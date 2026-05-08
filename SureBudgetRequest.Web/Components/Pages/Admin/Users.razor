@@ -1,6 +1,7 @@
 @page "/admin/users"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.Users.Commands.CreateUser
@@ -228,6 +229,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (CurrentUser.Role != UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
         var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
         if (depts.IsSuccess)
         {

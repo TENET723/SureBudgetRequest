@@ -1,0 +1,205 @@
+@page "/admin/department-heads"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Departments.Commands.AssignDepartmentHead
+@using SureBudgetRequest.Application.Users.Queries
+
+<PageTitle>Department Heads</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h5 class="mb-0">Department Heads</h5>
+            <div class="text-muted small">Reassign who leads each department without touching other settings.</div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Department</th>
+                        <th class="text-end">Budget Limit (MMK)</th>
+                        <th>Current Head</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _departments)
+                    {
+                        <tr class="@(!d.IsActive ? "text-muted" : "")">
+                            <td>@d.Name</td>
+                            <td class="text-end">@d.BudgetLimit.ToString("N0")</td>
+                            <td>
+                                @if (_userNames.TryGetValue(d.HeadUserId, out var name))
+                                {
+                                    @name
+                                }
+                                else
+                                {
+                                    <span class="text-danger small">Unknown user</span>
+                                }
+                            </td>
+                            <td>
+                                @if (d.IsActive)
+                                { <span class="badge bg-success">Active</span> }
+                                else
+                                { <span class="badge bg-secondary">Inactive</span> }
+                            </td>
+                            <td class="text-end">
+                                @if (d.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenAssign(d)">Change Head</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!_departments.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted py-3">No departments found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Assign Head Modal ───────────────────────────────────────────────────────── *@
+@if (_assigningDept is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Change Head — @_assigningDept.Name</h6>
+                    <button class="btn-close" @onclick="CloseAssign"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-danger small py-2">@_formError</div>
+                    }
+                    <label class="form-label small fw-semibold">New Department Head</label>
+                    <select class="form-select form-select-sm" @bind="_formHeadUserId">
+                        <option value="">— select —</option>
+                        @foreach (var u in _activeUsers)
+                        {
+                            <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
+                        }
+                    </select>
+                    @if (_assigningDept.HeadUserId != Guid.Empty && _userNames.TryGetValue(_assigningDept.HeadUserId, out var currentHead))
+                    {
+                        <div class="form-text small text-muted">Current: @currentHead</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseAssign">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveAssign" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<DepartmentDto> _departments = new();
+    private List<UserDto> _activeUsers = new();
+    private Dictionary<Guid, string> _userNames = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Assign form
+    private DepartmentDto? _assigningDept;
+    private string _formHeadUserId = "";
+    private string? _formError;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role != UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+
+        var usersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: true));
+        if (usersResult.IsSuccess)
+        {
+            _userNames = usersResult.Value.ToDictionary(u => u.Id, u => u.FullName);
+            _activeUsers = usersResult.Value.Where(u => u.IsActive).ToList();
+        }
+
+        var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));
+        if (deptsResult.IsSuccess)
+            _departments = deptsResult.Value.OrderBy(d => d.Name).ToList();
+
+        _loading = false;
+    }
+
+    private void OpenAssign(DepartmentDto d)
+    {
+        _assigningDept = d;
+        _formHeadUserId = d.HeadUserId.ToString();
+        _formError = null;
+    }
+
+    private void CloseAssign()
+    {
+        _assigningDept = null;
+        _formError = null;
+    }
+
+    private async Task SaveAssign()
+    {
+        if (_assigningDept is null) return;
+        if (!Guid.TryParse(_formHeadUserId, out var headId))
+        {
+            _formError = "Please select a user.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new AssignDepartmentHeadCommand(_assigningDept.Id, headId));
+            if (result.IsFailure)
+            {
+                _formError = result.Error;
+                return;
+            }
+            _successMessage = $"Head of {_assigningDept.Name} updated.";
+            _assigningDept = null;
+            await LoadData();
+        }
+        finally { _saving = false; }
+    }
+}

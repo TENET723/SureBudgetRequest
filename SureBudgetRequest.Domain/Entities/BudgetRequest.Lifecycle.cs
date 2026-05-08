@@ -9,6 +9,7 @@ public partial class BudgetRequest
     // snapshotted at Submit() time, not Draft time.
     public static BudgetRequest CreateDraft(
         Guid requesterId,
+        string requesterNameAtSubmission,
         DateTime requestDate,
         decimal requestedAmount,
         string reasons,
@@ -30,6 +31,7 @@ public partial class BudgetRequest
         {
             Id = Guid.NewGuid(),
             RequesterId = requesterId,
+            RequesterNameAtSubmission = requesterNameAtSubmission,
             RequestDate = requestDate,
             RequestedAmount = requestedAmount,
             Reasons = reasons,

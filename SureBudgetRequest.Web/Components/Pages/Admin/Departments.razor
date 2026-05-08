@@ -1,6 +1,7 @@
 @page "/admin/departments"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Departments.Commands.CreateDepartment
@@ -104,7 +105,7 @@
                             <option value="">— select head —</option>
                             @foreach (var u in _activeUsers)
                             {
-                                <option value="@u.Id">@u.FullName (@u.Role)</option>
+                                <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
                             }
                         </select>
                     </div>
@@ -169,16 +170,24 @@
     // Deactivate confirm
     private DepartmentDto? _deactivatingDept;
 
-    protected override async Task OnInitializedAsync() => await LoadData();
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role != UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
 
     private async Task LoadData()
     {
         _loading = true;
-        var usersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
-        if (usersResult.IsSuccess)
+        var allUsersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: true));
+        if (allUsersResult.IsSuccess)
         {
-            _activeUsers = usersResult.Value.ToList();
-            _users = usersResult.Value.ToDictionary(u => u.Id, u => u.FullName);
+            _users = allUsersResult.Value.ToDictionary(u => u.Id, u => u.FullName);
+            _activeUsers = allUsersResult.Value.Where(u => u.IsActive).ToList();
         }
 
         var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: _showInactive));
