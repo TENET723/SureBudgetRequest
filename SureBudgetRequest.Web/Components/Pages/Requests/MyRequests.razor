@@ -48,6 +48,10 @@
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">
                                 <a href="requests/@r.Id" class="btn btn-sm btn-outline-secondary">View</a>
+                                @if (r.Status is RequestStatus.Draft or RequestStatus.SentBack)
+                                {
+                                    <a href="requests/@r.Id/edit" class="btn btn-sm btn-outline-primary ms-1">Edit</a>
+                                }
                                 @if (r.Status == RequestStatus.PendingDeptHead)
                                 {
                                     <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmCancel(r)">Cancel</button>

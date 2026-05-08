@@ -104,6 +104,12 @@ else
                             <button class="btn btn-sm btn-primary" @onclick="DoSubmit" disabled="@_actioning">Submit for Approval</button>
                         }
 
+                        @* Edit (Draft / SentBack, requester only) *@
+                        @if (actions.Contains("edit"))
+                        {
+                            <a href="requests/@Id/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        }
+
                         @* Approve *@
                         @if (actions.Contains("approve"))
                         {
@@ -402,6 +408,9 @@ else
 
         if (r.Status == RequestStatus.Draft && r.RequesterId == uid)
             list.Add("submit");
+
+        if (r.Status is RequestStatus.Draft or RequestStatus.SentBack && r.RequesterId == uid)
+            list.Add("edit");
 
         if (r.Status == RequestStatus.PendingDeptHead && role == UserRole.DepartmentHead)
         { list.Add("approve"); list.Add("reject"); }
