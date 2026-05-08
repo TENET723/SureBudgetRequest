@@ -18,6 +18,10 @@ public partial class BudgetRequest
         if (Status is not RequestStatus.Approved and not RequestStatus.PartiallyPaid)
             return Result.Failure($"Cannot record payments while status is '{Status}'.");
 
+        if (!AllowsPartialPayment && amount != ApprovedAmount)
+            return Result.Failure(
+                "This request does not allow partial payments. The full approved amount must be paid in one transaction.");
+
         var alreadyPaid = TotalPaid;
         var newTotal = alreadyPaid + amount;
 

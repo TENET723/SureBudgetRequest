@@ -77,6 +77,24 @@
                     <input class="form-control form-control-sm" value="@_deptHeadName" disabled />
                 </div>
 
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="allowsPartialEdit" @bind="_allowsPartial" />
+                        <label class="form-check-label small" for="allowsPartialEdit">
+                            Accept partial payment (installments)
+                        </label>
+                    </div>
+                    @if (_allowsPartial)
+                    {
+                        <textarea class="form-control form-control-sm mt-2" rows="2" @bind="_partialDetail"
+                                  placeholder="Preferred schedule or notes (optional)"></textarea>
+                    }
+                    else
+                    {
+                        <div class="form-text small">Finance must pay the full approved amount in one transaction.</div>
+                    }
+                </div>
+
                 <hr class="my-3" />
                 <p class="small text-muted mb-2">Withdrawer details (who will collect the money)</p>
 
@@ -123,6 +141,8 @@
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
     private string _deptHeadName = "";
+    private bool _allowsPartial;
+    private string? _partialDetail;
     private string? _lastSendBackComment;
 
     private string SaveLabel => _request?.Status == RequestStatus.SentBack ? "Save" : "Save Draft";
@@ -145,6 +165,8 @@
             _reason = _request.Reasons;
             _withdrawerName = _request.WithdrawerName;
             _withdrawerTitle = _request.WithdrawerJobTitle;
+            _allowsPartial = _request.AllowsPartialPayment;
+            _partialDetail = _request.PartialPaymentDetail;
 
             var headResult = await Mediator.Send(new GetUserQuery(_request.DeptHeadIdAtSubmission));
             if (headResult.IsSuccess) _deptHeadName = headResult.Value.FullName;
@@ -184,8 +206,8 @@
                 Reasons: _reason,
                 WithdrawerName: _withdrawerName,
                 WithdrawerJobTitle: _withdrawerTitle,
-                AllowsPartialPayment: _request.AllowsPartialPayment,
-                PartialPaymentDetail: _request.PartialPaymentDetail));
+                AllowsPartialPayment: _allowsPartial,
+                PartialPaymentDetail: _allowsPartial ? _partialDetail : null));
 
             if (updateResult.IsFailure) { _error = updateResult.Error; return; }
 

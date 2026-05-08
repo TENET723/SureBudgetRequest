@@ -85,6 +85,21 @@ else
                             <div>@_request.SubmittedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
                         </div>
                     }
+                    <div class="col-12">
+                        <div class="small text-muted">Partial Payment</div>
+                        @if (_request.AllowsPartialPayment)
+                        {
+                            <div>Allowed (installments)</div>
+                            @if (!string.IsNullOrWhiteSpace(_request.PartialPaymentDetail))
+                            {
+                                <div class="small text-muted fst-italic">@_request.PartialPaymentDetail</div>
+                            }
+                        }
+                        else
+                        {
+                            <div>Not allowed — must be paid in full</div>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -134,7 +149,7 @@ else
                         @* Record Payment (Finance) *@
                         @if (actions.Contains("recordpayment"))
                         {
-                            <button class="btn btn-sm btn-outline-success" @onclick="() => _showPaymentModal = true">Record Payment</button>
+                            <button class="btn btn-sm btn-outline-success" @onclick="OpenPaymentModal">Record Payment</button>
                         }
 
                         @* Cancel (Requester, PendingDeptHead) *@
@@ -300,10 +315,22 @@ else
                     }
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Amount (MMK)</label>
-                        <input class="form-control form-control-sm" type="number" min="1" @bind="_paymentAmount" />
+                        <input class="form-control form-control-sm" type="number" min="1"
+                               @bind="_paymentAmount"
+                               readonly="@(_request is not null && !_request.AllowsPartialPayment)" />
                         @if (_request is not null)
                         {
-                            <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") MMK</div>
+                            @if (_request.AllowsPartialPayment)
+                            {
+                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") MMK</div>
+                            }
+                            else
+                            {
+                                <div class="form-text small text-warning">
+                                    Full payment required: @_request.RemainingBalance.ToString("N0") MMK
+                                    (this request does not allow installments)
+                                </div>
+                            }
                         }
                     </div>
                     <div class="mb-3">
@@ -468,10 +495,25 @@ else
         else { _actionSuccess = "Request sent back to requester."; await LoadRequest(); }
     }
 
+    private void OpenPaymentModal()
+    {
+        _paymentError = null;
+        // When partial isn't allowed, force the amount to the full remaining balance.
+        _paymentAmount = (_request is not null && !_request.AllowsPartialPayment)
+            ? _request.RemainingBalance
+            : 0;
+        _showPaymentModal = true;
+    }
+
     private async Task DoRecordPayment()
     {
         _paymentError = null;
         if (_paymentAmount <= 0) { _paymentError = "Amount must be greater than zero."; return; }
+        if (_request is not null && !_request.AllowsPartialPayment && _paymentAmount != _request.RemainingBalance)
+        {
+            _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N0} MMK).";
+            return;
+        }
         _actioning = true; _showPaymentModal = false;
         var result = await Mediator.Send(new RecordPaymentCommand(Id, CurrentUser.UserId, _paymentAmount, _paymentDate, _paymentRef, _paymentNote));
         _actioning = false; _paymentAmount = 0; _paymentRef = null; _paymentNote = null;
