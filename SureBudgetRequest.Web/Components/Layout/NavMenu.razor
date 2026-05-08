@@ -39,6 +39,12 @@
             </NavLink>
         </div>
 
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="requests/outstanding">
+                <span class="bi bi-cash-coin-nav-menu" aria-hidden="true"></span> To Pay
+            </NavLink>
+        </div>
+
         @if (CurrentUser.Role == UserRole.Admin)
         {
             <div class="nav-item px-3 mt-2">

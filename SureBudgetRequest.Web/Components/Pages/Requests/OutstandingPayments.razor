@@ -1,0 +1,151 @@
+@page "/requests/outstanding"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Outstanding Payments</PageTitle>
+
+<div class="container-fluid py-3">
+    <h5 class="mb-3">Outstanding Payments</h5>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger">@_errorMessage</div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <p class="text-muted small mb-3">@ScopeDescription()</p>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Date</th>
+                        <th>Requester</th>
+                        <th>Reason</th>
+                        <th class="text-end">Approved (MMK)</th>
+                        <th class="text-end">Paid (MMK)</th>
+                        <th class="text-end">Outstanding (MMK)</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _requests)
+                    {
+                        <tr>
+                            <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
+                            <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
+                            <td>@Truncate(r.Reasons, 40)</td>
+                            <td class="text-end">@r.ApprovedAmount.ToString("N0")</td>
+                            <td class="text-end">@r.TotalPaid.ToString("N0")</td>
+                            <td class="text-end fw-semibold">@r.RemainingBalance.ToString("N0")</td>
+                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td class="text-end">
+                                <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">View</a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!_requests.Any())
+                    {
+                        <tr><td colspan="8" class="text-center text-muted py-4">Nothing outstanding. 🎉</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (_requests.Any())
+        {
+            <div class="d-flex justify-content-end mt-2">
+                <div class="small text-muted">
+                    Total outstanding: <strong class="text-dark">@_requests.Sum(r => r.RemainingBalance).ToString("N0") MMK</strong>
+                    across @_requests.Count request@(_requests.Count == 1 ? "" : "s")
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private static readonly RequestStatus[] OutstandingStatuses =
+        { RequestStatus.Approved, RequestStatus.PartiallyPaid };
+
+    private List<BudgetRequestSummaryDto> _requests = new();
+    private Dictionary<Guid, string> _userNames = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Role-based scoping mirrors how Inbox.razor narrows visibility:
+        // Finance/Admin see everything; DeptHead sees their dept; Employee sees only their own.
+        Guid? requesterFilter = CurrentUser.Role == UserRole.Employee
+            ? CurrentUser.UserId
+            : null;
+
+        Guid? deptFilter = CurrentUser.Role == UserRole.DepartmentHead
+            ? CurrentUser.DepartmentId
+            : null;
+
+        var result = await Mediator.Send(new ListBudgetRequestsQuery(
+            RequesterId: requesterFilter,
+            DepartmentId: deptFilter,
+            Statuses: OutstandingStatuses));
+
+        if (result.IsSuccess)
+        {
+            // Oldest-approved first so Finance sees what's been waiting longest.
+            _requests = result.Value
+                .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
+                .ToList();
+
+            var requesterIds = _requests.Select(r => r.RequesterId).Distinct();
+            foreach (var id in requesterIds)
+            {
+                var u = await Mediator.Send(new GetUserQuery(id));
+                if (u.IsSuccess) _userNames[id] = u.Value.FullName;
+            }
+        }
+        else
+        {
+            _errorMessage = result.Error;
+        }
+
+        _loading = false;
+    }
+
+    private string ScopeDescription() => CurrentUser.Role switch
+    {
+        UserRole.Finance        => "Approved requests still awaiting full payment.",
+        UserRole.Admin          => "All approved requests still awaiting full payment.",
+        UserRole.Boss           => "All approved requests still awaiting full payment.",
+        UserRole.DepartmentHead => "Approved requests from your department still awaiting full payment.",
+        UserRole.Employee       => "Your approved requests still awaiting full payment.",
+        _                       => ""
+    };
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "…";
+
+    private static string StatusLabel(RequestStatus s) => s switch
+    {
+        RequestStatus.Approved      => "Approved",
+        RequestStatus.PartiallyPaid => "Part. Paid",
+        _ => s.ToString()
+    };
+
+    private static string StatusBadge(RequestStatus s) => s switch
+    {
+        RequestStatus.Approved      => "bg-primary",
+        RequestStatus.PartiallyPaid => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+}

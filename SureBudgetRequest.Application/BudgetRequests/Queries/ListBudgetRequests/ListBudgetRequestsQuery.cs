@@ -8,7 +8,8 @@ namespace SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequest
 public sealed record ListBudgetRequestsQuery(
     Guid? RequesterId = null,
     Guid? DepartmentId = null,
-    RequestStatus? Status = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
+    RequestStatus? Status = null,
+    IReadOnlyCollection<RequestStatus>? Statuses = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
 
 public sealed class ListBudgetRequestsQueryHandler
     : IRequestHandler<ListBudgetRequestsQuery, Result<IReadOnlyList<BudgetRequestSummaryDto>>>
@@ -26,6 +27,7 @@ public sealed class ListBudgetRequestsQueryHandler
             request.RequesterId,
             request.DepartmentId,
             request.Status,
+            request.Statuses,
             cancellationToken);
 
         var dtos = entities

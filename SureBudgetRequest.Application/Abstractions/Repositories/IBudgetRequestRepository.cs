@@ -19,6 +19,7 @@ public interface IBudgetRequestRepository
         Guid? requesterId = null,
         Guid? departmentId = null,
         RequestStatus? status = null,
+        IReadOnlyCollection<RequestStatus>? statuses = null,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);

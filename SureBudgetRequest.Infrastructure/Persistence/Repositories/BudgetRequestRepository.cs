@@ -26,6 +26,7 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         Guid? requesterId = null,
         Guid? departmentId = null,
         RequestStatus? status = null,
+        IReadOnlyCollection<RequestStatus>? statuses = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.BudgetRequests
@@ -42,6 +43,9 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
 
         if (status.HasValue)
             query = query.Where(r => r.Status == status.Value);
+
+        if (statuses is { Count: > 0 })
+            query = query.Where(r => statuses.Contains(r.Status));
 
         return await query
             .OrderByDescending(r => r.CreatedAt)

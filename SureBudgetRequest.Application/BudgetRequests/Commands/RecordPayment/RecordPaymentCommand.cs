@@ -53,7 +53,7 @@ public sealed class RecordPaymentCommandHandler
         var result = budgetRequest.RecordPayment(
             command.Amount,
             command.FinanceUserId,
-            command.PaidAt,
+            DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.Reference,
             command.Note);
 
