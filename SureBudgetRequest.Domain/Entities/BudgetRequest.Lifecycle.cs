@@ -5,11 +5,14 @@ namespace SureBudgetRequest.Domain.Entities;
 
 public partial class BudgetRequest
 {
-    // Factory: creates a Draft. Doesn't take limits or dept head — those are
-    // snapshotted at Submit() time, not Draft time.
+    // Factory: creates a Draft. Snapshots the dept head at draft time so the
+    // request shows its routing target before submission; Submit() will re-snapshot
+    // along with department/limit/boss. Limits and boss are still Submit-time only.
     public static BudgetRequest CreateDraft(
         Guid requesterId,
         string requesterNameAtSubmission,
+        Guid deptHeadId,
+        string deptHeadName,
         DateTime requestDate,
         decimal requestedAmount,
         string reasons,
@@ -26,12 +29,16 @@ public partial class BudgetRequest
             throw new ArgumentException("Withdrawer name is required.", nameof(withdrawerName));
         if (string.IsNullOrWhiteSpace(withdrawerJobTitle))
             throw new ArgumentException("Withdrawer job title is required.", nameof(withdrawerJobTitle));
+        if (string.IsNullOrWhiteSpace(deptHeadName))
+            throw new ArgumentException("Dept head name is required.", nameof(deptHeadName));
 
         return new BudgetRequest
         {
             Id = Guid.NewGuid(),
             RequesterId = requesterId,
             RequesterNameAtSubmission = requesterNameAtSubmission,
+            DeptHeadIdAtSubmission = deptHeadId,
+            DeptHeadNameAtSubmission = deptHeadName,
             RequestDate = requestDate,
             RequestedAmount = requestedAmount,
             Reasons = reasons,

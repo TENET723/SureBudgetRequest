@@ -8,6 +8,8 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.CreateDraft;
 
 public sealed record CreateDraftCommand(
     Guid RequesterId,
+    Guid DeptHeadId,
+    string DeptHeadName,
     DateTime RequestDate,
     decimal RequestedAmount,
     string Reasons,
@@ -54,6 +56,8 @@ public sealed class CreateDraftCommandHandler
             draft = BudgetRequest.CreateDraft(
                 command.RequesterId,
                 requester.FullName,
+                command.DeptHeadId,
+                command.DeptHeadName,
                 utcRequestDate,
                 command.RequestedAmount,
                 command.Reasons,

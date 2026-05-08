@@ -5,6 +5,8 @@
 
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CreateDraft
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
+@using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Users.Queries
 
 <PageTitle>New Budget Request</PageTitle>
 
@@ -32,6 +34,11 @@
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Reason / Purpose</label>
                 <textarea class="form-control form-control-sm" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Department Head (approver)</label>
+                <input class="form-control form-control-sm" value="@_deptHeadName" disabled />
             </div>
 
             <hr class="my-3" />
@@ -69,13 +76,26 @@
     private string _reason = "";
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
+    private Guid _deptHeadId;
+    private string _deptHeadName = "";
     private string? _error;
     private bool _saving;
     private bool _submitting;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         _withdrawerName = CurrentUser.FullName;
+
+        var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
+        if (deptResult.IsFailure) { _error = deptResult.Error; return; }
+
+        var headResult = await Mediator.Send(new GetUserQuery(deptResult.Value.HeadUserId));
+        if (headResult.IsFailure) { _error = headResult.Error; return; }
+
+        _deptHeadId = headResult.Value.Id;
+        _deptHeadName = headResult.Value.FullName;
+
+        StateHasChanged();
     }
 
     private async Task Save(bool submit)
@@ -85,6 +105,8 @@
         if (string.IsNullOrWhiteSpace(_reason)) { _error = "Reason is required."; return; }
         if (string.IsNullOrWhiteSpace(_withdrawerName)) { _error = "Withdrawer name is required."; return; }
         if (string.IsNullOrWhiteSpace(_withdrawerTitle)) { _error = "Withdrawer job title is required."; return; }
+        if (_deptHeadId == Guid.Empty || string.IsNullOrWhiteSpace(_deptHeadName))
+        { _error = "Department head is not set for your department."; return; }
 
         _saving = true;
         _submitting = submit;
@@ -92,6 +114,8 @@
         {
             var draftResult = await Mediator.Send(new CreateDraftCommand(
                 RequesterId: CurrentUser.UserId,
+                DeptHeadId: _deptHeadId,
+                DeptHeadName: _deptHeadName,
                 RequestDate: _requestDate,
                 RequestedAmount: _amount,
                 Reasons: _reason,
