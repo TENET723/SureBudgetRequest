@@ -22,7 +22,7 @@ public class Payment
         string? reference,
         string? note)
     {
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
         Amount = amount;
         PaidAt = paidAt;

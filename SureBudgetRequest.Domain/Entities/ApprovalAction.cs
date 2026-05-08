@@ -25,7 +25,7 @@ public class ApprovalAction
         string? comment,
         DateTime actionedAt)
     {
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
         Stage = stage;
         Decision = decision;

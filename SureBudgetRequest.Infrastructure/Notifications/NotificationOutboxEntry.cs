@@ -7,7 +7,7 @@ namespace SureBudgetRequest.Infrastructure.Notifications;
 /// </summary>
 public sealed class NotificationOutboxEntry
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; } = Guid.Empty;
 
     /// <summary>JSON-serialized <see cref="Application.BudgetRequests.Common.NotificationEvent"/>.</summary>
     public string Payload { get; private set; } = null!;

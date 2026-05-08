@@ -24,7 +24,7 @@ public class User
         if (string.IsNullOrWhiteSpace(fullName))
             throw new ArgumentException("Full name is required.", nameof(fullName));
 
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         Username = username;
         FullName = fullName;
         DepartmentId = departmentId;

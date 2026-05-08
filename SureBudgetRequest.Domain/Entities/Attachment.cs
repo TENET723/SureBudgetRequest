@@ -25,7 +25,7 @@ public class Attachment
         long sizeBytes,
         Guid uploadedByUserId)
     {
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
         FileName = fileName;
         StoredPath = storedPath;

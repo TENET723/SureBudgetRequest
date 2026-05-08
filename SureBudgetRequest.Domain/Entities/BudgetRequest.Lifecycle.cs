@@ -34,7 +34,7 @@ public partial class BudgetRequest
 
         return new BudgetRequest
         {
-            Id = Guid.NewGuid(),
+            //Id = Guid.NewGuid(),
             RequesterId = requesterId,
             RequesterNameAtSubmission = requesterNameAtSubmission,
             DeptHeadIdAtSubmission = deptHeadId,
