@@ -11,6 +11,7 @@ public partial class BudgetRequest
     public static BudgetRequest CreateDraft(
         Guid requesterId,
         string requesterNameAtSubmission,
+        BudgetRequestType type,
         Guid deptHeadId,
         string deptHeadName,
         DateTime requestDate,
@@ -38,7 +39,8 @@ public partial class BudgetRequest
             RequesterId = requesterId,
             RequesterNameAtSubmission = requesterNameAtSubmission,
             DeptHeadIdAtSubmission = deptHeadId,
-            DeptHeadNameAtSubmission = deptHeadName,
+            DeptHeadNameAtSubmission = deptHeadName, 
+            Type = type,
             RequestDate = requestDate,
             RequestedAmount = requestedAmount,
             Reasons = reasons,
@@ -55,6 +57,7 @@ public partial class BudgetRequest
     // Allow editing fields while in Draft or SentBack.
     public Result UpdateDetails(
         DateTime requestDate,
+        BudgetRequestType type,
         decimal requestedAmount,
         string reasons,
         string withdrawerName,
@@ -76,6 +79,7 @@ public partial class BudgetRequest
 
         RequestDate = requestDate;
         RequestedAmount = requestedAmount;
+        Type = type;
         Reasons = reasons;
         WithdrawerName = withdrawerName;
         WithdrawerJobTitle = withdrawerJobTitle;

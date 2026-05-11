@@ -7,6 +7,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Domain.Enums
 
 <PageTitle>New Budget Request</PageTitle>
 
@@ -20,6 +21,15 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-body">
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Request Type</label>
+                <select class="form-select form-select-sm" @bind="_type">
+                    <option value="@BudgetRequestType.Standard">Standard</option>
+                    <option value="@BudgetRequestType.Urgent">Urgent</option>
+                    <option value="@BudgetRequestType.ProjectProposal">Project Proposal</option>
+                </select>
+            </div>
 
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Request Date</label>
@@ -90,6 +100,7 @@
 
 @code {
     private DateTime _requestDate = DateTime.Today;
+    private BudgetRequestType _type = BudgetRequestType.Standard;
     private decimal _amount;
     private string _reason = "";
     private string _withdrawerName = "";
@@ -135,6 +146,7 @@
             var draftResult = await Mediator.Send(new CreateDraftCommand(
                 RequesterId: CurrentUser.UserId,
                 DeptHeadId: _deptHeadId,
+                Type: _type,
                 DeptHeadName: _deptHeadName,
                 RequestDate: _requestDate,
                 RequestedAmount: _amount,

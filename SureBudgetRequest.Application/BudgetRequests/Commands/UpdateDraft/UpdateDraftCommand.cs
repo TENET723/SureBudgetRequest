@@ -2,12 +2,14 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.UpdateDraft;
 
 public sealed record UpdateDraftCommand(
     Guid BudgetRequestId,
     Guid RequesterId,
+    BudgetRequestType Type,
     DateTime RequestDate,
     decimal RequestedAmount,
     string Reasons,
@@ -43,6 +45,7 @@ public sealed class UpdateDraftCommandHandler
 
         var result = request.UpdateDetails(
             command.RequestDate,
+            command.Type,
             command.RequestedAmount,
             command.Reasons,
             command.WithdrawerName,

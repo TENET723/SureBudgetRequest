@@ -7,6 +7,7 @@ public sealed record BudgetRequestSummaryDto(
     Guid Id,
     Guid RequesterId,
     DateTime RequestDate,
+    BudgetRequestType Type,
     decimal RequestedAmount,
     decimal ApprovedAmount,
     decimal TotalPaid,
@@ -17,11 +18,12 @@ public sealed record BudgetRequestSummaryDto(
     DateTime? FinalizedAt)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
-
+    
     public static BudgetRequestSummaryDto FromEntity(BudgetRequest e) => new(
         e.Id,
         e.RequesterId,
         e.RequestDate,
+        e.Type,
         e.RequestedAmount,
         e.ApprovedAmount,
         e.TotalPaid,

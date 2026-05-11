@@ -3,12 +3,14 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.CreateDraft;
 
 public sealed record CreateDraftCommand(
     Guid RequesterId,
     Guid DeptHeadId,
+    BudgetRequestType Type,
     string DeptHeadName,
     DateTime RequestDate,
     decimal RequestedAmount,
@@ -56,6 +58,7 @@ public sealed class CreateDraftCommandHandler
             draft = BudgetRequest.CreateDraft(
                 command.RequesterId,
                 requester.FullName,
+                command.Type,
                 command.DeptHeadId,
                 command.DeptHeadName,
                 utcRequestDate,

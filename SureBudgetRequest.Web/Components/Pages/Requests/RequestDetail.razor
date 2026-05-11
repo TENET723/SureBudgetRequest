@@ -59,6 +59,10 @@ else
                         <div>@_request.RequestDate.ToString("dd MMM yyyy")</div>
                     </div>
                     <div class="col-sm-6">
+                        <div class="small text-muted">Type</div>
+                        <div><span class="badge @TypeBadge(_request.Type)">@TypeLabel(_request.Type)</span></div>
+                    </div>
+                    <div class="col-sm-6">
                         <div class="small text-muted">Amount Requested</div>
                         <div class="fw-semibold">@_request.RequestedAmount.ToString("N0") MMK</div>
                     </div>
@@ -543,6 +547,22 @@ else
         RequestStatus.Rejected       => "Rejected",
         RequestStatus.Cancelled      => "Cancelled",
         _ => s.ToString()
+    };
+
+    private static string TypeLabel(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent          => "Urgent",
+        BudgetRequestType.Standard        => "Standard",
+        BudgetRequestType.ProjectProposal => "Project Proposal",
+        _ => t.ToString()
+    };
+
+    private static string TypeBadge(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent          => "bg-danger",
+        BudgetRequestType.Standard        => "bg-secondary",
+        BudgetRequestType.ProjectProposal => "bg-info text-dark",
+        _ => "bg-secondary"
     };
 
     private static string StatusBadge(RequestStatus s) => s switch

@@ -37,6 +37,9 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.RequesterNameAtSubmission).IsRequired().HasMaxLength(200);
 
         // ── Workflow state ────────────────────────────────────────────────────
+        builder.Property(r => r.Type)
+       .IsRequired()
+       .HasConversion<int>();
         builder.Property(r => r.Status)
                .IsRequired()
                .HasConversion<int>();  // store as int, not PG enum (easier to evolve)

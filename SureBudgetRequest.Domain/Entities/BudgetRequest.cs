@@ -34,6 +34,7 @@ public partial class BudgetRequest
 
     // === Workflow state ===
     public RequestStatus Status { get; private set; }
+    public BudgetRequestType Type { get; private set; }
     public decimal ApprovedAmount { get; private set; }     // 0 until Finance approves; equals RequestedAmount in v1
     public DateTime CreatedAt { get; private set; }
     public DateTime? SubmittedAt { get; private set; }

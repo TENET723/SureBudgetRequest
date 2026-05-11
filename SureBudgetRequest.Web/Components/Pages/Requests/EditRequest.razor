@@ -58,6 +58,15 @@
             <div class="card-body">
 
                 <div class="mb-3">
+                    <label class="form-label small fw-semibold">Request Type</label>
+                    <select class="form-select form-select-sm" @bind="_type">
+                        <option value="@BudgetRequestType.Standard">Standard</option>
+                        <option value="@BudgetRequestType.Urgent">Urgent</option>
+                        <option value="@BudgetRequestType.ProjectProposal">Project Proposal</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
                     <label class="form-label small fw-semibold">Request Date</label>
                     <input class="form-control form-control-sm" type="date" @bind="_requestDate" />
                 </div>
@@ -136,6 +145,7 @@
 
     // Form state
     private DateTime _requestDate = DateTime.Today;
+    private BudgetRequestType _type = BudgetRequestType.Standard;
     private decimal _amount;
     private string _reason = "";
     private string _withdrawerName = "";
@@ -161,6 +171,7 @@
             && _request.Status is RequestStatus.Draft or RequestStatus.SentBack)
         {
             _requestDate = _request.RequestDate;
+            _type = _request.Type;
             _amount = _request.RequestedAmount;
             _reason = _request.Reasons;
             _withdrawerName = _request.WithdrawerName;
@@ -201,6 +212,7 @@
             var updateResult = await Mediator.Send(new UpdateDraftCommand(
                 BudgetRequestId: Id,
                 RequesterId: CurrentUser.UserId,
+                Type: _type,
                 RequestDate: _requestDate,
                 RequestedAmount: _amount,
                 Reasons: _reason,
