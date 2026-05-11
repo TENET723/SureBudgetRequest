@@ -55,7 +55,11 @@ public sealed class ResubmitRequestCommandHandler
         if (department is null)
             return Result.Failure("Requester's department not found.");
 
-        var deptHead = await _userRepository.GetByIdAsync(department.HeadUserId, cancellationToken);
+        // A department may exist without a head (vacancy/bootstrap). Block resubmit until one is assigned.
+        if (department.HeadUserId is null)
+            return Result.Failure("Your department has no head assigned. Contact admin before resubmitting.");
+
+        var deptHead = await _userRepository.GetByIdAsync(department.HeadUserId.Value, cancellationToken);
         if (deptHead is null)
             return Result.Failure("Department head not found.");
 

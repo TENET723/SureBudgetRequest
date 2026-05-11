@@ -8,7 +8,7 @@ namespace SureBudgetRequest.Application.Departments.Queries;
 public sealed record DepartmentDto(
     Guid Id,
     string Name,
-    Guid HeadUserId,
+    Guid? HeadUserId,
     decimal BudgetLimit,
     bool IsActive,
     DateTime CreatedAt)

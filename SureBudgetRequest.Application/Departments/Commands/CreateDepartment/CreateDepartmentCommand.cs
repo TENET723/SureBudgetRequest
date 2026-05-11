@@ -8,7 +8,7 @@ namespace SureBudgetRequest.Application.Departments.Commands.CreateDepartment;
 
 public sealed record CreateDepartmentCommand(
     string Name,
-    Guid HeadUserId,
+    Guid? HeadUserId,
     decimal BudgetLimit) : IRequest<Result<Guid>>;
 
 public sealed class CreateDepartmentCommandHandler
@@ -30,8 +30,13 @@ public sealed class CreateDepartmentCommandHandler
 
     public async Task<Result<Guid>> Handle(CreateDepartmentCommand command, CancellationToken ct)
     {
-        var head = await _userRepository.GetByIdAsync(command.HeadUserId, ct);
-        if (head is null) return Result.Failure<Guid>("Department head user not found.");
+        // Only validate the head user exists when one was provided.
+        // A department may be created with no head (bootstrap case, or vacancy).
+        if (command.HeadUserId.HasValue)
+        {
+            var head = await _userRepository.GetByIdAsync(command.HeadUserId.Value, ct);
+            if (head is null) return Result.Failure<Guid>("Department head user not found.");
+        }
 
         Department dept;
         try

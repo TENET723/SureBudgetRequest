@@ -50,13 +50,17 @@
                             <td>@d.Name</td>
                             <td class="text-end">@d.BudgetLimit.ToString("N0")</td>
                             <td>
-                                @if (_userNames.TryGetValue(d.HeadUserId, out var name))
+                                @if (d.HeadUserId.HasValue && _userNames.TryGetValue(d.HeadUserId.Value, out var name))
                                 {
                                     @name
                                 }
-                                else
+                                else if (d.HeadUserId.HasValue)
                                 {
                                     <span class="text-danger small">Unknown user</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">— none —</span>
                                 }
                             </td>
                             <td>
@@ -68,7 +72,9 @@
                             <td class="text-end">
                                 @if (d.IsActive)
                                 {
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenAssign(d)">Change Head</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenAssign(d)">
+                                        @(d.HeadUserId.HasValue ? "Change Head" : "Assign Head")
+                                    </button>
                                 }
                             </td>
                         </tr>
@@ -90,7 +96,9 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title">Change Head — @_assigningDept.Name</h6>
+                    <h6 class="modal-title">
+                        @(_assigningDept.HeadUserId.HasValue ? "Change Head" : "Assign Head") — @_assigningDept.Name
+                    </h6>
                     <button class="btn-close" @onclick="CloseAssign"></button>
                 </div>
                 <div class="modal-body">
@@ -106,9 +114,13 @@
                             <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
                         }
                     </select>
-                    @if (_assigningDept.HeadUserId != Guid.Empty && _userNames.TryGetValue(_assigningDept.HeadUserId, out var currentHead))
+                    @if (_assigningDept.HeadUserId.HasValue && _userNames.TryGetValue(_assigningDept.HeadUserId.Value, out var currentHead))
                     {
                         <div class="form-text small text-muted">Current: @currentHead</div>
+                    }
+                    else
+                    {
+                        <div class="form-text small text-muted">Current: — none —</div>
                     }
                 </div>
                 <div class="modal-footer">
@@ -168,7 +180,7 @@
     private void OpenAssign(DepartmentDto d)
     {
         _assigningDept = d;
-        _formHeadUserId = d.HeadUserId.ToString();
+        _formHeadUserId = d.HeadUserId?.ToString() ?? "";
         _formError = null;
     }
 

@@ -71,7 +71,11 @@ public sealed class SubmitRequestCommandHandler
             bossName = boss.FullName;
         }
 
-        var headUser = await _userRepository.GetByIdAsync(department.HeadUserId, cancellationToken);
+        // A department may exist without a head (vacancy/bootstrap). Block submit until one is assigned.
+        if (department.HeadUserId is null)
+            return Result.Failure("Your department has no head assigned. Contact admin before submitting.");
+
+        var headUser = await _userRepository.GetByIdAsync(department.HeadUserId.Value, cancellationToken);
         if (headUser is null)
             return Result.Failure("Department head not found.");
 
@@ -81,7 +85,7 @@ public sealed class SubmitRequestCommandHandler
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
-            department.HeadUserId,
+            department.HeadUserId.Value,
             headUser.FullName,
             bossId,
             bossName,

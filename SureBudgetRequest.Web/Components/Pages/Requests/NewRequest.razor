@@ -48,7 +48,15 @@
 
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Department Head (approver)</label>
-                <input class="form-control form-control-sm" value="@_deptHeadName" disabled />
+                <input class="form-control form-control-sm"
+                       value="@(string.IsNullOrEmpty(_deptHeadName) ? "— not assigned —" : _deptHeadName)"
+                       disabled />
+                @if (_deptHeadId == Guid.Empty)
+                {
+                    <div class="form-text small text-danger">
+                        Your department has no head assigned. Contact admin before submitting a request.
+                    </div>
+                }
             </div>
 
             <div class="mb-3">
@@ -86,11 +94,15 @@
         </div>
         <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
             <a href="requests/mine" class="btn btn-sm btn-link text-muted">Cancel</a>
-            <button class="btn btn-sm btn-outline-secondary" @onclick="() => Save(submit: false)" disabled="@_saving">
+            <button class="btn btn-sm btn-outline-secondary"
+                    @onclick="() => Save(submit: false)"
+                    disabled="@(_saving || _deptHeadId == Guid.Empty)">
                 @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Save Draft
             </button>
-            <button class="btn btn-sm btn-primary" @onclick="() => Save(submit: true)" disabled="@_saving">
+            <button class="btn btn-sm btn-primary"
+                    @onclick="() => Save(submit: true)"
+                    disabled="@(_saving || _deptHeadId == Guid.Empty)">
                 @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
                 Submit
             </button>
@@ -120,7 +132,16 @@
         var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
         if (deptResult.IsFailure) { _error = deptResult.Error; return; }
 
-        var headResult = await Mediator.Send(new GetUserQuery(deptResult.Value.HeadUserId));
+        // Department may have no head assigned yet (vacancy / fresh-bootstrap case).
+        // Block both Save Draft and Submit when that's the case — handled by button `disabled`.
+        if (!deptResult.Value.HeadUserId.HasValue)
+        {
+            _error = "Your department has no head assigned. Contact admin before creating a request.";
+            StateHasChanged();
+            return;
+        }
+
+        var headResult = await Mediator.Send(new GetUserQuery(deptResult.Value.HeadUserId.Value));
         if (headResult.IsFailure) { _error = headResult.Error; return; }
 
         _deptHeadId = headResult.Value.Id;

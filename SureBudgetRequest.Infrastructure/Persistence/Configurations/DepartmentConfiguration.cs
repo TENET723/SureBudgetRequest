@@ -13,7 +13,7 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
         builder.HasKey(d => d.Id);
 
         builder.Property(d => d.Name).IsRequired().HasMaxLength(200);
-        builder.Property(d => d.HeadUserId).IsRequired();
+        builder.Property(d => d.HeadUserId);   // nullable — department can exist without a head
         builder.Property(d => d.BudgetLimit).IsRequired().HasColumnType("numeric(18,2)");
         builder.Property(d => d.IsActive).IsRequired();
         builder.Property(d => d.CreatedAt).IsRequired();

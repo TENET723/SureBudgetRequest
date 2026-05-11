@@ -53,7 +53,16 @@
                     {
                         <tr class="@(!d.IsActive ? "text-muted" : "")">
                             <td>@d.Name</td>
-                            <td>@(_users.TryGetValue(d.HeadUserId, out var head) ? head : d.HeadUserId.ToString()[..8])</td>
+                            <td>
+                                @if (d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var head))
+                                {
+                                    @head
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">— none —</span>
+                                }
+                            </td>
                             <td class="text-end">@d.BudgetLimit.ToString("N0")</td>
                             <td>
                                 @if (d.IsActive)
@@ -100,14 +109,15 @@
                         <input class="form-control form-control-sm" @bind="_formName" placeholder="e.g. Engineering" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Department Head</label>
+                        <label class="form-label small fw-semibold">Department Head <span class="text-muted fw-normal">(optional)</span></label>
                         <select class="form-select form-select-sm" @bind="_formHeadUserId">
-                            <option value="">— select head —</option>
+                            <option value="">— no head —</option>
                             @foreach (var u in _activeUsers)
                             {
                                 <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
                             }
                         </select>
+                        <div class="form-text small">Leave empty if no head is assigned yet. Requests cannot be submitted until a head is set.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Budget Limit (MMK)</label>
@@ -211,7 +221,7 @@
     {
         _editingId = d.Id;
         _formName = d.Name;
-        _formHeadUserId = d.HeadUserId.ToString();
+        _formHeadUserId = d.HeadUserId?.ToString() ?? "";
         _formBudgetLimit = d.BudgetLimit;
         _formError = null;
         _showForm = true;
@@ -227,8 +237,19 @@
     {
         _formError = null;
         if (string.IsNullOrWhiteSpace(_formName)) { _formError = "Name is required."; return; }
-        if (!Guid.TryParse(_formHeadUserId, out var headId)) { _formError = "Select a department head."; return; }
         if (_formBudgetLimit < 0) { _formError = "Budget limit cannot be negative."; return; }
+
+        // Empty selection = no head assigned (allowed).
+        Guid? headId = null;
+        if (!string.IsNullOrWhiteSpace(_formHeadUserId))
+        {
+            if (!Guid.TryParse(_formHeadUserId, out var parsed))
+            {
+                _formError = "Invalid department head selection.";
+                return;
+            }
+            headId = parsed;
+        }
 
         _saving = true;
         try

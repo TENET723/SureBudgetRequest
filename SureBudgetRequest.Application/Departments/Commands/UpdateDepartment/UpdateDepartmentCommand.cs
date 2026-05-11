@@ -8,7 +8,7 @@ namespace SureBudgetRequest.Application.Departments.Commands.UpdateDepartment;
 public sealed record UpdateDepartmentCommand(
     Guid DepartmentId,
     string Name,
-    Guid HeadUserId,
+    Guid? HeadUserId,
     decimal BudgetLimit) : IRequest<Result>;
 
 public sealed class UpdateDepartmentCommandHandler
@@ -33,8 +33,13 @@ public sealed class UpdateDepartmentCommandHandler
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
         if (dept is null) return Result.Failure("Department not found.");
 
-        var head = await _userRepository.GetByIdAsync(command.HeadUserId, ct);
-        if (head is null) return Result.Failure("Department head user not found.");
+        // Only validate the head user exists when one was provided.
+        // Passing null clears the head (e.g. position vacant).
+        if (command.HeadUserId.HasValue)
+        {
+            var head = await _userRepository.GetByIdAsync(command.HeadUserId.Value, ct);
+            if (head is null) return Result.Failure("Department head user not found.");
+        }
 
         dept.Rename(command.Name);
         dept.ChangeHead(command.HeadUserId);
