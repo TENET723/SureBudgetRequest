@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Infrastructure.Persistence;
@@ -14,13 +15,22 @@ namespace SureBudgetRequest.Infrastructure.Seeding;
 /// </summary>
 public sealed class DbSeeder
 {
+    /// <summary>
+    /// Default password for all seeded users. All seeded users have
+    /// <c>MustChangePassword = true</c>, so they will be forced to change
+    /// this on their first login.
+    /// </summary>
+    public const string SeedPassword = "Welcome123!";
+
     private readonly AppDbContext _db;
     private readonly ILogger<DbSeeder> _logger;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public DbSeeder(AppDbContext db, ILogger<DbSeeder> logger)
+    public DbSeeder(AppDbContext db, ILogger<DbSeeder> logger, IPasswordHasher passwordHasher)
     {
         _db = db;
         _logger = logger;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
@@ -30,8 +40,6 @@ public sealed class DbSeeder
     }
 
     // ── Currencies ────────────────────────────────────────────────────────────
-    // MMK MUST exist — it is the base currency referenced by every budget request
-    // and the target of every limit comparison.
     private async Task SeedCurrenciesAsync(CancellationToken cancellationToken)
     {
         if (await _db.Currencies.AnyAsync(cancellationToken))
@@ -60,7 +68,7 @@ public sealed class DbSeeder
             return;
         }
 
-        _logger.LogInformation("Seeding users and departments...");
+        _logger.LogInformation("Seeding users and departments (initial password: {Password})...", SeedPassword);
 
         var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001");
         var deptHeadItId = Guid.Parse("00000000-0000-0000-0000-000000000002");
@@ -73,18 +81,18 @@ public sealed class DbSeeder
         var hrDeptId = Guid.Parse("00000000-0000-0000-0001-000000000002");
         var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
 
-        var itDept = CreateDepartment(itDeptId, "Information Technology", deptHeadItId, 5_000_000);
-        var hrDept = CreateDepartment(hrDeptId, "Human Resources", deptHeadHrId, 3_000_000);
-        var adminDept = CreateDepartment(adminDeptId, "Administration", adminId, 10_000_000);
+        var itDept = new Department("Information Technology", deptHeadItId, 5_000_000);
+        var hrDept = new Department("Human Resources", deptHeadHrId, 3_000_000);
+        var adminDept = new Department("Administration", adminId, 10_000_000);
 
         _db.Departments.AddRange(itDept, hrDept, adminDept);
 
-        var admin = CreateUser(adminId, "admin", "Mg Mg (Admin)", adminDeptId, UserRole.Admin);
-        var deptHeadIt = CreateUser(deptHeadItId, "ko_zin", "Ko Zin Htet (IT Head)", itDeptId, UserRole.DepartmentHead);
-        var deptHeadHr = CreateUser(deptHeadHrId, "ma_thida", "Ma Thida (HR Head)", hrDeptId, UserRole.DepartmentHead);
-        var boss = CreateUser(bossId, "u_kyaw", "U Kyaw Zin (Boss)", adminDeptId, UserRole.Boss);
-        var finance = CreateUser(financeId, "ko_aung", "Ko Aung Naing (Finance)", adminDeptId, UserRole.Finance);
-        var employee = CreateUser(employeeId, "ma_aye", "Ma Aye Aye (Employee)", itDeptId, UserRole.Employee);
+        var admin = CreateUser("admin", "Mg Mg (Admin)", "admin@asure.local", adminDeptId, UserRole.Admin);
+        var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.DepartmentHead);
+        var deptHeadHr = CreateUser("ma_thida", "Ma Thida (HR Head)", "ma.thida@asure.local", hrDeptId, UserRole.DepartmentHead);
+        var boss = CreateUser("u_kyaw", "U Kyaw Zin (Boss)", "u.kyaw@asure.local", adminDeptId, UserRole.Boss);
+        var finance = CreateUser("ko_aung", "Ko Aung Naing (Finance)", "ko.aung@asure.local", adminDeptId, UserRole.Finance);
+        var employee = CreateUser("ma_aye", "Ma Aye Aye (Employee)", "ma.aye@asure.local", itDeptId, UserRole.Employee);
 
         _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, boss, finance, employee);
 
@@ -92,11 +100,12 @@ public sealed class DbSeeder
         _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 6);
     }
 
-    // ── Helpers (work around private setters via domain constructors) ─────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private static Department CreateDepartment(Guid id, string name, Guid headUserId, decimal limit)
-        => new Department(name, headUserId, limit);
-
-    private static User CreateUser(Guid id, string username, string fullName, Guid departmentId, UserRole role)
-        => new User(username, fullName, departmentId, role);
+    private User CreateUser(string username, string fullName, string email, Guid departmentId, UserRole role)
+    {
+        var user = new User(username, fullName, email, departmentId, role);
+        user.SetPasswordHash(_passwordHasher.Hash(SeedPassword), mustChangeOnNextLogin: true);
+        return user;
+    }
 }

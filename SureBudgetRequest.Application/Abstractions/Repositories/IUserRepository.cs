@@ -7,6 +7,13 @@ public interface IUserRepository
 {
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
+    /// <summary>Looks up a user by email (case-insensitive). Returns inactive users too;
+    /// the caller is responsible for checking <c>IsActive</c>.</summary>
+    Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>True if a user with the given email already exists (case-insensitive).</summary>
+    Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default);
+
     /// <summary>Returns the single company-wide Boss, or null if none is assigned.</summary>
     Task<User?> FindBossAsync(CancellationToken cancellationToken = default);
 

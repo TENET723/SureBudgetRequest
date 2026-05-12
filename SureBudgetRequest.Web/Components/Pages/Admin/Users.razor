@@ -7,6 +7,7 @@
 @using SureBudgetRequest.Application.Users.Commands.CreateUser
 @using SureBudgetRequest.Application.Users.Commands.UpdateUser
 @using SureBudgetRequest.Application.Users.Commands.DeactivateUser
+@using SureBudgetRequest.Application.Users.Commands.ResetUserPassword
 @using SureBudgetRequest.Application.Departments.Queries
 
 <PageTitle>Users</PageTitle>
@@ -64,6 +65,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Full Name</th>
+                        <th>Email</th>
                         <th>Username</th>
                         <th>Department</th>
                         <th>Role</th>
@@ -76,19 +78,26 @@
                     {
                         <tr class="@(!u.IsActive ? "text-muted" : "")">
                             <td>@u.FullName</td>
+                            <td class="small">@u.Email</td>
                             <td class="text-muted small">@u.Username</td>
                             <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
                             <td><span class="badge @RoleBadge(u.Role)">@u.Role</span></td>
                             <td>
                                 @if (u.IsActive)
-                                { <span class="badge bg-success">Active</span> }
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
                                 else
-                                { <span class="badge bg-secondary">Inactive</span> }
+                                {
+
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
                             </td>
                             <td class="text-end">
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(u)">Edit</button>
                                 @if (u.IsActive)
                                 {
+                                    <button class="btn btn-sm btn-outline-warning ms-1" @onclick="() => OpenReset(u)">Reset password</button>
                                     <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(u)">Deactivate</button>
                                 }
                             </td>
@@ -96,7 +105,7 @@
                     }
                     @if (!_filtered.Any())
                     {
-                        <tr><td colspan="6" class="text-center text-muted py-3">No users found.</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>
                     }
                 </tbody>
             </table>
@@ -132,6 +141,21 @@
                             </div>
                         }
                         <div class="col-12">
+                            <label class="form-label small fw-semibold">Email</label>
+                            <input class="form-control form-control-sm" type="email" @bind="_formEmail" placeholder="user@example.com" />
+                        </div>
+                        @if (!_editingId.HasValue)
+                        {
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold">Initial Password</label>
+                                <input class="form-control form-control-sm" type="text" @bind="_formInitialPassword" />
+                                <div class="form-text small">
+                                    Min @CreateUserCommandHandler.MinimumPasswordLength characters.
+                                    User will be required to change this on first login.
+                                </div>
+                            </div>
+                        }
+                        <div class="col-12">
                             <label class="form-label small fw-semibold">Department</label>
                             <select class="form-select form-select-sm" @bind="_formDeptId">
                                 <option value="">— select —</option>
@@ -155,10 +179,6 @@
                             }
                         </div>
                         <div class="col-12">
-                            <label class="form-label small fw-semibold">Email <span class="text-muted fw-normal">(optional)</span></label>
-                            <input class="form-control form-control-sm" type="email" @bind="_formEmail" />
-                        </div>
-                        <div class="col-12">
                             <label class="form-label small fw-semibold">Slack User ID <span class="text-muted fw-normal">(optional)</span></label>
                             <input class="form-control form-control-sm" @bind="_formSlackId" placeholder="U0123ABCDEF" />
                         </div>
@@ -167,8 +187,51 @@
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
                     <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
                         Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Reset Password Modal ──────────────────────────────────────────────────── *@
+@if (_resettingUser is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Reset Password</h6>
+                    <button class="btn-close" @onclick="CloseReset"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_resetError))
+                    {
+                        <div class="alert alert-danger small py-2">@_resetError</div>
+                    }
+                    <p class="small mb-2">
+                        Set a new initial password for <strong>@_resettingUser.FullName</strong>.
+                        They will be required to change it on next login.
+                    </p>
+                    <label class="form-label small fw-semibold">New Password</label>
+                    <input class="form-control form-control-sm" type="text" @bind="_resetPassword" />
+                    <div class="form-text small">
+                        Min @ResetUserPasswordCommandHandler.MinimumPasswordLength characters.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseReset">Cancel</button>
+                    <button class="btn btn-sm btn-warning" @onclick="DoReset" disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Reset
                     </button>
                 </div>
             </div>
@@ -219,13 +282,19 @@
     private Guid? _editingId;
     private string _formFullName = "";
     private string _formUsername = "";
+    private string _formEmail = "";
+    private string _formInitialPassword = "";
     private string _formDeptId = "";
     private int _formRole = (int)UserRole.Employee;
-    private string? _formEmail;
     private string? _formSlackId;
 
     // Deactivate
     private UserDto? _deactivatingUser;
+
+    // Reset password
+    private UserDto? _resettingUser;
+    private string _resetPassword = "";
+    private string? _resetError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -264,18 +333,29 @@
     private void OpenCreate()
     {
         _editingId = null;
-        _formFullName = ""; _formUsername = ""; _formDeptId = "";
-        _formRole = (int)UserRole.Employee; _formEmail = null; _formSlackId = null;
-        _formError = null; _showForm = true;
+        _formFullName = "";
+        _formUsername = "";
+        _formEmail = "";
+        _formInitialPassword = "";
+        _formDeptId = "";
+        _formRole = (int)UserRole.Employee;
+        _formSlackId = null;
+        _formError = null;
+        _showForm = true;
     }
 
     private void OpenEdit(UserDto u)
     {
         _editingId = u.Id;
-        _formFullName = u.FullName; _formUsername = u.Username;
+        _formFullName = u.FullName;
+        _formUsername = u.Username;
+        _formEmail = u.Email ?? "";
+        _formInitialPassword = "";
         _formDeptId = u.DepartmentId.ToString();
-        _formRole = (int)u.Role; _formEmail = u.Email; _formSlackId = u.SlackUserId;
-        _formError = null; _showForm = true;
+        _formRole = (int)u.Role;
+        _formSlackId = u.SlackUserId;
+        _formError = null;
+        _showForm = true;
     }
 
     private void CloseForm() { _showForm = false; _formError = null; }
@@ -285,6 +365,14 @@
         _formError = null;
         if (string.IsNullOrWhiteSpace(_formFullName)) { _formError = "Full name is required."; return; }
         if (!_editingId.HasValue && string.IsNullOrWhiteSpace(_formUsername)) { _formError = "Username is required."; return; }
+        if (string.IsNullOrWhiteSpace(_formEmail)) { _formError = "Email is required."; return; }
+        if (!_editingId.HasValue
+            && (string.IsNullOrEmpty(_formInitialPassword)
+                || _formInitialPassword.Length < CreateUserCommandHandler.MinimumPasswordLength))
+        {
+            _formError = $"Initial password must be at least {CreateUserCommandHandler.MinimumPasswordLength} characters.";
+            return;
+        }
         if (!Guid.TryParse(_formDeptId, out var deptId)) { _formError = "Select a department."; return; }
 
         _saving = true;
@@ -292,13 +380,26 @@
         {
             if (_editingId.HasValue)
             {
-                var cmd = new UpdateUserCommand(_editingId.Value, _formFullName, deptId, (UserRole)_formRole, _formEmail, _formSlackId);
+                var cmd = new UpdateUserCommand(
+                    _editingId.Value,
+                    _formFullName,
+                    _formEmail,
+                    deptId,
+                    (UserRole)_formRole,
+                    _formSlackId);
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure) { _formError = result.Error; return; }
             }
             else
             {
-                var cmd = new CreateUserCommand(_formUsername, _formFullName, deptId, (UserRole)_formRole, _formEmail, _formSlackId);
+                var cmd = new CreateUserCommand(
+                    _formUsername,
+                    _formFullName,
+                    _formEmail,
+                    _formInitialPassword,
+                    deptId,
+                    (UserRole)_formRole,
+                    _formSlackId);
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure) { _formError = result.Error; return; }
             }
@@ -321,6 +422,43 @@
         _deactivatingUser = null;
         if (result.IsFailure) { _errorMessage = result.Error; }
         else { _successMessage = "User deactivated."; await LoadUsers(); }
+    }
+
+    private void OpenReset(UserDto u)
+    {
+        _resettingUser = u;
+        _resetPassword = "";
+        _resetError = null;
+    }
+
+    private void CloseReset()
+    {
+        _resettingUser = null;
+        _resetError = null;
+    }
+
+    private async Task DoReset()
+    {
+        if (_resettingUser is null) return;
+        _resetError = null;
+
+        if (string.IsNullOrEmpty(_resetPassword)
+            || _resetPassword.Length < ResetUserPasswordCommandHandler.MinimumPasswordLength)
+        {
+            _resetError = $"Password must be at least {ResetUserPasswordCommandHandler.MinimumPasswordLength} characters.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new ResetUserPasswordCommand(_resettingUser.Id, _resetPassword));
+            if (result.IsFailure) { _resetError = result.Error; return; }
+
+            _successMessage = $"Password reset for {_resettingUser.FullName}. They must change it on next login.";
+            _resettingUser = null;
+        }
+        finally { _saving = false; }
     }
 
     private static string RoleBadge(UserRole r) => r switch

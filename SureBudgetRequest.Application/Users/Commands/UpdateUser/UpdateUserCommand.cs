@@ -9,9 +9,9 @@ namespace SureBudgetRequest.Application.Users.Commands.UpdateUser;
 public sealed record UpdateUserCommand(
     Guid UserId,
     string FullName,
+    string Email,
     Guid DepartmentId,
     UserRole Role,
-    string? Email,
     string? SlackUserId) : IRequest<Result>;
 
 public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Result>
@@ -32,11 +32,22 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
 
     public async Task<Result> Handle(UpdateUserCommand command, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(command.Email))
+            return Result.Failure("Email is required.");
+
         var user = await _userRepository.GetByIdAsync(command.UserId, ct);
         if (user is null) return Result.Failure("User not found.");
 
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
         if (dept is null) return Result.Failure("Department not found.");
+
+        // If the email is changing, ensure the new one isn't already taken.
+        var normalizedNew = command.Email.Trim().ToLowerInvariant();
+        if (!string.Equals(user.Email, normalizedNew, StringComparison.Ordinal)
+            && await _userRepository.EmailExistsAsync(normalizedNew, ct))
+        {
+            return Result.Failure("A user with this email already exists.");
+        }
 
         // R5: if promoting to Boss, ensure no other Boss exists
         if (command.Role == UserRole.Boss && user.Role != UserRole.Boss)

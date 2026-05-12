@@ -1,0 +1,131 @@
+@page "/login"
+@layout EmptyLayout
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@attribute [ExcludeFromInteractiveRouting]
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using MediatR
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@using SureBudgetRequest.Application.Users.Commands.AuthenticateUser
+@using SureBudgetRequest.Web.Components.Layout
+@using SureBudgetRequest.Web.Services
+@inject IMediator Mediator
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Sign in — aSure Budget</PageTitle>
+
+<div class="container-fluid py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5 col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h4 class="mb-1">aSure Budget</h4>
+                    <p class="text-muted small mb-4">Please sign in to continue.</p>
+
+                    <EditForm Model="Input" method="post" OnValidSubmit="HandleLogin"
+                              FormName="login" Enhance="false">
+                        <DataAnnotationsValidator />
+                       @*  <AntiforgeryToken /> *@
+
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="alert alert-danger py-2 small">@_errorMessage</div>
+                        }
+
+                        <div class="mb-3">
+                            <label class="form-label small">Email</label>
+                            <InputText @bind-Value="Input.Email"
+                                       class="form-control"
+                                       autocomplete="username"
+                                      
+                                       autofocus />
+                            <ValidationMessage For="@(() => Input.Email)" class="text-danger small" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label small">Password</label>
+                            <InputText @bind-Value="Input.Password"
+                                       type="password"
+
+                                       class="form-control"
+                                       autocomplete="current-password" />
+                            <ValidationMessage For="@(() => Input.Password)" class="text-danger small" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Sign in</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    public LoginInputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private string? _errorMessage;
+
+    protected override void OnInitialized()
+    {
+        // If already authenticated, send them home.
+        var ctx = HttpContextAccessor.HttpContext;
+        if (ctx?.User.Identity?.IsAuthenticated == true)
+        {
+            Nav.NavigateTo("/", forceLoad: true);
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        var result = await Mediator.Send(new AuthenticateUserCommand(Input.Email, Input.Password));
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error;
+            return;
+        }
+
+        var user = result.Value;
+        var ctx = HttpContextAccessor.HttpContext!;
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role.ToString()),
+            new(CurrentUserService.ClaimUsername, user.Username),
+            new(CurrentUserService.ClaimDepartmentId, user.DepartmentId.ToString()),
+            new(CurrentUserService.ClaimMustChangePassword, user.MustChangePassword ? "true" : "false"),
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        if (user.MustChangePassword)
+        {
+            Nav.NavigateTo("/account/change-password", forceLoad: true);
+            return;
+        }
+
+        var dest = string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : ReturnUrl!;
+        Nav.NavigateTo(dest, forceLoad: true);
+    }
+
+    public sealed class LoginInputModel
+    {
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Password is required.")]
+        public string Password { get; set; } = "";
+    }
+}

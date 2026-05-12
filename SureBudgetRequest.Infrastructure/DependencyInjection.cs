@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Infrastructure.Notifications;
 using SureBudgetRequest.Infrastructure.Persistence;
 using SureBudgetRequest.Infrastructure.Persistence.Repositories;
+using SureBudgetRequest.Infrastructure.Security;
 using SureBudgetRequest.Infrastructure.Seeding;
 using SureBudgetRequest.Infrastructure.Storage;
 
@@ -42,15 +44,13 @@ public static class DependencyInjection
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+        // ── Security ──────────────────────────────────────────────────────────
+        // Singleton: stateless and thread-safe.
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
         // ── Notifications (outbox pattern) ────────────────────────────────────
         services.Configure<SlackOptions>(configuration.GetSection(SlackOptions.SectionName));
-
-        // SlackNotificationService is scoped — it writes to the scoped AppDbContext
-        // in the same transaction as the domain command.
         services.AddScoped<INotificationService, SlackNotificationService>();
-
-        // The outbox processor is a singleton BackgroundService.
-        // It creates its own scopes to avoid capturing scoped DbContext.
         services.AddHttpClient<NotificationOutboxProcessor>();
         services.AddHostedService<NotificationOutboxProcessor>();
 

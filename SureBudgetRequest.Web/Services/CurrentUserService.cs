@@ -1,37 +1,65 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Components.Authorization;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Web.Services;
 
 /// <summary>
-/// Circuit-scoped (Scoped in Blazor Server = one per SignalR circuit) implementation of ICurrentUser.
-/// The active user is set by MainLayout during OnInitializedAsync via IHttpContextAccessor.
-/// For development: the cookie "dev_user_id" overrides the default.
+/// Resolves the current user from cookie claims set at login.
+/// Replaces the old dev-impersonation cookie scheme entirely.
 /// </summary>
 public sealed class CurrentUserService : ICurrentUser
 {
-    public const string CookieName = "dev_user_id";
+    // Claim keys for fields that aren't on the standard ClaimTypes list.
+    public const string ClaimDepartmentId = "asure_dept_id";
+    public const string ClaimUsername = "asure_username";
+    public const string ClaimMustChangePassword = "asure_must_change_password";
 
-    private Guid _userId;
-    private string _fullName = "Unknown";
-    private string _username = "unknown";
-    private UserRole _role = UserRole.Employee;
-    private Guid _departmentId;
+    private readonly AuthenticationStateProvider _authStateProvider;
+    private ClaimsPrincipal? _principal;
 
-    public Guid UserId => _userId;
-    public string FullName => _fullName;
-    public string Username => _username;
-    public UserRole Role => _role;
-    public Guid DepartmentId => _departmentId;
-    public bool IsLoaded { get; private set; }
-
-    public void SetUser(Guid userId, string fullName, string username, UserRole role, Guid departmentId)
+    public CurrentUserService(AuthenticationStateProvider authStateProvider)
     {
-        _userId = userId;
-        _fullName = fullName;
-        _username = username;
-        _role = role;
-        _departmentId = departmentId;
-        IsLoaded = true;
+        _authStateProvider = authStateProvider;
     }
+
+    // In Blazor Server, AuthenticationStateProvider holds the state captured at
+    // circuit start and returns it synchronously thereafter. Calling .Result here
+    // is safe in that context. Cached for the lifetime of the scope (one circuit).
+    private ClaimsPrincipal Principal => _principal ??=
+        _authStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult().User;
+
+    public Guid UserId
+    {
+        get
+        {
+            var v = Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            return Guid.TryParse(v, out var id) ? id : Guid.Empty;
+        }
+    }
+
+    public string FullName => Principal.FindFirstValue(ClaimTypes.Name) ?? "";
+
+    public string Username => Principal.FindFirstValue(ClaimUsername) ?? "";
+
+    public UserRole Role
+    {
+        get
+        {
+            var v = Principal.FindFirstValue(ClaimTypes.Role);
+            return Enum.TryParse<UserRole>(v, out var r) ? r : UserRole.Employee;
+        }
+    }
+
+    public Guid DepartmentId
+    {
+        get
+        {
+            var v = Principal.FindFirstValue(ClaimDepartmentId);
+            return Guid.TryParse(v, out var id) ? id : Guid.Empty;
+        }
+    }
+
+    public bool IsLoaded => Principal.Identity?.IsAuthenticated == true;
 }

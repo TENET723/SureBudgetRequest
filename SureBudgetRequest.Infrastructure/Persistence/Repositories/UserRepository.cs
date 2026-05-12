@@ -14,6 +14,22 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => await _context.Users.FindAsync([id], cancellationToken);
 
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return null;
+        var normalized = email.Trim().ToLowerInvariant();
+        return await _context.Users
+            .SingleOrDefaultAsync(u => u.Email == normalized, cancellationToken);
+    }
+
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(email)) return false;
+        var normalized = email.Trim().ToLowerInvariant();
+        return await _context.Users
+            .AnyAsync(u => u.Email == normalized, cancellationToken);
+    }
+
     public async Task<User?> FindBossAsync(CancellationToken cancellationToken = default)
         => await _context.Users
             .Where(u => u.Role == UserRole.Boss && u.IsActive)
