@@ -9,6 +9,7 @@ public sealed record BudgetRequestDto(
     DateTime RequestDate,
     BudgetRequestType Type,
     decimal RequestedAmount,
+    string CurrencyCode,
     string Reasons,
     string WithdrawerName,
     string WithdrawerJobTitle,
@@ -24,6 +25,8 @@ public sealed record BudgetRequestDto(
     // Submission snapshots
     Guid DepartmentIdAtSubmission,
     decimal DepartmentLimitAtSubmission,
+    decimal ExchangeRateAtSubmission,
+    decimal RequestedAmountInMmkAtSubmission,
     Guid DeptHeadIdAtSubmission,
     Guid? BossIdAtSubmission,
     // Child collections
@@ -37,6 +40,7 @@ public sealed record BudgetRequestDto(
         e.RequestDate,
         e.Type,
         e.RequestedAmount,
+        e.CurrencyCode,
         e.Reasons,
         e.WithdrawerName,
         e.WithdrawerJobTitle,
@@ -51,6 +55,8 @@ public sealed record BudgetRequestDto(
         e.FinalizedAt,
         e.DepartmentIdAtSubmission,
         e.DepartmentLimitAtSubmission,
+        e.ExchangeRateAtSubmission,
+        e.RequestedAmountInMmkAtSubmission,
         e.DeptHeadIdAtSubmission,
         e.BossIdAtSubmission,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),

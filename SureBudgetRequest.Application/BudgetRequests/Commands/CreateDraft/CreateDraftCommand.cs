@@ -14,6 +14,7 @@ public sealed record CreateDraftCommand(
     string DeptHeadName,
     DateTime RequestDate,
     decimal RequestedAmount,
+    string CurrencyCode,
     string Reasons,
     string WithdrawerName,
     string WithdrawerJobTitle,
@@ -25,15 +26,18 @@ public sealed class CreateDraftCommandHandler
 {
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ICurrencyRepository _currencyRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateDraftCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
+        ICurrencyRepository currencyRepository,
         IUnitOfWork unitOfWork)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
+        _currencyRepository = currencyRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -48,9 +52,14 @@ public sealed class CreateDraftCommandHandler
         if (!requester.IsActive)
             return Result.Failure<Guid>("Inactive users cannot create requests.");
 
+        // Validate that the chosen currency exists and is active.
+        var currency = await _currencyRepository.GetByCodeAsync(command.CurrencyCode, cancellationToken);
+        if (currency is null)
+            return Result.Failure<Guid>($"Currency '{command.CurrencyCode}' not found.");
+        if (!currency.IsActive)
+            return Result.Failure<Guid>($"Currency '{currency.Code}' is not active.");
 
         var utcRequestDate = DateTime.SpecifyKind(command.RequestDate, DateTimeKind.Utc);
-
 
         BudgetRequest draft;
         try
@@ -63,6 +72,7 @@ public sealed class CreateDraftCommandHandler
                 command.DeptHeadName,
                 utcRequestDate,
                 command.RequestedAmount,
+                currency.Code,                  // canonical, upper-cased form
                 command.Reasons,
                 command.WithdrawerName,
                 command.WithdrawerJobTitle,

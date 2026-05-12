@@ -17,6 +17,7 @@ public sealed class ResubmitRequestCommandHandler
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ICurrencyRepository _currencyRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
 
@@ -24,12 +25,14 @@ public sealed class ResubmitRequestCommandHandler
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
         IDepartmentRepository departmentRepository,
+        ICurrencyRepository currencyRepository,
         IUnitOfWork unitOfWork,
         INotificationService notificationService)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
+        _currencyRepository = currencyRepository;
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
     }
@@ -55,7 +58,6 @@ public sealed class ResubmitRequestCommandHandler
         if (department is null)
             return Result.Failure("Requester's department not found.");
 
-        // A department may exist without a head (vacancy/bootstrap). Block resubmit until one is assigned.
         if (department.HeadUserId is null)
             return Result.Failure("Your department has no head assigned. Contact admin before resubmitting.");
 
@@ -63,7 +65,16 @@ public sealed class ResubmitRequestCommandHandler
         if (deptHead is null)
             return Result.Failure("Department head not found.");
 
-        var isOverLimit = budgetRequest.RequestedAmount > department.BudgetLimit;
+        // Re-fetch the (possibly updated) currency rate for the resubmission.
+        var currency = await _currencyRepository.GetByCodeAsync(
+            budgetRequest.CurrencyCode, cancellationToken);
+        if (currency is null)
+            return Result.Failure($"Currency '{budgetRequest.CurrencyCode}' not found.");
+        if (!currency.IsActive)
+            return Result.Failure($"Currency '{currency.Code}' is not active.");
+
+        var amountInMmk = budgetRequest.RequestedAmount * currency.RateToMmk;
+        var isOverLimit = amountInMmk > department.BudgetLimit;
 
         Guid? bossId = null;
         string? bossName = null;
@@ -80,6 +91,7 @@ public sealed class ResubmitRequestCommandHandler
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
             department.BudgetLimit,
+            currency.RateToMmk,
             deptHead.Id,
             deptHead.FullName,
             bossId,

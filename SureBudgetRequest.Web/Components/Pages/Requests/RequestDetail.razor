@@ -64,13 +64,26 @@ else
                     </div>
                     <div class="col-sm-6">
                         <div class="small text-muted">Amount Requested</div>
-                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N0") MMK</div>
+                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N0") @_request.CurrencyCode</div>
+                        @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
+                        {
+                            <div class="small text-muted">
+                                ≈ @_request.RequestedAmountInMmkAtSubmission.ToString("N0") MMK
+                                <span class="text-muted">(at @_request.ExchangeRateAtSubmission.ToString("N4") MMK/@_request.CurrencyCode)</span>
+                            </div>
+                        }
                     </div>
                     @if (_request.ApprovedAmount > 0)
                     {
                         <div class="col-sm-6">
                             <div class="small text-muted">Approved Amount</div>
-                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N0") MMK</div>
+                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode</div>
+                            @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
+                            {
+                                <div class="small text-muted">
+                                    ≈ @((_request.ApprovedAmount * _request.ExchangeRateAtSubmission).ToString("N0")) MMK
+                                </div>
+                            }
                         </div>
                     }
                     <div class="col-12">
@@ -219,7 +232,7 @@ else
                             <thead class="table-light">
                                 <tr>
                                     <th>Date</th>
-                                    <th class="text-end">Amount (MMK)</th>
+                                    <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                     <th>Reference</th>
                                     <th>Recorded by</th>
                                 </tr>
@@ -237,10 +250,10 @@ else
                             </tbody>
                         </table>
                         <div class="d-flex justify-content-between small text-muted">
-                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N0") MMK</strong></span>
+                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N0") @_request.CurrencyCode</strong></span>
                             @if (_request.RemainingBalance > 0)
                             {
-                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N0") MMK</span>
+                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode</span>
                             }
                         </div>
                     }
@@ -318,7 +331,7 @@ else
                         <div class="alert alert-danger small py-2">@_paymentError</div>
                     }
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Amount (MMK)</label>
+                        <label class="form-label small fw-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
                         <input class="form-control form-control-sm" type="number" min="1"
                                @bind="_paymentAmount"
                                readonly="@(_request is not null && !_request.AllowsPartialPayment)" />
@@ -326,12 +339,12 @@ else
                         {
                             @if (_request.AllowsPartialPayment)
                             {
-                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") MMK</div>
+                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode</div>
                             }
                             else
                             {
                                 <div class="form-text small text-warning">
-                                    Full payment required: @_request.RemainingBalance.ToString("N0") MMK
+                                    Full payment required: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode
                                     (this request does not allow installments)
                                 </div>
                             }
@@ -515,7 +528,7 @@ else
         if (_paymentAmount <= 0) { _paymentError = "Amount must be greater than zero."; return; }
         if (_request is not null && !_request.AllowsPartialPayment && _paymentAmount != _request.RemainingBalance)
         {
-            _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N0} MMK).";
+            _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N0} {_request.CurrencyCode}).";
             return;
         }
         _actioning = true; _showPaymentModal = false;

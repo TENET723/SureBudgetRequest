@@ -7,8 +7,9 @@ using SureBudgetRequest.Infrastructure.Persistence;
 namespace SureBudgetRequest.Infrastructure.Seeding;
 
 /// <summary>
-/// Seeds the database with initial departments and users for development.
-/// Safe to call on every startup — checks if data already exists before inserting.
+/// Seeds the database with initial data for development.
+/// Each section checks its own table independently, so adding a new section
+/// (e.g. currencies) will seed even on a database that already has users.
 /// Run only when <c>ASPNETCORE_ENVIRONMENT</c> is Development.
 /// </summary>
 public sealed class DbSeeder
@@ -24,33 +25,53 @@ public sealed class DbSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        if (await _db.Users.AnyAsync(cancellationToken))
+        await SeedCurrenciesAsync(cancellationToken);
+        await SeedUsersAndDepartmentsAsync(cancellationToken);
+    }
+
+    // ── Currencies ────────────────────────────────────────────────────────────
+    // MMK MUST exist — it is the base currency referenced by every budget request
+    // and the target of every limit comparison.
+    private async Task SeedCurrenciesAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.Currencies.AnyAsync(cancellationToken))
         {
-            _logger.LogInformation("Database already seeded — skipping.");
+            _logger.LogInformation("Currencies already seeded — skipping.");
             return;
         }
 
-        _logger.LogInformation("Seeding database...");
+        _logger.LogInformation("Seeding currencies...");
 
-        // ── 1. Create a placeholder admin user first (needed as dept head) ───
-        // We use a two-pass approach: create users without departments, then wire up.
-        // Simpler: use well-known GUIDs so we can reference IDs before saving.
+        _db.Currencies.AddRange(
+            new Currency("MMK", "Myanmar Kyat", 1m),
+            new Currency("USD", "US Dollar", 4500m),
+            new Currency("SGD", "Singapore Dollar", 3300m),
+            new Currency("THB", "Thai Baht", 130m));
 
-        var adminId   = Guid.Parse("00000000-0000-0000-0000-000000000001");
-        var deptHeadItId  = Guid.Parse("00000000-0000-0000-0000-000000000002");
-        var deptHeadHrId  = Guid.Parse("00000000-0000-0000-0000-000000000003");
-        var bossId    = Guid.Parse("00000000-0000-0000-0000-000000000004");
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // ── Users / Departments ───────────────────────────────────────────────────
+    private async Task SeedUsersAndDepartmentsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.Users.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("Users already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding users and departments...");
+
+        var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var deptHeadItId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+        var deptHeadHrId = Guid.Parse("00000000-0000-0000-0000-000000000003");
+        var bossId = Guid.Parse("00000000-0000-0000-0000-000000000004");
         var financeId = Guid.Parse("00000000-0000-0000-0000-000000000005");
-        var employeeId= Guid.Parse("00000000-0000-0000-0000-000000000006");
+        var employeeId = Guid.Parse("00000000-0000-0000-0000-000000000006");
 
-        var itDeptId  = Guid.Parse("00000000-0000-0000-0001-000000000001");
-        var hrDeptId  = Guid.Parse("00000000-0000-0000-0001-000000000002");
+        var itDeptId = Guid.Parse("00000000-0000-0000-0001-000000000001");
+        var hrDeptId = Guid.Parse("00000000-0000-0000-0001-000000000002");
         var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
-
-        // ── 2. Departments ────────────────────────────────────────────────────
-        // HeadUserId references are set after users are wired up.
-        // We use direct property sets via reflection-accessible internal ctor workaround:
-        // Since Department has a public constructor, we just use it.
 
         var itDept = CreateDepartment(itDeptId, "Information Technology", deptHeadItId, 5_000_000);
         var hrDept = CreateDepartment(hrDeptId, "Human Resources", deptHeadHrId, 3_000_000);
@@ -58,7 +79,6 @@ public sealed class DbSeeder
 
         _db.Departments.AddRange(itDept, hrDept, adminDept);
 
-        // ── 3. Users ──────────────────────────────────────────────────────────
         var admin = CreateUser(adminId, "admin", "Mg Mg (Admin)", adminDeptId, UserRole.Admin);
         var deptHeadIt = CreateUser(deptHeadItId, "ko_zin", "Ko Zin Htet (IT Head)", itDeptId, UserRole.DepartmentHead);
         var deptHeadHr = CreateUser(deptHeadHrId, "ma_thida", "Ma Thida (HR Head)", hrDeptId, UserRole.DepartmentHead);
@@ -69,28 +89,14 @@ public sealed class DbSeeder
         _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, boss, finance, employee);
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Database seeded with {DeptCount} departments and {UserCount} users.",
-            3, 6);
+        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 6);
     }
 
     // ── Helpers (work around private setters via domain constructors) ─────────
 
     private static Department CreateDepartment(Guid id, string name, Guid headUserId, decimal limit)
-    {
-        // Domain constructor sets a new Guid — we override via a known-ID helper.
-        // Since Department doesn't expose a SetId(), we use EF's ability to set
-        // shadow properties or we call the public constructor and accept the new Guid.
-        // For seeding simplicity we use the public constructor and record the actual Id.
-        //
-        // Alternative: use ModelSnapshot fixed IDs in a proper migration seed.
-        // For development seed, auto-Guid is fine — we just need stable role relationships.
-        var dept = new Department(name, headUserId, limit);
-        return dept;
-    }
+        => new Department(name, headUserId, limit);
 
     private static User CreateUser(Guid id, string username, string fullName, Guid departmentId, UserRole role)
-    {
-        var user = new User(username, fullName, departmentId, role);
-        return user;
-    }
+        => new User(username, fullName, departmentId, role);
 }

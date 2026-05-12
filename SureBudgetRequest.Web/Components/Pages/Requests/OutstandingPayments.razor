@@ -31,9 +31,10 @@
                         <th>Date</th>
                         <th>Requester</th>
                         <th>Reason</th>
-                        <th class="text-end">Approved (MMK)</th>
-                        <th class="text-end">Paid (MMK)</th>
-                        <th class="text-end">Outstanding (MMK)</th>
+                        <th>Ccy</th>
+                        <th class="text-end">Approved</th>
+                        <th class="text-end">Paid</th>
+                        <th class="text-end">Outstanding</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
@@ -45,6 +46,7 @@
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
                             <td>@Truncate(r.Reasons, 40)</td>
+                            <td class="small text-muted">@r.CurrencyCode</td>
                             <td class="text-end">@r.ApprovedAmount.ToString("N0")</td>
                             <td class="text-end">@r.TotalPaid.ToString("N0")</td>
                             <td class="text-end fw-semibold">@r.RemainingBalance.ToString("N0")</td>
@@ -56,7 +58,7 @@
                     }
                     @if (!_requests.Any())
                     {
-                        <tr><td colspan="8" class="text-center text-muted py-4">Nothing outstanding. 🎉</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">Nothing outstanding. 🎉</td></tr>
                     }
                 </tbody>
             </table>
@@ -65,9 +67,12 @@
         @if (_requests.Any())
         {
             <div class="d-flex justify-content-end mt-2">
-                <div class="small text-muted">
-                    Total outstanding: <strong class="text-dark">@_requests.Sum(r => r.RemainingBalance).ToString("N0") MMK</strong>
-                    across @_requests.Count request@(_requests.Count == 1 ? "" : "s")
+                <div class="small text-muted text-end">
+                    <div>Total outstanding across @_requests.Count request@(_requests.Count == 1 ? "" : "s"):</div>
+                    @foreach (var grp in _requests.GroupBy(r => r.CurrencyCode).OrderBy(g => g.Key == "MMK" ? 0 : 1).ThenBy(g => g.Key))
+                    {
+                        <div><strong class="text-dark">@grp.Sum(r => r.RemainingBalance).ToString("N0") @grp.Key</strong></div>
+                    }
                 </div>
             </div>
         }

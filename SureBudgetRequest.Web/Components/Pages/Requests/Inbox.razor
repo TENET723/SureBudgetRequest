@@ -32,7 +32,7 @@
                         <th>Date</th>
                         <th>Requester</th>
                         <th>Reason</th>
-                        <th class="text-end">Amount (MMK)</th>
+                        <th class="text-end">Amount</th>
                         <th>Status</th>
                         <th>Submitted</th>
                         <th></th>
@@ -45,7 +45,13 @@
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
                             <td>@Truncate(r.Reasons, 45)</td>
-                            <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
+                            <td class="text-end">
+                                @r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span>
+                                @if (r.CurrencyCode != "MMK" && r.RequestedAmountInMmkAtSubmission > 0)
+                                {
+                                    <div class="small text-muted">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N0") MMK</div>
+                                }
+                            </td>
                             <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">

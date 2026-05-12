@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<CurrencyRateChange> CurrencyRateChanges => Set<CurrencyRateChange>();
 
     // Infrastructure-only (outbox)
     public DbSet<NotificationOutboxEntry> NotificationOutbox => Set<NotificationOutboxEntry>();

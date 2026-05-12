@@ -7,7 +7,7 @@ public partial class BudgetRequest
 {
     // Factory: creates a Draft. Snapshots the dept head at draft time so the
     // request shows its routing target before submission; Submit() will re-snapshot
-    // along with department/limit/boss. Limits and boss are still Submit-time only.
+    // along with department/limit/boss/rate. Limits, boss, and rate are still Submit-time only.
     public static BudgetRequest CreateDraft(
         Guid requesterId,
         string requesterNameAtSubmission,
@@ -16,6 +16,7 @@ public partial class BudgetRequest
         string deptHeadName,
         DateTime requestDate,
         decimal requestedAmount,
+        string currencyCode,
         string reasons,
         string withdrawerName,
         string withdrawerJobTitle,
@@ -24,6 +25,8 @@ public partial class BudgetRequest
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
+        if (string.IsNullOrWhiteSpace(currencyCode))
+            throw new ArgumentException("Currency code is required.", nameof(currencyCode));
         if (string.IsNullOrWhiteSpace(reasons))
             throw new ArgumentException("Reasons are required.", nameof(reasons));
         if (string.IsNullOrWhiteSpace(withdrawerName))
@@ -39,10 +42,11 @@ public partial class BudgetRequest
             RequesterId = requesterId,
             RequesterNameAtSubmission = requesterNameAtSubmission,
             DeptHeadIdAtSubmission = deptHeadId,
-            DeptHeadNameAtSubmission = deptHeadName, 
+            DeptHeadNameAtSubmission = deptHeadName,
             Type = type,
             RequestDate = requestDate,
             RequestedAmount = requestedAmount,
+            CurrencyCode = currencyCode.Trim().ToUpperInvariant(),
             Reasons = reasons,
             WithdrawerName = withdrawerName,
             WithdrawerJobTitle = withdrawerJobTitle,
@@ -59,6 +63,7 @@ public partial class BudgetRequest
         DateTime requestDate,
         BudgetRequestType type,
         decimal requestedAmount,
+        string currencyCode,
         string reasons,
         string withdrawerName,
         string withdrawerJobTitle,
@@ -70,6 +75,8 @@ public partial class BudgetRequest
 
         if (requestedAmount <= 0)
             return Result.Failure("Requested amount must be greater than zero.");
+        if (string.IsNullOrWhiteSpace(currencyCode))
+            return Result.Failure("Currency code is required.");
         if (string.IsNullOrWhiteSpace(reasons))
             return Result.Failure("Reasons are required.");
         if (string.IsNullOrWhiteSpace(withdrawerName))
@@ -79,6 +86,7 @@ public partial class BudgetRequest
 
         RequestDate = requestDate;
         RequestedAmount = requestedAmount;
+        CurrencyCode = currencyCode.Trim().ToUpperInvariant();
         Type = type;
         Reasons = reasons;
         WithdrawerName = withdrawerName;
@@ -90,25 +98,31 @@ public partial class BudgetRequest
 
     // Submit moves Draft/SentBack -> PendingDeptHead, fast-forwarding through any
     // stages where the requester is the assigned approver (R9 auto-approval rule).
+    // The MMK-equivalent of the requested amount is compared against the department limit.
     public Result Submit(
         Guid departmentId,
-        decimal departmentLimit,
+        decimal departmentLimit,             // in MMK
+        decimal exchangeRateToMmk,           // current rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
-        Guid? bossId,           // null if amount <= limit
-        string? bossName,       // null if amount <= limit
+        Guid? bossId,                        // null if amount (in MMK) <= limit
+        string? bossName,                    // null if amount (in MMK) <= limit
         string requesterName)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
 
+        if (exchangeRateToMmk <= 0)
+            return Result.Failure("Exchange rate must be greater than zero.");
         if (string.IsNullOrWhiteSpace(deptHeadName))
             return Result.Failure("Dept head name is required.");
         if (string.IsNullOrWhiteSpace(requesterName))
             return Result.Failure("Requester name is required.");
 
-        // Validate boss presence matches over-limit logic
-        var isOverLimit = RequestedAmount > departmentLimit;
+        // Convert to MMK for the limit comparison
+        var amountInMmk = RequestedAmount * exchangeRateToMmk;
+        var isOverLimit = amountInMmk > departmentLimit;
+
         if (isOverLimit && bossId is null)
             return Result.Failure("Boss must be provided for over-limit requests.");
         if (!isOverLimit && bossId is not null)
@@ -116,9 +130,11 @@ public partial class BudgetRequest
         if (isOverLimit && string.IsNullOrWhiteSpace(bossName))
             return Result.Failure("Boss name is required for over-limit requests.");
 
-        // Snapshot the routing context
+        // Snapshot the routing context (R7, R12)
         DepartmentIdAtSubmission = departmentId;
         DepartmentLimitAtSubmission = departmentLimit;
+        ExchangeRateAtSubmission = exchangeRateToMmk;
+        RequestedAmountInMmkAtSubmission = amountInMmk;
         DeptHeadIdAtSubmission = deptHeadId;
         DeptHeadNameAtSubmission = deptHeadName;
         BossIdAtSubmission = bossId;

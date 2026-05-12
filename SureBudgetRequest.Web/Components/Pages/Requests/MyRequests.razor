@@ -31,7 +31,7 @@
                     <tr>
                         <th>Date</th>
                         <th>Reason</th>
-                        <th class="text-end">Amount (MMK)</th>
+                        <th class="text-end">Amount</th>
                         <th>Status</th>
                         <th>Submitted</th>
                         <th></th>
@@ -43,7 +43,7 @@
                         <tr>
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
-                            <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
+                            <td class="text-end">@r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span></td>
                             <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">
@@ -79,7 +79,7 @@
                     <button class="btn-close" @onclick="() => _cancellingRequest = null"></button>
                 </div>
                 <div class="modal-body small">
-                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N0") MMK</strong>? This cannot be undone.
+                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N0") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="() => _cancellingRequest = null">No</button>

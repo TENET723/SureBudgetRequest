@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IBudgetRequestRepository, BudgetRequestRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<ICurrencyRepository, CurrencyRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // ── Notifications (outbox pattern) ────────────────────────────────────

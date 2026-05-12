@@ -23,19 +23,26 @@ public partial class BudgetRequest
     public bool AllowsPartialPayment { get; private set; }
     public string? PartialPaymentDetail { get; private set; }
 
+    // === Currency (editable while Draft/SentBack; locked at Submit via the snapshot below) ===
+    // The currency the request is denominated in. Amount, ApprovedAmount, and Payments
+    // are all in this currency. Only the limit comparison converts to MMK.
+    public string CurrencyCode { get; private set; } = null!;
+
     // === Snapshots taken at submission (for stable audit/routing) ===
     public Guid DepartmentIdAtSubmission { get; private set; }
-    public decimal DepartmentLimitAtSubmission { get; private set; }
+    public decimal DepartmentLimitAtSubmission { get; private set; }                // MMK
+    public decimal ExchangeRateAtSubmission { get; private set; }                   // CurrencyCode -> MMK at submit time
+    public decimal RequestedAmountInMmkAtSubmission { get; private set; }           // RequestedAmount * rate, cached for queries
     public Guid DeptHeadIdAtSubmission { get; private set; }
     public string DeptHeadNameAtSubmission { get; private set; } = null!;
-    public Guid? BossIdAtSubmission { get; private set; }           // null if amount <= limit
-    public string? BossNameAtSubmission { get; private set; }       // null if amount <= limit
+    public Guid? BossIdAtSubmission { get; private set; }           // null if amount (in MMK) <= limit
+    public string? BossNameAtSubmission { get; private set; }       // null if amount (in MMK) <= limit
     public string RequesterNameAtSubmission { get; private set; } = null!;
 
     // === Workflow state ===
     public RequestStatus Status { get; private set; }
     public BudgetRequestType Type { get; private set; }
-    public decimal ApprovedAmount { get; private set; }     // 0 until Finance approves; equals RequestedAmount in v1
+    public decimal ApprovedAmount { get; private set; }     // 0 until Finance approves; equals RequestedAmount in v1 (in CurrencyCode)
     public DateTime CreatedAt { get; private set; }
     public DateTime? SubmittedAt { get; private set; }
     public DateTime? FinalizedAt { get; private set; }      // when Paid / Rejected / Cancelled

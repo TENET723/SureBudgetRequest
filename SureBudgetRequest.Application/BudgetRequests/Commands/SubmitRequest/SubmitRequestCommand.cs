@@ -17,6 +17,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ICurrencyRepository _currencyRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
 
@@ -24,12 +25,14 @@ public sealed class SubmitRequestCommandHandler
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
         IDepartmentRepository departmentRepository,
+        ICurrencyRepository currencyRepository,
         IUnitOfWork unitOfWork,
         INotificationService notificationService)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
+        _currencyRepository = currencyRepository;
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
     }
@@ -51,14 +54,22 @@ public sealed class SubmitRequestCommandHandler
         if (requester is null)
             return Result.Failure("Requester not found.");
 
-
         var department = await _departmentRepository.GetByIdAsync(
             requester.DepartmentId, cancellationToken);
         if (department is null)
             return Result.Failure("Requester's department not found.");
 
-        // Determine whether we need the Boss (R6, R7)
-        var isOverLimit = budgetRequest.RequestedAmount > department.BudgetLimit;
+        // Look up the current exchange rate for the draft's currency.
+        var currency = await _currencyRepository.GetByCodeAsync(
+            budgetRequest.CurrencyCode, cancellationToken);
+        if (currency is null)
+            return Result.Failure($"Currency '{budgetRequest.CurrencyCode}' not found.");
+        if (!currency.IsActive)
+            return Result.Failure($"Currency '{currency.Code}' is not active.");
+
+        // Determine whether we need the Boss (R6, R7) — comparison happens in MMK.
+        var amountInMmk = budgetRequest.RequestedAmount * currency.RateToMmk;
+        var isOverLimit = amountInMmk > department.BudgetLimit;
 
         Guid? bossId = null;
         string? bossName = null;
@@ -81,16 +92,16 @@ public sealed class SubmitRequestCommandHandler
 
         var previousStatus = budgetRequest.Status;
 
-        // Domain method: snapshots routing context and fast-forwards through auto-approvals (R9)
+        // Domain method: snapshots routing context + rate, fast-forwards through auto-approvals (R9)
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
+            currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,
             bossId,
             bossName,
-            requester.FullName
-            );
+            requester.FullName);
 
         if (result.IsFailure) return result;
 

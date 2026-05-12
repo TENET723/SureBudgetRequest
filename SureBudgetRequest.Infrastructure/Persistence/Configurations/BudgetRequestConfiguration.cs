@@ -25,9 +25,24 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.AllowsPartialPayment).IsRequired();
         builder.Property(r => r.PartialPaymentDetail).HasMaxLength(1000);
 
+        // ── Currency (draft-phase, editable while Draft/SentBack) ─────────────
+        builder.Property(r => r.CurrencyCode).IsRequired().HasMaxLength(10);
+        builder.HasIndex(r => r.CurrencyCode);
+        builder.HasOne<Currency>()
+               .WithMany()
+               .HasForeignKey(r => r.CurrencyCode)
+               .HasPrincipalKey(c => c.Code)
+               .OnDelete(DeleteBehavior.Restrict);
+
         // ── Submission snapshots ──────────────────────────────────────────────
         builder.Property(r => r.DepartmentIdAtSubmission).IsRequired();
         builder.Property(r => r.DepartmentLimitAtSubmission)
+               .IsRequired()
+               .HasColumnType("numeric(18,2)");
+        builder.Property(r => r.ExchangeRateAtSubmission)
+               .IsRequired()
+               .HasColumnType("numeric(18,6)");
+        builder.Property(r => r.RequestedAmountInMmkAtSubmission)
                .IsRequired()
                .HasColumnType("numeric(18,2)");
         builder.Property(r => r.DeptHeadIdAtSubmission).IsRequired();
@@ -38,8 +53,8 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
 
         // ── Workflow state ────────────────────────────────────────────────────
         builder.Property(r => r.Type)
-       .IsRequired()
-       .HasConversion<int>();
+               .IsRequired()
+               .HasConversion<int>();
         builder.Property(r => r.Status)
                .IsRequired()
                .HasConversion<int>();  // store as int, not PG enum (easier to evolve)

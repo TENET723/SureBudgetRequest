@@ -108,6 +108,7 @@ public partial class BudgetRequest
     public Result ResubmitAfterSendBack(
         Guid departmentId,
         decimal departmentLimit,
+        decimal exchangeRateToMmk,
         Guid deptHeadId,
         string deptHeadName,
         Guid? bossId,
@@ -118,7 +119,9 @@ public partial class BudgetRequest
             return Result.Failure("Only sent-back requests can be resubmitted.");
 
         // R13: restart the chain. Reuses Submit() — the auto-approval logic re-runs
-        // because amount/requester/limit may have changed during the fix.
-        return Submit(departmentId, departmentLimit, deptHeadId, deptHeadName, bossId, bossName, requesterName);
+        // because amount/requester/limit/rate may have changed during the fix.
+        return Submit(
+            departmentId, departmentLimit, exchangeRateToMmk,
+            deptHeadId, deptHeadName, bossId, bossName, requesterName);
     }
 }
