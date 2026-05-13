@@ -173,10 +173,6 @@
                                     <option value="@((int)r)">@r</option>
                                 }
                             </select>
-                            @if (_formRole == (int)UserRole.Boss)
-                            {
-                                <div class="form-text text-warning small">⚠ Only one Boss can exist company-wide.</div>
-                            }
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Slack User ID <span class="text-muted fw-normal">(optional)</span></label>
@@ -463,7 +459,7 @@
 
     private static string RoleBadge(UserRole r) => r switch
     {
-        UserRole.Boss => "bg-danger",
+        UserRole.Management => "bg-danger",
         UserRole.Admin => "bg-dark",
         UserRole.Finance => "bg-info text-dark",
         UserRole.DepartmentHead => "bg-warning text-dark",

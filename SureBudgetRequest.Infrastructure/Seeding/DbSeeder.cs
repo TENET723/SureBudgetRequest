@@ -90,14 +90,15 @@ public sealed class DbSeeder
         var admin = CreateUser("admin", "Mg Mg (Admin)", "admin@asure.local", adminDeptId, UserRole.Admin);
         var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.DepartmentHead);
         var deptHeadHr = CreateUser("ma_thida", "Ma Thida (HR Head)", "ma.thida@asure.local", hrDeptId, UserRole.DepartmentHead);
-        var boss = CreateUser("u_kyaw", "U Kyaw Zin (Boss)", "u.kyaw@asure.local", adminDeptId, UserRole.Boss);
+        var mgmt1 = CreateUser("u_kyaw", "U Kyaw Zin (Management)", "u.kyaw@asure.local", adminDeptId, UserRole.Management);
+        var mgmt2 = CreateUser("daw_mya", "Daw Mya Sein (Management)", "daw.mya@asure.local", adminDeptId, UserRole.Management);
         var finance = CreateUser("ko_aung", "Ko Aung Naing (Finance)", "ko.aung@asure.local", adminDeptId, UserRole.Finance);
         var employee = CreateUser("ma_aye", "Ma Aye Aye (Employee)", "ma.aye@asure.local", itDeptId, UserRole.Employee);
 
-        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, boss, finance, employee);
+        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, mgmt1, mgmt2, finance, employee);
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 6);
+        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 7);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

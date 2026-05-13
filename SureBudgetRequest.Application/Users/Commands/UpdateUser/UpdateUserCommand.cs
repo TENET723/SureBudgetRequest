@@ -49,14 +49,6 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
             return Result.Failure("A user with this email already exists.");
         }
 
-        // R5: if promoting to Boss, ensure no other Boss exists
-        if (command.Role == UserRole.Boss && user.Role != UserRole.Boss)
-        {
-            var existingBoss = await _userRepository.FindBossAsync(ct);
-            if (existingBoss is not null && existingBoss.Id != user.Id)
-                return Result.Failure("A Boss is already assigned.");
-        }
-
         user.Rename(command.FullName);
         user.ChangeDepartment(command.DepartmentId);
         user.ChangeRole(command.Role);

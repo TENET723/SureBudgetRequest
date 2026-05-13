@@ -30,6 +30,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.Email).IsUnique();
 
         builder.HasIndex(u => u.DepartmentId);
-        builder.HasIndex(u => u.Role); // for fast FindBossAsync
+        builder.HasIndex(u => u.Role); // for fast role-based lookups
     }
 }

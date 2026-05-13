@@ -48,9 +48,9 @@ public sealed class RejectRequestCommandHandler
 
         var roleCheck = budgetRequest.Status switch
         {
-            RequestStatus.PendingDeptHead => approver.Role == UserRole.DepartmentHead,
-            RequestStatus.PendingBoss     => approver.Role == UserRole.Boss,
-            RequestStatus.PendingFinance  => approver.Role == UserRole.Finance,
+            RequestStatus.PendingDeptHead   => approver.Role == UserRole.DepartmentHead,
+            RequestStatus.PendingManagement => approver.Role == UserRole.Management,
+            RequestStatus.PendingFinance    => approver.Role == UserRole.Finance,
             _ => false
         };
 

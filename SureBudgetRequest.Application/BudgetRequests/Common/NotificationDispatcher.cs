@@ -42,19 +42,18 @@ internal static class NotificationDispatcher
             return request.Status switch
             {
                 // Went straight to Finance (dept head self-submitted, under limit)
-                RequestStatus.PendingFinance when request.DeptHeadIdAtSubmission == request.RequesterId
-                    && request.BossIdAtSubmission is null =>
+                RequestStatus.PendingFinance when request.DeptHeadIdAtSubmission == request.RequesterId =>
                     new NotificationEvent(
                         NotificationTrigger.SubmittedToFinance,
                         request.Id, title, request.RequestedAmount,
-                        RecipientMustBeResolvedByInfrastructure_Finance()),
+                        RecipientResolvedByInfrastructure_Finance()),
 
-                // Went to Boss (dept head self-submitted, over limit)
-                RequestStatus.PendingBoss when request.DeptHeadIdAtSubmission == request.RequesterId =>
+                // Went to Management (dept head self-submitted, over limit)
+                RequestStatus.PendingManagement when request.DeptHeadIdAtSubmission == request.RequesterId =>
                     new NotificationEvent(
-                        NotificationTrigger.SubmittedToBoss,
+                        NotificationTrigger.SubmittedToManagement,
                         request.Id, title, request.RequestedAmount,
-                        request.BossIdAtSubmission!.Value),
+                        RecipientResolvedByInfrastructure_Management()),
 
                 // Normal submission → dept head
                 RequestStatus.PendingDeptHead =>
@@ -69,15 +68,15 @@ internal static class NotificationDispatcher
 
         // --- Dept Head approved ---
         if (previousStatus == RequestStatus.PendingDeptHead
-            && request.Status is RequestStatus.PendingBoss or RequestStatus.PendingFinance)
+            && request.Status is RequestStatus.PendingManagement or RequestStatus.PendingFinance)
         {
-            return request.Status == RequestStatus.PendingBoss
-                ? new NotificationEvent(NotificationTrigger.DeptHeadApprovedToBoss,
+            return request.Status == RequestStatus.PendingManagement
+                ? new NotificationEvent(NotificationTrigger.DeptHeadApprovedToManagement,
                     request.Id, title, request.RequestedAmount,
-                    request.BossIdAtSubmission!.Value)
+                    RecipientResolvedByInfrastructure_Management())
                 : new NotificationEvent(NotificationTrigger.DeptHeadApprovedToFinance,
                     request.Id, title, request.RequestedAmount,
-                    RecipientMustBeResolvedByInfrastructure_Finance());
+                    RecipientResolvedByInfrastructure_Finance());
         }
 
         // --- Dept Head rejected ---
@@ -89,20 +88,20 @@ internal static class NotificationDispatcher
                 request.RequesterId, comment);
         }
 
-        // --- Boss approved ---
-        if (previousStatus == RequestStatus.PendingBoss
+        // --- Management approved ---
+        if (previousStatus == RequestStatus.PendingManagement
             && request.Status == RequestStatus.PendingFinance)
         {
-            return new NotificationEvent(NotificationTrigger.BossApprovedToFinance,
+            return new NotificationEvent(NotificationTrigger.ManagementApprovedToFinance,
                 request.Id, title, request.RequestedAmount,
-                RecipientMustBeResolvedByInfrastructure_Finance());
+                RecipientResolvedByInfrastructure_Finance());
         }
 
-        // --- Boss rejected ---
-        if (previousStatus == RequestStatus.PendingBoss
+        // --- Management rejected ---
+        if (previousStatus == RequestStatus.PendingManagement
             && request.Status == RequestStatus.Rejected)
         {
-            return new NotificationEvent(NotificationTrigger.BossRejectedToRequester,
+            return new NotificationEvent(NotificationTrigger.ManagementRejectedToRequester,
                 request.Id, title, request.RequestedAmount,
                 request.RequesterId, comment);
         }
@@ -142,5 +141,12 @@ internal static class NotificationDispatcher
     /// We use Guid.Empty as a sentinel; the Infrastructure Slack service resolves
     /// this to the Finance channel/group.
     /// </summary>
-    private static Guid RecipientMustBeResolvedByInfrastructure_Finance() => Guid.Empty;
+    private static Guid RecipientResolvedByInfrastructure_Finance() => Guid.Empty;
+
+    /// <summary>
+    /// Management notifications likewise have no fixed recipient — any Management
+    /// member can approve. Same sentinel pattern as Finance; Infrastructure layer
+    /// resolves it to the Management channel/group.
+    /// </summary>
+    private static Guid RecipientResolvedByInfrastructure_Management() => Guid.Empty;
 }

@@ -96,8 +96,11 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
-    // Submit moves Draft/SentBack -> PendingDeptHead, fast-forwarding through any
-    // stages where the requester is the assigned approver (R9 auto-approval rule).
+    // Submit moves Draft/SentBack -> PendingDeptHead, fast-forwarding through the
+    // DeptHead stage if the requester is the dept head (R9 auto-approval rule).
+    // The Management stage (when over limit) does NOT auto-approve — even a Management
+    // member's own over-limit request requires peer review by another Management member.
+    // This mirrors how Finance works.
     // The MMK-equivalent of the requested amount is compared against the department limit.
     public Result Submit(
         Guid departmentId,
@@ -105,8 +108,6 @@ public partial class BudgetRequest
         decimal exchangeRateToMmk,           // current rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
-        Guid? bossId,                        // null if amount (in MMK) <= limit
-        string? bossName,                    // null if amount (in MMK) <= limit
         string requesterName)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
@@ -123,13 +124,6 @@ public partial class BudgetRequest
         var amountInMmk = RequestedAmount * exchangeRateToMmk;
         var isOverLimit = amountInMmk > departmentLimit;
 
-        if (isOverLimit && bossId is null)
-            return Result.Failure("Boss must be provided for over-limit requests.");
-        if (!isOverLimit && bossId is not null)
-            return Result.Failure("Boss must not be provided for under-limit requests.");
-        if (isOverLimit && string.IsNullOrWhiteSpace(bossName))
-            return Result.Failure("Boss name is required for over-limit requests.");
-
         // Snapshot the routing context (R7, R12)
         DepartmentIdAtSubmission = departmentId;
         DepartmentLimitAtSubmission = departmentLimit;
@@ -137,12 +131,10 @@ public partial class BudgetRequest
         RequestedAmountInMmkAtSubmission = amountInMmk;
         DeptHeadIdAtSubmission = deptHeadId;
         DeptHeadNameAtSubmission = deptHeadName;
-        BossIdAtSubmission = bossId;
-        BossNameAtSubmission = bossName;
         RequesterNameAtSubmission = requesterName;
         SubmittedAt = DateTime.UtcNow;
 
-        // Fast-forward through stages where requester == approver (R9)
+        // Fast-forward through DeptHead if requester == dept head (R9)
         var now = DateTime.UtcNow;
 
         // Stage 1: DeptHead
@@ -158,24 +150,15 @@ public partial class BudgetRequest
             return Result.Success();
         }
 
-        // Stage 2: Boss (only if over limit)
-        if (bossId is not null)
+        // Stage 2: Management (only if over limit) — never auto-approves.
+        // Any Management member can approve; identity is checked by role in Application.
+        if (isOverLimit)
         {
-            if (bossId == RequesterId)
-            {
-                _approvalActions.Add(new ApprovalAction(
-                    Id, ApprovalStage.Boss, ApprovalDecision.AutoApproved,
-                    RequesterId, comment: null, actionedAt: now));
-            }
-            else
-            {
-                Status = RequestStatus.PendingBoss;
-                return Result.Success();
-            }
+            Status = RequestStatus.PendingManagement;
+            return Result.Success();
         }
 
-        // Stage 3: Finance — Finance never auto-approves.
-        // Even if a Finance member submits, another Finance member must approve.
+        // Stage 3: Finance — never auto-approves either.
         Status = RequestStatus.PendingFinance;
         return Result.Success();
     }

@@ -4,7 +4,7 @@ public enum RequestStatus
 {
     Draft = 0,
     PendingDeptHead = 1,
-    PendingBoss = 2,
+    PendingManagement = 2,
     PendingFinance = 3,
     SentBack = 4,
     Approved = 5,

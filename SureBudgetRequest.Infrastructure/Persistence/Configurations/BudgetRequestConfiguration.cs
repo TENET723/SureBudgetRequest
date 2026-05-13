@@ -47,8 +47,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .HasColumnType("numeric(18,2)");
         builder.Property(r => r.DeptHeadIdAtSubmission).IsRequired();
         builder.Property(r => r.DeptHeadNameAtSubmission).IsRequired().HasMaxLength(200);
-        builder.Property(r => r.BossIdAtSubmission);        // nullable
-        builder.Property(r => r.BossNameAtSubmission).HasMaxLength(200);
         builder.Property(r => r.RequesterNameAtSubmission).IsRequired().HasMaxLength(200);
 
         // ── Workflow state ────────────────────────────────────────────────────

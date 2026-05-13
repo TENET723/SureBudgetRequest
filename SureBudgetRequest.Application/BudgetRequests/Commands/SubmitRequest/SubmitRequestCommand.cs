@@ -67,20 +67,9 @@ public sealed class SubmitRequestCommandHandler
         if (!currency.IsActive)
             return Result.Failure($"Currency '{currency.Code}' is not active.");
 
-        // Determine whether we need the Boss (R6, R7) — comparison happens in MMK.
-        var amountInMmk = budgetRequest.RequestedAmount * currency.RateToMmk;
-        var isOverLimit = amountInMmk > department.BudgetLimit;
-
-        Guid? bossId = null;
-        string? bossName = null;
-        if (isOverLimit)
-        {
-            var boss = await _userRepository.FindBossAsync(cancellationToken);
-            if (boss is null)
-                return Result.Failure("No Boss is assigned in the system. Cannot submit over-limit request.");
-            bossId = boss.Id;
-            bossName = boss.FullName;
-        }
+        // Determine whether we need Management approval (R6, R7) — comparison happens in MMK.
+        // The Management stage is gated by amount only; ANY Management member can approve
+        // (no per-request snapshot of "the" approver).
 
         // A department may exist without a head (vacancy/bootstrap). Block submit until one is assigned.
         if (department.HeadUserId is null)
@@ -92,15 +81,13 @@ public sealed class SubmitRequestCommandHandler
 
         var previousStatus = budgetRequest.Status;
 
-        // Domain method: snapshots routing context + rate, fast-forwards through auto-approvals (R9)
+        // Domain method: snapshots routing context + rate, fast-forwards through DeptHead auto-approval (R9)
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
             currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,
-            bossId,
-            bossName,
             requester.FullName);
 
         if (result.IsFailure) return result;

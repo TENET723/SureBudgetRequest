@@ -82,7 +82,7 @@
         var statusFilter = CurrentUser.Role switch
         {
             UserRole.DepartmentHead => RequestStatus.PendingDeptHead,
-            UserRole.Boss           => RequestStatus.PendingBoss,
+            UserRole.Management     => RequestStatus.PendingManagement,
             UserRole.Finance        => RequestStatus.PendingFinance,
             _                       => (RequestStatus?)null
         };
@@ -114,7 +114,7 @@
     private string InboxDescription() => CurrentUser.Role switch
     {
         UserRole.DepartmentHead => "Requests from your department awaiting your approval.",
-        UserRole.Boss           => "Over-limit requests awaiting your approval.",
+        UserRole.Management     => "Over-limit requests awaiting Management Team approval.",
         UserRole.Finance        => "Requests awaiting finance processing.",
         UserRole.Admin          => "All pending requests.",
         _                       => ""
@@ -125,15 +125,15 @@
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
-        RequestStatus.PendingDeptHead => "Pending Head",
-        RequestStatus.PendingBoss     => "Pending Boss",
-        RequestStatus.PendingFinance  => "Pending Finance",
+        RequestStatus.PendingDeptHead   => "Pending Head",
+        RequestStatus.PendingManagement => "Pending Management",
+        RequestStatus.PendingFinance    => "Pending Finance",
         _ => s.ToString()
     };
 
     private static string StatusBadge(RequestStatus s) => s switch
     {
-        RequestStatus.PendingDeptHead or RequestStatus.PendingBoss or RequestStatus.PendingFinance => "bg-warning text-dark",
+        RequestStatus.PendingDeptHead or RequestStatus.PendingManagement or RequestStatus.PendingFinance => "bg-warning text-dark",
         _ => "bg-secondary"
     };
 }

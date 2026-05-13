@@ -22,16 +22,16 @@ public enum NotificationTrigger
     // Submission outcomes
     SubmittedToDeptHead,
     SubmittedToFinance,          // dept head submitted, under limit
-    SubmittedToBoss,             // dept head submitted, over limit
+    SubmittedToManagement,       // dept head submitted, over limit
 
     // Dept Head stage
-    DeptHeadApprovedToBoss,
+    DeptHeadApprovedToManagement,
     DeptHeadApprovedToFinance,
     DeptHeadRejectedToRequester,
 
-    // Boss stage
-    BossApprovedToFinance,
-    BossRejectedToRequester,
+    // Management stage
+    ManagementApprovedToFinance,
+    ManagementRejectedToRequester,
 
     // Finance stage
     FinanceApprovedToRequester,

@@ -35,8 +35,6 @@ public partial class BudgetRequest
     public decimal RequestedAmountInMmkAtSubmission { get; private set; }           // RequestedAmount * rate, cached for queries
     public Guid DeptHeadIdAtSubmission { get; private set; }
     public string DeptHeadNameAtSubmission { get; private set; } = null!;
-    public Guid? BossIdAtSubmission { get; private set; }           // null if amount (in MMK) <= limit
-    public string? BossNameAtSubmission { get; private set; }       // null if amount (in MMK) <= limit
     public string RequesterNameAtSubmission { get; private set; } = null!;
 
     // === Workflow state ===

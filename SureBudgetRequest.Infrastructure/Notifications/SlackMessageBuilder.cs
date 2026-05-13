@@ -65,13 +65,13 @@ internal static class SlackMessageBuilder
                 ("📋", "New budget request awaiting Finance approval",
                  "A Department Head submitted their own request (under limit) — it goes directly to Finance."),
 
-            NotificationTrigger.SubmittedToBoss =>
-                ("📋", "New over-limit request awaiting your approval",
-                 "A Department Head submitted an over-limit request. Boss approval is required."),
+            NotificationTrigger.SubmittedToManagement =>
+                ("📋", "New over-limit request awaiting Management approval",
+                 "A Department Head submitted an over-limit request. Management Team approval is required."),
 
-            NotificationTrigger.DeptHeadApprovedToBoss =>
-                ("✅", "Department Head approved — Boss approval needed",
-                 "The request was approved by the Department Head and now awaits Boss approval."),
+            NotificationTrigger.DeptHeadApprovedToManagement =>
+                ("✅", "Department Head approved — Management approval needed",
+                 "The request was approved by the Department Head and now awaits Management Team approval."),
 
             NotificationTrigger.DeptHeadApprovedToFinance =>
                 ("✅", "Department Head approved — Finance action needed",
@@ -81,13 +81,13 @@ internal static class SlackMessageBuilder
                 ("❌", "Your budget request was rejected",
                  "The Department Head has rejected your request."),
 
-            NotificationTrigger.BossApprovedToFinance =>
-                ("✅", "Boss approved — Finance action needed",
-                 "The over-limit request was approved by the Boss and is now with Finance."),
+            NotificationTrigger.ManagementApprovedToFinance =>
+                ("✅", "Management approved — Finance action needed",
+                 "The over-limit request was approved by the Management Team and is now with Finance."),
 
-            NotificationTrigger.BossRejectedToRequester =>
+            NotificationTrigger.ManagementRejectedToRequester =>
                 ("❌", "Your budget request was rejected",
-                 "The Boss has rejected your request."),
+                 "The Management Team has rejected your request."),
 
             NotificationTrigger.FinanceApprovedToRequester =>
                 ("🎉", "Your budget request was approved!",

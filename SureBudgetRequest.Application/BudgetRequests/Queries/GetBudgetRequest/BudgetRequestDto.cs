@@ -28,7 +28,6 @@ public sealed record BudgetRequestDto(
     decimal ExchangeRateAtSubmission,
     decimal RequestedAmountInMmkAtSubmission,
     Guid DeptHeadIdAtSubmission,
-    Guid? BossIdAtSubmission,
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
@@ -58,7 +57,6 @@ public sealed record BudgetRequestDto(
         e.ExchangeRateAtSubmission,
         e.RequestedAmountInMmkAtSubmission,
         e.DeptHeadIdAtSubmission,
-        e.BossIdAtSubmission,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList());

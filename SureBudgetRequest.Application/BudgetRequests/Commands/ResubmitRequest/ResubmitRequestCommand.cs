@@ -73,20 +73,6 @@ public sealed class ResubmitRequestCommandHandler
         if (!currency.IsActive)
             return Result.Failure($"Currency '{currency.Code}' is not active.");
 
-        var amountInMmk = budgetRequest.RequestedAmount * currency.RateToMmk;
-        var isOverLimit = amountInMmk > department.BudgetLimit;
-
-        Guid? bossId = null;
-        string? bossName = null;
-        if (isOverLimit)
-        {
-            var boss = await _userRepository.FindBossAsync(cancellationToken);
-            if (boss is null)
-                return Result.Failure("No Boss is assigned. Cannot resubmit over-limit request.");
-            bossId = boss.Id;
-            bossName = boss.FullName;
-        }
-
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
@@ -94,8 +80,6 @@ public sealed class ResubmitRequestCommandHandler
             currency.RateToMmk,
             deptHead.Id,
             deptHead.FullName,
-            bossId,
-            bossName,
             requester.FullName);
 
         if (result.IsFailure) return result;

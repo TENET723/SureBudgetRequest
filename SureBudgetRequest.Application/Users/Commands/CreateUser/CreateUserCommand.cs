@@ -54,15 +54,6 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
         if (dept is null)
             return Result.Failure<Guid>("Department not found.");
 
-        // R5: enforce single Boss
-        if (command.Role == UserRole.Boss)
-        {
-            var existingBoss = await _userRepository.FindBossAsync(ct);
-            if (existingBoss is not null)
-                return Result.Failure<Guid>(
-                    "A Boss is already assigned. Change the existing Boss role before assigning a new one.");
-        }
-
         User user;
         try
         {

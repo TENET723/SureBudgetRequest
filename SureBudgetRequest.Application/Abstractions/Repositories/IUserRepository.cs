@@ -14,9 +14,6 @@ public interface IUserRepository
     /// <summary>True if a user with the given email already exists (case-insensitive).</summary>
     Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default);
 
-    /// <summary>Returns the single company-wide Boss, or null if none is assigned.</summary>
-    Task<User?> FindBossAsync(CancellationToken cancellationToken = default);
-
     Task<IReadOnlyList<User>> ListAsync(
         Guid? departmentId = null,
         UserRole? role = null,

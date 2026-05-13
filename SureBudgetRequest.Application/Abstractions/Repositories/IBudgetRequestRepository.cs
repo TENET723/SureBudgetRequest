@@ -11,7 +11,7 @@ public interface IBudgetRequestRepository
     /// Returns requests visible to the given user based on their role:
     /// - Employee: only their own requests.
     /// - DeptHead: requests from their department.
-    /// - Boss: all over-limit requests.
+    /// - Management: all over-limit requests at PendingManagement.
     /// - Finance: all requests at PendingFinance or beyond.
     /// - Admin: all requests.
     /// </summary>

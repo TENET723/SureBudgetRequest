@@ -30,11 +30,6 @@ public sealed class UserRepository : IUserRepository
             .AnyAsync(u => u.Email == normalized, cancellationToken);
     }
 
-    public async Task<User?> FindBossAsync(CancellationToken cancellationToken = default)
-        => await _context.Users
-            .Where(u => u.Role == UserRole.Boss && u.IsActive)
-            .SingleOrDefaultAsync(cancellationToken);
-
     public async Task<IReadOnlyList<User>> ListAsync(
         Guid? departmentId = null,
         UserRole? role = null,
