@@ -134,6 +134,13 @@ public partial class BudgetRequest
         RequesterNameAtSubmission = requesterName;
         SubmittedAt = DateTime.UtcNow;
 
+        // Generate the human-friendly reference number.
+        // Only set on first submission — resubmission after SendBack keeps the same Reference.
+        if (Reference is null)
+        {
+            Reference = GenerateReference(Type, SubmittedAt.Value);
+        }
+
         // Fast-forward through DeptHead if requester == dept head (R9)
         var now = DateTime.UtcNow;
 
@@ -193,5 +200,23 @@ public partial class BudgetRequest
 
         _attachments.Add(new Attachment(Id, fileName, storedPath, contentType, sizeBytes, uploadedByUserId));
         return Result.Success();
+    }
+
+    // === Reference generation ===
+    // Format: BR-{TypeCode}-{yyyyMMdd}-{random4}  e.g. "BR-U-20260513-4521"
+    // 4-digit random keeps collision rate negligible at internal-app volume.
+    // A DB unique index + retry at the command-handler level should be added for safety.
+    private static string GenerateReference(BudgetRequestType type, DateTime submittedAtUtc)
+    {
+        var typeCode = type switch
+        {
+            BudgetRequestType.Urgent           => "U",
+            BudgetRequestType.Standard         => "S",
+            BudgetRequestType.ProjectProposal  => "P",
+            _ => "X"
+        };
+        var datePart = submittedAtUtc.ToString("yyyyMMdd");
+        var rand = Random.Shared.Next(1000, 10000); // 1000-9999 inclusive
+        return $"BR-{typeCode}-{datePart}-{rand}";
     }
 }

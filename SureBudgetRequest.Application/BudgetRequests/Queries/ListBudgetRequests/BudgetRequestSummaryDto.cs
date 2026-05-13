@@ -5,6 +5,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequest
 
 public sealed record BudgetRequestSummaryDto(
     Guid Id,
+    string? Reference,
     Guid RequesterId,
     DateTime RequestDate,
     BudgetRequestType Type,
@@ -23,6 +24,7 @@ public sealed record BudgetRequestSummaryDto(
 
     public static BudgetRequestSummaryDto FromEntity(BudgetRequest e) => new(
         e.Id,
+        e.Reference,
         e.RequesterId,
         e.RequestDate,
         e.Type,

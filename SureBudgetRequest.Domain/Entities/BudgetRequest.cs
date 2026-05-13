@@ -13,6 +13,12 @@ public partial class BudgetRequest
     // === Identity ===
     public Guid Id { get; private set; }
 
+    // Human-friendly reference number, generated at submission time.
+    // Format: BR-{TypeCode}-{yyyyMMdd}-{4digit-random}  e.g. "BR-U-20260513-4521"
+    //   TypeCode: U = Urgent, S = Standard, P = ProjectProposal
+    // Null while the request is in Draft. Stable from Submit() onwards.
+    public string? Reference { get; private set; }
+
     // === Requester input (filled at submission, editable in Draft/SentBack) ===
     public Guid RequesterId { get; private set; }
     public DateTime RequestDate { get; private set; }
