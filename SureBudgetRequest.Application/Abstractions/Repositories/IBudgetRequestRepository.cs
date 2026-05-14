@@ -23,4 +23,11 @@ public interface IBudgetRequestRepository
         CancellationToken cancellationToken = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches a single attachment by its own Id, without loading the parent aggregate.
+    /// Used by the download endpoint, which only knows the attachment Id.
+    /// Returns null if no such attachment exists.
+    /// </summary>
+    Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken cancellationToken = default);
 }

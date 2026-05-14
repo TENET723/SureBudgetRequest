@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Security;
@@ -55,8 +56,47 @@ public static class DependencyInjection
         services.AddHostedService<NotificationOutboxProcessor>();
 
         // ── File Storage ──────────────────────────────────────────────────────
+        // Provider is selected by the "Storage:Provider" config value.
+        //   "Supabase" (default) → SupabaseFileStorage
+        //   "Local"              → LocalFileStorage  (dev fallback)
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
-        services.AddScoped<IFileStorage, LocalFileStorage>();
+        services.Configure<SupabaseStorageOptions>(configuration.GetSection(SupabaseStorageOptions.SectionName));
+
+        var storageProvider = configuration.GetValue<string>("Storage:Provider") ?? "Supabase";
+
+        if (string.Equals(storageProvider, "Local", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IFileStorage, LocalFileStorage>();
+        }
+        else
+        {
+            // Supabase storage talks REST. Use a named HttpClient with the project URL
+            // as BaseAddress and the service-role key as a bearer token on every call.
+            services.AddHttpClient("SupabaseStorage", (sp, client) =>
+            {
+                var opts = sp.GetRequiredService<IOptions<SupabaseStorageOptions>>().Value;
+                if (string.IsNullOrWhiteSpace(opts.Url))
+                    throw new InvalidOperationException(
+                        "Supabase:Url is missing. Add the 'Supabase' section to appsettings.json.");
+                if (string.IsNullOrWhiteSpace(opts.ServiceRoleKey))
+                    throw new InvalidOperationException(
+                        "Supabase:ServiceRoleKey is missing. Add the 'Supabase' section to appsettings.json.");
+
+                client.BaseAddress = new Uri(opts.Url.TrimEnd('/') + "/");
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", opts.ServiceRoleKey);
+                // Supabase also looks at the apikey header for some calls.
+                client.DefaultRequestHeaders.Add("apikey", opts.ServiceRoleKey);
+            });
+
+            services.AddScoped<IFileStorage>(sp =>
+            {
+                var factory = sp.GetRequiredService<IHttpClientFactory>();
+                var http = factory.CreateClient("SupabaseStorage");
+                var opts = sp.GetRequiredService<IOptions<SupabaseStorageOptions>>();
+                return new SupabaseFileStorage(http, opts);
+            });
+        }
 
         // ── Seeder (registered so Program.cs can resolve and call it) ─────────
         services.AddScoped<DbSeeder>();

@@ -3,17 +3,26 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using SureBudgetRequest.Application;
 using SureBudgetRequest.Application.Abstractions;
+using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Infrastructure;
 using SureBudgetRequest.Infrastructure.Persistence;
 using SureBudgetRequest.Infrastructure.Seeding;
 using SureBudgetRequest.Web.Components;
+using SureBudgetRequest.Web.Endpoints;
 using SureBudgetRequest.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    // Bump the SignalR max message size so the Blazor InputFile component can stream
+    // attachments up the SignalR circuit. Default is 32KB which trips file uploads.
+    // We size it to match our per-file cap with a small buffer.
+    .AddHubOptions(o =>
+    {
+        o.MaximumReceiveMessageSize = AttachmentConstraints.MaxBytes + 64 * 1024;
+    });
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -75,7 +84,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles(); // Or app.MapStaticAssets() for .NET 9+
 
 app.UseRouting(); // 1. Add this explicitly before Antiforgery/Auth
-        
+
 app.UseAuthentication(); // 2. Move Authentication BEFORE Antiforgery
 app.UseAntiforgery();    // 3. Antiforgery now has access to the User identity
 app.UseAuthorization();
@@ -86,6 +95,9 @@ app.UseAuthorization();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .RequireAuthorization();
+
+// Attachment HTTP endpoints (download).
+app.MapAttachmentEndpoints();
 
 // Logout endpoint. Form-posted from MainLayout with an antiforgery token.
 app.MapPost("/logout", async (HttpContext ctx) =>

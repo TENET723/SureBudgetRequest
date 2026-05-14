@@ -1,0 +1,213 @@
+@using MediatR
+@using Microsoft.AspNetCore.Components.Forms
+@using SureBudgetRequest.Application.Abstractions
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Common
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
+
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+
+@*
+    Reusable list of attachments + uploader.
+    -- Editable: shows the InputFile + Remove buttons. Caller passes true only on
+       NewRequest/EditRequest pages, and only when the request is in Draft/SentBack.
+    -- Read-only: shows only the list with download links.
+    The component calls OnChanged after a successful upload or remove so the
+    parent can refetch the latest attachment list.
+*@
+
+<div class="attachment-list">
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-2 small mb-2">@_error</div>
+    }
+
+    @if (Attachments.Count == 0)
+    {
+        <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
+    }
+    else
+    {
+        <ul class="list-group list-group-flush mb-2">
+            @foreach (var att in Attachments)
+            {
+                <li class="list-group-item d-flex align-items-center px-0 py-2">
+                    <a href="@($"/api/attachments/{att.Id}")"
+                       target="_blank"
+                       rel="noopener"
+                       class="text-decoration-none flex-grow-1 text-truncate">
+                        <span class="me-2">@FileIcon(att.ContentType)</span>
+                        <span>@att.FileName</span>
+                    </a>
+                    <span class="text-muted small me-3">@FormatSize(att.SizeBytes)</span>
+                    @if (Editable)
+                    {
+                        <button type="button"
+                                class="btn btn-sm btn-link text-danger p-0"
+                                disabled="@_busy"
+                                @onclick="() => OnRemoveClick(att.Id)"
+                                title="Remove">
+                            ✕
+                        </button>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (Editable)
+    {
+        @if (Attachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+        {
+            <div class="text-muted small">
+                Maximum @AttachmentConstraints.MaxFilesPerRequest files reached.
+            </div>
+        }
+        else
+        {
+            <div class="d-flex align-items-center gap-2">
+                <InputFile OnChange="OnFileSelected"
+                           disabled="@_busy"
+                           multiple
+                           class="form-control form-control-sm" />
+                @if (_busy)
+                {
+                    <span class="text-muted small">Uploading…</span>
+                }
+            </div>
+            <div class="form-text small mt-1">
+                Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file.
+                PDF, images, Word, Excel, plain text and CSV.
+            </div>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>The request these attachments belong to.</summary>
+    [Parameter, EditorRequired] public Guid BudgetRequestId { get; set; }
+
+    /// <summary>Current list of attachments to render. Parent owns the list.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<AttachmentDto> Attachments { get; set; } = Array.Empty<AttachmentDto>();
+
+    /// <summary>True iff the request is in Draft or SentBack AND the viewer is the requester.</summary>
+    [Parameter] public bool Editable { get; set; }
+
+    /// <summary>Fired after a successful upload or remove so the parent can refetch.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private bool _busy;
+    private string? _error;
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _error = null;
+
+        // Filter against client-side constraints up front so we don't even open
+        // a stream we know we'll reject. Server still re-validates everything.
+        var files = e.GetMultipleFiles(maximumFileCount: AttachmentConstraints.MaxFilesPerRequest).ToList();
+
+        foreach (var file in files)
+        {
+            if (Attachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+            {
+                _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
+                break;
+            }
+
+            if (file.Size > AttachmentConstraints.MaxBytes)
+            {
+                _error = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                continue;
+            }
+
+            if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
+            {
+                _error = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
+                continue;
+            }
+
+            _busy = true;
+            StateHasChanged();
+
+            try
+            {
+                await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
+
+                var cmd = new UploadAttachmentCommand(
+                    BudgetRequestId,
+                    CurrentUser.UserId,
+                    file.Name,
+                    file.ContentType,
+                    file.Size,
+                    stream);
+
+                var result = await Mediator.Send(cmd);
+                if (result.IsFailure)
+                {
+                    _error = result.Error;
+                }
+                else
+                {
+                    await OnChanged.InvokeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _error = $"Upload failed: {ex.Message}";
+            }
+            finally
+            {
+                _busy = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task OnRemoveClick(Guid attachmentId)
+    {
+        _error = null;
+        _busy = true;
+        try
+        {
+            var cmd = new RemoveAttachmentCommand(BudgetRequestId, attachmentId, CurrentUser.UserId);
+            var result = await Mediator.Send(cmd);
+            if (result.IsFailure)
+            {
+                _error = result.Error;
+            }
+            else
+            {
+                await OnChanged.InvokeAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Remove failed: {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string FileIcon(string contentType) => contentType switch
+    {
+        "application/pdf" => "📄",
+        var ct when ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase) => "🖼️",
+        "application/msword" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => "📝",
+        "application/vnd.ms-excel" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "📊",
+        "text/plain" or "text/csv" => "📃",
+        _ => "📎",
+    };
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
+}

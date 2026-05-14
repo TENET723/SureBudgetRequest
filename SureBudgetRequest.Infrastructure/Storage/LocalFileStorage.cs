@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using SureBudgetRequest.Application.Abstractions.Services;
 
 namespace SureBudgetRequest.Infrastructure.Storage;
 
@@ -6,8 +7,15 @@ namespace SureBudgetRequest.Infrastructure.Storage;
 /// Stores attachments on the local filesystem under
 /// <c>{AttachmentsRoot}/{requestId}/{guid}_{originalFileName}</c>.
 ///
-/// v2 replacement: swap this for a SupabaseFileStorage implementation
-/// without touching any other code.
+/// <para>
+/// Stored paths are RELATIVE — e.g. <c>"{requestId}/{guid}_{fileName}"</c> — to
+/// match the contract documented on <see cref="IFileStorage"/>. The root prefix
+/// is prepended internally when reading/deleting. This keeps stored paths
+/// portable across providers (Supabase, local, future S3, etc.).
+/// </para>
+///
+/// Use this provider by setting <c>Storage:Provider</c> to <c>"Local"</c>.
+/// Default is Supabase.
 /// </summary>
 public sealed class LocalFileStorage : IFileStorage
 {
@@ -27,13 +35,16 @@ public sealed class LocalFileStorage : IFileStorage
         var safeFileName = SanitizeFileName(originalFileName);
         var uniqueName = $"{Guid.NewGuid():N}_{safeFileName}";
 
-        var directory = Path.Combine(_rootPath, budgetRequestId.ToString());
-        Directory.CreateDirectory(directory);
+        // Relative path is what we return + store in DB.
+        var relativePath = $"{budgetRequestId}/{uniqueName}";
 
-        var storedPath = Path.Combine(directory, uniqueName);
+        var absoluteDir = Path.Combine(_rootPath, budgetRequestId.ToString());
+        Directory.CreateDirectory(absoluteDir);
+
+        var absolutePath = Path.Combine(_rootPath, relativePath);
 
         await using var fileStream = new FileStream(
-            storedPath,
+            absolutePath,
             FileMode.Create,
             FileAccess.Write,
             FileShare.None,
@@ -41,16 +52,18 @@ public sealed class LocalFileStorage : IFileStorage
             useAsync: true);
 
         await content.CopyToAsync(fileStream, cancellationToken);
-        return storedPath;
+        return relativePath;
     }
 
     public Task<Stream> ReadAsync(string storedPath, CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(storedPath))
-            throw new FileNotFoundException("Attachment file not found.", storedPath);
+        var absolutePath = Path.Combine(_rootPath, storedPath);
+
+        if (!File.Exists(absolutePath))
+            throw new FileNotFoundException("Attachment file not found.", absolutePath);
 
         Stream stream = new FileStream(
-            storedPath,
+            absolutePath,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
@@ -62,8 +75,9 @@ public sealed class LocalFileStorage : IFileStorage
 
     public Task DeleteAsync(string storedPath, CancellationToken cancellationToken = default)
     {
-        if (File.Exists(storedPath))
-            File.Delete(storedPath);
+        var absolutePath = Path.Combine(_rootPath, storedPath);
+        if (File.Exists(absolutePath))
+            File.Delete(absolutePath);
 
         return Task.CompletedTask;
     }

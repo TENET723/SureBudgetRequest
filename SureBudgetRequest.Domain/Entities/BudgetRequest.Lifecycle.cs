@@ -5,6 +5,10 @@ namespace SureBudgetRequest.Domain.Entities;
 
 public partial class BudgetRequest
 {
+    // Hard cap on attachments per request. Enforced as an aggregate invariant so
+    // it can't be bypassed by skipping the Application validator.
+    private const int MaxAttachmentsPerRequest = 10;
+
     // Factory: creates a Draft. Snapshots the dept head at draft time so the
     // request shows its routing target before submission; Submit() will re-snapshot
     // along with department/limit/boss/rate. Limits, boss, and rate are still Submit-time only.
@@ -183,6 +187,13 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
+    /// <summary>
+    /// Adds an attachment to the request. Only allowed while the request is editable
+    /// (Draft or SentBack) and only by the requester. The Application layer must check
+    /// the second condition (we don't take a byUserId here to keep the method symmetric
+    /// with the rest of the lifecycle, but see <see cref="RemoveAttachment"/> which does
+    /// the requester check).
+    /// </summary>
     public Result AddAttachment(
         string fileName,
         string storedPath,
@@ -190,16 +201,46 @@ public partial class BudgetRequest
         long sizeBytes,
         Guid uploadedByUserId)
     {
-        if (IsTerminal)
-            return Result.Failure($"Cannot add attachments to a request in status '{Status}'.");
+        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
+            return Result.Failure($"Attachments can only be added while the request is in Draft or SentBack (current: '{Status}').");
+
+        if (uploadedByUserId != RequesterId)
+            return Result.Failure("Only the requester can add attachments to their request.");
 
         if (string.IsNullOrWhiteSpace(fileName))
             return Result.Failure("File name is required.");
+        if (string.IsNullOrWhiteSpace(storedPath))
+            return Result.Failure("Stored path is required.");
         if (sizeBytes <= 0)
             return Result.Failure("File size must be greater than zero.");
 
+        if (_attachments.Count >= MaxAttachmentsPerRequest)
+            return Result.Failure($"Cannot add more than {MaxAttachmentsPerRequest} attachments to a request.");
+
         _attachments.Add(new Attachment(Id, fileName, storedPath, contentType, sizeBytes, uploadedByUserId));
         return Result.Success();
+    }
+
+    /// <summary>
+    /// Removes an attachment. Only the requester can remove, and only while the
+    /// request is in Draft or SentBack. Returns the <c>StoredPath</c> of the removed
+    /// attachment so the caller can delete it from physical storage.
+    /// </summary>
+    public Result<string> RemoveAttachment(Guid attachmentId, Guid byUserId)
+    {
+        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
+            return Result<string>.Failure($"Attachments can only be removed while the request is in Draft or SentBack (current: '{Status}').");
+
+        if (byUserId != RequesterId)
+            return Result<string>.Failure("Only the requester can remove attachments from their request.");
+
+        var attachment = _attachments.FirstOrDefault(a => a.Id == attachmentId);
+        if (attachment is null)
+            return Result<string>.Failure("Attachment not found on this request.");
+
+        var storedPath = attachment.StoredPath;
+        _attachments.Remove(attachment);
+        return Result<string>.Success(storedPath);
     }
 
     // === Reference generation ===

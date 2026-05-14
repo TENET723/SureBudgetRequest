@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Edit Request</PageTitle>
 
@@ -109,7 +110,13 @@
                     <label class="form-label small fw-semibold">Reason / Purpose</label>
                     <textarea class="form-control form-control-sm" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
                 </div>
-
+                <div class="mb-3">
+    <label class="form-label small fw-semibold">Attachments</label>
+    <AttachmentList BudgetRequestId="_request.Id"
+                    Attachments="_request.Attachments"
+                    Editable="true"
+                    OnChanged="ReloadAsync" />
+</div>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Department Head (approver)</label>
                     <input class="form-control form-control-sm" value="@_deptHeadName" disabled />
@@ -248,6 +255,12 @@
     }
 
     private void OnAmountChanged() { }
+
+    private async Task ReloadAsync()
+    {
+        var result = await Mediator.Send(new GetBudgetRequestQuery(Id));
+        if (result.IsSuccess) { _request = result.Value; StateHasChanged(); }
+    }
 
     private async Task Save(bool submit)
     {

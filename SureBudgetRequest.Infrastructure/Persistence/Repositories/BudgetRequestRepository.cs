@@ -54,4 +54,12 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
 
     public async Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default)
         => await _context.BudgetRequests.AddAsync(budgetRequest, cancellationToken);
+
+    public async Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken cancellationToken = default)
+    {
+        // AsNoTracking — this is read-only for download, no mutation.
+        return await _context.Attachments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
+    }
 }
