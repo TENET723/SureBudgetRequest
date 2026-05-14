@@ -11,9 +11,10 @@
 
 @*
     Reusable list of attachments + uploader.
-    -- Editable: shows the InputFile + Remove buttons. Caller passes true only on
-       NewRequest/EditRequest pages, and only when the request is in Draft/SentBack.
-    -- Read-only: shows only the list with download links.
+    -- Image attachments render as a wrapping gallery of large previews
+       (no filename), each clickable to open full size in a new tab.
+    -- Non-image attachments render as the familiar row with icon + filename + size.
+    -- Editable=true shows the InputFile and per-item Remove (✕).
     The component calls OnChanged after a successful upload or remove so the
     parent can refetch the latest attachment list.
 *@
@@ -25,22 +26,72 @@
         <div class="alert alert-danger py-2 small mb-2">@_error</div>
     }
 
+    @{
+        var images = Attachments.Where(a => IsImage(a.ContentType)).ToList();
+        var files = Attachments.Where(a => !IsImage(a.ContentType)).ToList();
+    }
+
     @if (Attachments.Count == 0)
     {
         <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
     }
-    else
+
+    @* ── Image previews ─────────────────────────────────────────────────── *@
+    @if (images.Count > 0)
+    {
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            @foreach (var img in images)
+            {
+                <div style="position:relative;">
+                    <a href="@($"/api/attachments/{img.Id}")"
+                       target="_blank"
+                       rel="noopener"
+                       title="@img.FileName">
+                        <img src="@($"/api/attachments/{img.Id}")"
+                             alt=""
+                             loading="lazy"
+                             style="max-width:240px;max-height:240px;object-fit:contain;
+                        display:block;border:1px solid #dee2e6;border-radius:6px;
+                        background:#f8f9fa;" />
+                    </a>
+                    @if (Editable)
+                    {
+                        <button type="button"
+                                class="btn btn-sm"
+                                disabled="@_busy"
+                                @onclick="() => OnRemoveClick(img.Id)"
+                                title="Remove"
+                                style="position:absolute;top:4px;right:4px;
+                            width:24px;height:24px;padding:0;line-height:1;
+                            background:rgba(255,255,255,0.92);
+                            border:1px solid #dee2e6;border-radius:50%;
+                            color:#dc3545;font-size:0.85rem;">
+                            ✕
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Non-image files ────────────────────────────────────────────────── *@
+    @if (files.Count > 0)
     {
         <ul class="list-group list-group-flush mb-2">
-            @foreach (var att in Attachments)
+            @foreach (var att in files)
             {
                 <li class="list-group-item d-flex align-items-center px-0 py-2">
                     <a href="@($"/api/attachments/{att.Id}")"
                        target="_blank"
                        rel="noopener"
-                       class="text-decoration-none flex-grow-1 text-truncate">
-                        <span class="me-2">@FileIcon(att.ContentType)</span>
-                        <span>@att.FileName</span>
+                       class="text-decoration-none flex-grow-1 d-flex align-items-center gap-2"
+                       style="min-width:0;">
+                        <span style="width:32px;height:32px;display:inline-flex;
+                            align-items:center;justify-content:center;
+                            font-size:1.3rem;flex-shrink:0;">
+                            @FileIcon(att.ContentType)
+                        </span>
+                        <span class="text-truncate">@att.FileName</span>
                     </a>
                     <span class="text-muted small me-3">@FormatSize(att.SizeBytes)</span>
                     @if (Editable)
@@ -58,6 +109,7 @@
         </ul>
     }
 
+    @* ── Uploader ──────────────────────────────────────────────────────── *@
     @if (Editable)
     {
         @if (Attachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
@@ -106,8 +158,6 @@
     {
         _error = null;
 
-        // Filter against client-side constraints up front so we don't even open
-        // a stream we know we'll reject. Server still re-validates everything.
         var files = e.GetMultipleFiles(maximumFileCount: AttachmentConstraints.MaxFilesPerRequest).ToList();
 
         foreach (var file in files)
@@ -194,10 +244,13 @@
         }
     }
 
+    private static bool IsImage(string contentType) =>
+        !string.IsNullOrEmpty(contentType) &&
+        contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
     private static string FileIcon(string contentType) => contentType switch
     {
         "application/pdf" => "📄",
-        var ct when ct.StartsWith("image/", StringComparison.OrdinalIgnoreCase) => "🖼️",
         "application/msword" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => "📝",
         "application/vnd.ms-excel" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "📊",
         "text/plain" or "text/csv" => "📃",
