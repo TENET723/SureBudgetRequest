@@ -9,7 +9,8 @@ public sealed record UpdateDepartmentCommand(
     Guid DepartmentId,
     string Name,
     Guid? HeadUserId,
-    decimal BudgetLimit) : IRequest<Result>;
+    decimal BudgetLimit,
+    string? SlackWebhookUrl = null) : IRequest<Result>;
 
 public sealed class UpdateDepartmentCommandHandler
     : IRequestHandler<UpdateDepartmentCommand, Result>
@@ -41,9 +42,18 @@ public sealed class UpdateDepartmentCommandHandler
             if (head is null) return Result.Failure("Department head user not found.");
         }
 
-        dept.Rename(command.Name);
-        dept.ChangeHead(command.HeadUserId);
-        dept.ChangeBudgetLimit(command.BudgetLimit);
+        try
+        {
+            dept.Rename(command.Name);
+            dept.ChangeHead(command.HeadUserId);
+            dept.ChangeBudgetLimit(command.BudgetLimit);
+            dept.SetSlackWebhookUrl(command.SlackWebhookUrl);
+        }
+        catch (ArgumentException ex)
+        {
+            // Surface domain validation (e.g. malformed webhook URL) as a user-facing failure.
+            return Result.Failure(ex.Message);
+        }
 
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();

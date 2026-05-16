@@ -12,16 +12,23 @@ namespace SureBudgetRequest.Infrastructure.Notifications;
 
 /// <summary>
 /// Hosted background service that polls NotificationOutboxEntry for unprocessed
-/// entries and POSTs them to the Slack webhook. Retries up to MaxRetries times
-/// before giving up.
+/// entries and POSTs them to the Slack webhook OF THE REQUESTER'S DEPARTMENT.
+/// Retries up to MaxRetries times before giving up.
 ///
 /// At send time the processor loads:
 ///   - the BudgetRequest (for ID/Reference, Type, Reasons, Amount, etc.)
-///   - the Department (for its current Name)
+///   - the Department (for its current Name AND its SlackWebhookUrl)
 ///   - the active recipients' SlackUserId values (for @mentions)
 /// then hands the lot to SlackMessageBuilder. Loading fresh means an admin
-/// fixing a typo (wrong Slack ID, wrong department name) applies even to
-/// already-queued rows.
+/// fixing a typo (wrong Slack ID, wrong department name, wrong webhook URL)
+/// applies even to already-queued rows.
+///
+/// MISSING-WEBHOOK BEHAVIOUR (Option Y):
+/// When the requester's department has no SlackWebhookUrl configured the entry
+/// is left PENDING — RetryCount is NOT bumped — and a warning is logged on every
+/// poll cycle. The notification will deliver automatically once an admin sets
+/// the webhook in Admin → Departments. We trade log noise for guaranteed
+/// delivery; misconfiguration stays visible.
 /// </summary>
 public sealed class NotificationOutboxProcessor : BackgroundService
 {
@@ -44,11 +51,8 @@ public sealed class NotificationOutboxProcessor : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("NotificationOutboxProcessor started.");
-        _logger.LogWarning(
-            "Slack webhook in use: [{Url}] (length: {Length})",
-            _options.WebhookUrl,
-            _options.WebhookUrl?.Length ?? 0);
+        _logger.LogInformation(
+            "NotificationOutboxProcessor started. Routing per-department: webhook URL is read from Department.SlackWebhookUrl at send time.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -66,9 +70,7 @@ public sealed class NotificationOutboxProcessor : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var pending = await db.NotificationOutbox
-            .Where(e => !e.IsProcessed
-            && e.RetryCount < _options.MaxRetries
-            )
+            .Where(e => !e.IsProcessed && e.RetryCount < _options.MaxRetries)
             .OrderBy(e => e.CreatedAt)
             .Take(20)
             .ToListAsync(ct);
@@ -76,6 +78,11 @@ public sealed class NotificationOutboxProcessor : BackgroundService
         if (pending.Count == 0) return;
 
         _logger.LogDebug("Processing {Count} outbox notification(s).", pending.Count);
+
+        // Track whether anything changed this cycle. Skipping pending-due-to-missing-webhook
+        // does NOT mutate the entry, so on cycles where every entry is skipped we avoid an
+        // unnecessary SaveChanges roundtrip.
+        var hasMutations = false;
 
         foreach (var entry in pending)
         {
@@ -85,7 +92,8 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                     ?? throw new InvalidOperationException("Failed to deserialize NotificationEvent.");
 
                 // Load the request and its department fresh — these carry the
-                // bulk of the message body (Reference, Type, Reasons, etc.).
+                // bulk of the message body (Reference, Type, Reasons, etc.) AND
+                // the webhook URL we POST to.
                 var budgetRequest = await db.BudgetRequests
                     .AsNoTracking()
                     .FirstOrDefaultAsync(b => b.Id == notification.BudgetRequestId, ct);
@@ -93,6 +101,7 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                 if (budgetRequest is null)
                 {
                     entry.RecordFailure($"BudgetRequest {notification.BudgetRequestId} not found.");
+                    hasMutations = true;
                     _logger.LogWarning(
                         "Skipping outbox entry {EntryId}: BudgetRequest {RequestId} not found.",
                         entry.Id, notification.BudgetRequestId);
@@ -104,6 +113,24 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                     .FirstOrDefaultAsync(d => d.Id == budgetRequest.DepartmentIdAtSubmission, ct);
 
                 var departmentName = department?.Name ?? "—";
+                var webhookUrl = department?.SlackWebhookUrl;
+
+                // OPTION Y: department has no webhook configured. Leave the entry
+                // pending (do NOT bump RetryCount) so it goes out as soon as an
+                // admin sets the URL. Log loudly so misconfiguration is visible.
+                if (string.IsNullOrWhiteSpace(webhookUrl))
+                {
+                    _logger.LogWarning(
+                        "No Slack webhook configured for department '{DepartmentName}' (id {DepartmentId}). " +
+                        "Outbox entry {EntryId} for request {RequestId} (trigger: {Trigger}) is left pending. " +
+                        "Configure the webhook in Admin → Departments to deliver this and any other queued notifications.",
+                        departmentName,
+                        budgetRequest.DepartmentIdAtSubmission,
+                        entry.Id,
+                        notification.BudgetRequestId,
+                        notification.Trigger);
+                    continue;
+                }
 
                 var mentions = await BuildMentionsAsync(db, notification, ct);
 
@@ -111,14 +138,16 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                     notification, budgetRequest, departmentName, mentions);
 
                 var content = new StringContent(slackPayload, Encoding.UTF8, "application/json");
-                var response = await _httpClient.PostAsync(_options.WebhookUrl, content, ct);
+                var response = await _httpClient.PostAsync(webhookUrl, content, ct);
 
                 if (response.IsSuccessStatusCode)
                 {
                     entry.MarkProcessed();
+                    hasMutations = true;
                     _logger.LogInformation(
-                        "Slack notification sent for request {RequestId} (trigger: {Trigger}, recipients: {Count}).",
+                        "Slack notification sent for request {RequestId} to '{DepartmentName}' channel (trigger: {Trigger}, recipients: {Count}).",
                         notification.BudgetRequestId,
+                        departmentName,
                         notification.Trigger,
                         notification.RecipientUserIds.Count);
                 }
@@ -127,14 +156,16 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                     var body = await response.Content.ReadAsStringAsync(ct);
                     var error = $"HTTP {(int)response.StatusCode}: {body}";
                     entry.RecordFailure(error);
+                    hasMutations = true;
                     _logger.LogWarning(
-                        "Slack POST failed for outbox entry {EntryId}: {Error}",
-                        entry.Id, error);
+                        "Slack POST failed for outbox entry {EntryId} (department '{DepartmentName}'): {Error}",
+                        entry.Id, departmentName, error);
                 }
             }
             catch (Exception ex)
             {
                 entry.RecordFailure(ex.Message);
+                hasMutations = true;
                 _logger.LogWarning(
                     ex,
                     "Exception while processing outbox entry {EntryId}.",
@@ -142,7 +173,8 @@ public sealed class NotificationOutboxProcessor : BackgroundService
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        if (hasMutations)
+            await db.SaveChangesAsync(ct);
     }
 
     /// <summary>

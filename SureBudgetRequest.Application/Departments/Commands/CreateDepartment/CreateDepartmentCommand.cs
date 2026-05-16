@@ -9,7 +9,8 @@ namespace SureBudgetRequest.Application.Departments.Commands.CreateDepartment;
 public sealed record CreateDepartmentCommand(
     string Name,
     Guid? HeadUserId,
-    decimal BudgetLimit) : IRequest<Result<Guid>>;
+    decimal BudgetLimit,
+    string? SlackWebhookUrl = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateDepartmentCommandHandler
     : IRequestHandler<CreateDepartmentCommand, Result<Guid>>
@@ -41,7 +42,11 @@ public sealed class CreateDepartmentCommandHandler
         Department dept;
         try
         {
-            dept = new Department(command.Name, command.HeadUserId, command.BudgetLimit);
+            dept = new Department(
+                command.Name,
+                command.HeadUserId,
+                command.BudgetLimit,
+                command.SlackWebhookUrl);
         }
         catch (ArgumentException ex)
         {

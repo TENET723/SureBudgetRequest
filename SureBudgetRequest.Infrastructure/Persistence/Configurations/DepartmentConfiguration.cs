@@ -15,6 +15,11 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
         builder.Property(d => d.Name).IsRequired().HasMaxLength(200);
         builder.Property(d => d.HeadUserId);   // nullable — department can exist without a head
         builder.Property(d => d.BudgetLimit).IsRequired().HasColumnType("numeric(18,2)");
+
+        // Nullable. Notifications fail-loud and stay pending when missing —
+        // see NotificationOutboxProcessor for the routing logic.
+        builder.Property(d => d.SlackWebhookUrl).HasMaxLength(500);
+
         builder.Property(d => d.IsActive).IsRequired();
         builder.Property(d => d.CreatedAt).IsRequired();
 

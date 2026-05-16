@@ -6,13 +6,22 @@ public class Department
     public string Name { get; private set; } = null!;
     public Guid? HeadUserId { get; private set; }
     public decimal BudgetLimit { get; private set; }
+
+    /// <summary>
+    /// Slack incoming webhook URL for this department's channel. Notifications
+    /// for budget requests originating from this department are POSTed here.
+    /// Nullable — when not configured the outbox processor logs a warning and
+    /// leaves the notification pending until an admin sets the URL.
+    /// </summary>
+    public string? SlackWebhookUrl { get; private set; }
+
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     // For EF Core
     private Department() { }
 
-    public Department(string name, Guid? headUserId, decimal budgetLimit)
+    public Department(string name, Guid? headUserId, decimal budgetLimit, string? slackWebhookUrl = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Department name is required.", nameof(name));
@@ -23,6 +32,7 @@ public class Department
         Name = name;
         HeadUserId = headUserId;
         BudgetLimit = budgetLimit;
+        SlackWebhookUrl = NormalizeAndValidateWebhook(slackWebhookUrl);
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
     }
@@ -43,6 +53,29 @@ public class Department
         BudgetLimit = newLimit;
     }
 
+    /// <summary>
+    /// Sets or clears the Slack webhook URL. Pass null or whitespace to clear.
+    /// Throws <see cref="ArgumentException"/> if the value is non-empty and
+    /// does not look like a valid Slack incoming webhook URL.
+    /// </summary>
+    public void SetSlackWebhookUrl(string? url) =>
+        SlackWebhookUrl = NormalizeAndValidateWebhook(url);
+
     public void Deactivate() => IsActive = false;
     public void Reactivate() => IsActive = true;
+
+    // ── Webhook validation ────────────────────────────────────────────────────
+
+    private const string SlackWebhookPrefix = "https://hooks.slack.com/services/";
+
+    private static string? NormalizeAndValidateWebhook(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var trimmed = url.Trim();
+        if (!trimmed.StartsWith(SlackWebhookPrefix, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException(
+                $"Slack webhook URL must start with '{SlackWebhookPrefix}'.",
+                nameof(url));
+        return trimmed;
+    }
 }
