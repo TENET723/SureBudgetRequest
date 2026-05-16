@@ -4,14 +4,23 @@ namespace SureBudgetRequest.Application.BudgetRequests.Common;
 
 /// <summary>
 /// Describes a single notification to be sent after a status change.
-/// The Infrastructure layer maps this to a Slack message.
+/// Kept lean — the outbox processor loads the BudgetRequest and Department
+/// fresh at send time, so request fields (reference, reasons, withdrawer
+/// info, partial-payment details, etc.) are NOT carried on the event.
+/// Only fields specific to the transition itself live here: who acted,
+/// who needs to be notified, and any comment from the actor.
+///
+/// RecipientUserIds is always a list (size 1 for direct notifications,
+/// N for role-based ones like Finance/Management). The list is snapshotted
+/// at dispatch time so adding a user to a role later doesn't retroactively
+/// ping them about old events.
 /// </summary>
 public sealed record NotificationEvent(
     NotificationTrigger Trigger,
     Guid BudgetRequestId,
-    string BudgetRequestTitle,   // e.g. "Budget Request #1234"
-    decimal RequestedAmount,
-    Guid RecipientUserId,
+    IReadOnlyList<Guid> RecipientUserIds,
+    string RequesterName,
+    string? ActorName,               // null for plain submissions (actor == requester)
     string? Comment = null);
 
 /// <summary>

@@ -1,7 +1,6 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
-using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 
@@ -19,7 +18,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly INotificationService _notificationService;
+    private readonly INotificationDispatcher _dispatcher;
 
     public SubmitRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
@@ -27,14 +26,14 @@ public sealed class SubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IUnitOfWork unitOfWork,
-        INotificationService notificationService)
+        INotificationDispatcher dispatcher)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _unitOfWork = unitOfWork;
-        _notificationService = notificationService;
+        _dispatcher = dispatcher;
     }
 
     public async Task<Result> Handle(
@@ -49,7 +48,6 @@ public sealed class SubmitRequestCommandHandler
         if (budgetRequest.RequesterId != command.RequesterId)
             return Result.Failure("Only the requester can submit their request.");
 
-        // Load the requester's current department (R12: snapshot dept head at submission)
         var requester = await _userRepository.GetByIdAsync(command.RequesterId, cancellationToken);
         if (requester is null)
             return Result.Failure("Requester not found.");
@@ -59,7 +57,6 @@ public sealed class SubmitRequestCommandHandler
         if (department is null)
             return Result.Failure("Requester's department not found.");
 
-        // Look up the current exchange rate for the draft's currency.
         var currency = await _currencyRepository.GetByCodeAsync(
             budgetRequest.CurrencyCode, cancellationToken);
         if (currency is null)
@@ -67,11 +64,6 @@ public sealed class SubmitRequestCommandHandler
         if (!currency.IsActive)
             return Result.Failure($"Currency '{currency.Code}' is not active.");
 
-        // Determine whether we need Management approval (R6, R7) — comparison happens in MMK.
-        // The Management stage is gated by amount only; ANY Management member can approve
-        // (no per-request snapshot of "the" approver).
-
-        // A department may exist without a head (vacancy/bootstrap). Block submit until one is assigned.
         if (department.HeadUserId is null)
             return Result.Failure("Your department has no head assigned. Contact admin before submitting.");
 
@@ -81,7 +73,6 @@ public sealed class SubmitRequestCommandHandler
 
         var previousStatus = budgetRequest.Status;
 
-        // Domain method: snapshots routing context + rate, fast-forwards through DeptHead auto-approval (R9)
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
@@ -92,16 +83,18 @@ public sealed class SubmitRequestCommandHandler
 
         if (result.IsFailure) return result;
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // Fire the appropriate Slack notification (§9)
-        await NotificationDispatcher.DispatchAsync(
+        // Dispatch FIRST so the outbox entry joins the same transaction.
+        // On submissions the actor is the requester — actorName left null
+        // because the builder uses RequesterName for the "Submitted by" field.
+        await _dispatcher.DispatchAsync(
             budgetRequest,
             previousStatus,
             command.RequesterId,
+            actorName: null,
             comment: null,
-            _notificationService,
             cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }

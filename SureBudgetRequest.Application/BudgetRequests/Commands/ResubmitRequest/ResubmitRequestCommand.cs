@@ -1,7 +1,6 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
-using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 
@@ -19,7 +18,7 @@ public sealed class ResubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly INotificationService _notificationService;
+    private readonly INotificationDispatcher _dispatcher;
 
     public ResubmitRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
@@ -27,14 +26,14 @@ public sealed class ResubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IUnitOfWork unitOfWork,
-        INotificationService notificationService)
+        INotificationDispatcher dispatcher)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _unitOfWork = unitOfWork;
-        _notificationService = notificationService;
+        _dispatcher = dispatcher;
     }
 
     public async Task<Result> Handle(
@@ -65,7 +64,6 @@ public sealed class ResubmitRequestCommandHandler
         if (deptHead is null)
             return Result.Failure("Department head not found.");
 
-        // Re-fetch the (possibly updated) currency rate for the resubmission.
         var currency = await _currencyRepository.GetByCodeAsync(
             budgetRequest.CurrencyCode, cancellationToken);
         if (currency is null)
@@ -84,15 +82,15 @@ public sealed class ResubmitRequestCommandHandler
 
         if (result.IsFailure) return result;
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        await NotificationDispatcher.DispatchAsync(
+        await _dispatcher.DispatchAsync(
             budgetRequest,
             previousStatus,
             command.RequesterId,
+            actorName: null,
             comment: null,
-            _notificationService,
             cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }

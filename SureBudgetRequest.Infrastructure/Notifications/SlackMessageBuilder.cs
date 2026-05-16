@@ -1,106 +1,158 @@
 using System.Text.Json;
 using SureBudgetRequest.Application.BudgetRequests.Common;
+using SureBudgetRequest.Domain.Entities;
 
 namespace SureBudgetRequest.Infrastructure.Notifications;
 
 /// <summary>
-/// Converts a <see cref="NotificationEvent"/> into a Slack Block Kit JSON payload.
-/// Keep all message copy here so it's easy to find and translate later.
+/// Produces Slack messages in two shapes:
+///
+/// 1. SUBMISSION (the request enters the workflow) — full multi-line block.
+///    The first approver needs to see the full request details to act on it.
+///
+/// 2. STATUS UPDATE (every transition after submission) — one-liner.
+///    Intermediate approvals name who approved and who is waiting next.
+///    Final outcomes (rejection, final approval, paid, sent back) tell
+///    the requester the result.
+///
+/// The processor pre-loads the BudgetRequest and Department and resolves
+/// the recipient @mentions, then hands everything here for formatting.
 /// </summary>
 internal static class SlackMessageBuilder
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = false };
 
-    public static string Build(NotificationEvent evt)
+    public static string Build(
+        NotificationEvent evt,
+        BudgetRequest request,
+        string departmentName,
+        IReadOnlyList<string> mentions)
     {
-        var (emoji, headline, detail) = GetMessageParts(evt);
+        var text = IsSubmissionTrigger(evt.Trigger)
+            ? BuildSubmissionBody(evt, request, departmentName, mentions)
+            : BuildStatusUpdateBody(evt, request, mentions);
 
-        var blocks = new object[]
+        var payload = new
         {
-            new
+            blocks = new[]
             {
-                type = "header",
-                text = new { type = "plain_text", text = $"{emoji} {headline}", emoji = true }
-            },
-            new
-            {
-                type = "section",
-                fields = new[]
-                {
-                    new { type = "mrkdwn", text = $"*Request:*\n{evt.BudgetRequestTitle}" },
-                    new { type = "mrkdwn", text = $"*Amount:*\n{evt.RequestedAmount:N0} MMK" }
-                }
-            },
-            new
-            {
-                type = "section",
-                text = new { type = "mrkdwn", text = detail }
-            }
-        };
-
-        // Append comment block only if one was provided (rejections / send-backs)
-        object[] finalBlocks = string.IsNullOrWhiteSpace(evt.Comment)
-            ? blocks
-            :
-            [
-                ..blocks,
                 new
                 {
                     type = "section",
-                    text = new { type = "mrkdwn", text = $"*Comment:*\n{evt.Comment}" }
+                    text = new { type = "mrkdwn", text }
                 }
-            ];
+            }
+        };
 
-        return JsonSerializer.Serialize(new { blocks = finalBlocks }, JsonOpts);
+        return JsonSerializer.Serialize(payload, JsonOpts);
     }
 
-    private static (string emoji, string headline, string detail) GetMessageParts(NotificationEvent evt)
-        => evt.Trigger switch
+    // ---------------------------------------------------------------
+    // Submission format — full request detail.
+    // Used only for the three Submitted* triggers.
+    // ---------------------------------------------------------------
+    private static string BuildSubmissionBody(
+        NotificationEvent evt,
+        BudgetRequest request,
+        string departmentName,
+        IReadOnlyList<string> mentions)
+    {
+        // Comma-separated mentions like "<@U07ABC>, <@U07DEF>".
+        var waitingForLine = string.Join(", ", mentions);
+
+        var reference = request.Reference ?? "—";
+        var requestType = request.Type.ToString();
+        var submittedBy = string.IsNullOrWhiteSpace(evt.RequesterName) ? "—" : evt.RequesterName;
+        var withdrawerName = request.WithdrawerName ?? string.Empty;
+        var withdrawerTitle = request.WithdrawerJobTitle ?? string.Empty;
+        var partialAcceptance = request.AllowsPartialPayment ? "Yes" : "No";
+        var partialReasons = request.PartialPaymentDetail ?? string.Empty;
+        var reasons = string.IsNullOrWhiteSpace(request.Reasons) ? string.Empty : request.Reasons;
+
+        // Currency is MMK only in v1 but we read it off the request so it's
+        // forward-compatible when multi-currency goes live.
+        var amount = $"{request.RequestedAmount:N0} {request.CurrencyCode}";
+
+        return string.Join("\n", new[]
         {
-            NotificationTrigger.SubmittedToDeptHead =>
-                ("📋", "New budget request awaiting your approval",
-                 "A new request has been submitted and is waiting for Department Head approval."),
+            $"ID: {reference}",
+            $"Status: Pending",
+            $"Request Type: {requestType}",
+            $"Submitted By: {submittedBy}",
+            $"Waiting For: {waitingForLine}",
+            $"Department: {departmentName}",
+            $"Withdraw Date: {request.RequestDate:yyyy-MM-dd}",
+            $"Withdrawer Name: {withdrawerName}",
+            $"Withdrawer Job Title: {withdrawerTitle}",
+            $"Amount: {amount}",
+            $"Reasons:",
+            reasons,
+            string.Empty,
+            $"Partial Payment Acceptance: {partialAcceptance}",
+            $"Partial Acceptance Reasons: {partialReasons}"
+        });
+    }
 
-            NotificationTrigger.SubmittedToFinance =>
-                ("📋", "New budget request awaiting Finance approval",
-                 "A Department Head submitted their own request (under limit) — it goes directly to Finance."),
+    // ---------------------------------------------------------------
+    // Status-update format — short one-liner pinging whoever needs to
+    // see this transition. Used for everything except submissions.
+    // ---------------------------------------------------------------
+    private static string BuildStatusUpdateBody(
+        NotificationEvent evt,
+        BudgetRequest request,
+        IReadOnlyList<string> mentions)
+    {
+        var reference = request.Reference ?? "—";
+        var actor = string.IsNullOrWhiteSpace(evt.ActorName) ? "—" : evt.ActorName;
+        var mentionPrefix = mentions.Count > 0 ? string.Join(" ", mentions) + " " : string.Empty;
 
-            NotificationTrigger.SubmittedToManagement =>
-                ("📋", "New over-limit request awaiting Management approval",
-                 "A Department Head submitted an over-limit request. Management Team approval is required."),
+        var line = evt.Trigger switch
+        {
+            // Intermediate approvals — ping the next stage, name the previous approver.
+            NotificationTrigger.DeptHeadApprovedToManagement
+                => $"ID: {reference} is approved by {actor}. Waiting for Management approval. ✅",
 
-            NotificationTrigger.DeptHeadApprovedToManagement =>
-                ("✅", "Department Head approved — Management approval needed",
-                 "The request was approved by the Department Head and now awaits Management Team approval."),
+            NotificationTrigger.DeptHeadApprovedToFinance
+                => $"ID: {reference} is approved by {actor}. Waiting for Finance approval. ✅",
 
-            NotificationTrigger.DeptHeadApprovedToFinance =>
-                ("✅", "Department Head approved — Finance action needed",
-                 "The request was approved by the Department Head and is now with Finance."),
+            NotificationTrigger.ManagementApprovedToFinance
+                => $"ID: {reference} is approved by {actor}. Waiting for Finance approval. ✅",
 
-            NotificationTrigger.DeptHeadRejectedToRequester =>
-                ("❌", "Your budget request was rejected",
-                 "The Department Head has rejected your request."),
+            // Rejections — ping the requester.
+            NotificationTrigger.DeptHeadRejectedToRequester
+                => $"ID: {reference} was rejected by {actor}. ❌",
 
-            NotificationTrigger.ManagementApprovedToFinance =>
-                ("✅", "Management approved — Finance action needed",
-                 "The over-limit request was approved by the Management Team and is now with Finance."),
+            NotificationTrigger.ManagementRejectedToRequester
+                => $"ID: {reference} was rejected by {actor}. ❌",
 
-            NotificationTrigger.ManagementRejectedToRequester =>
-                ("❌", "Your budget request was rejected",
-                 "The Management Team has rejected your request."),
+            // Finance outcomes — ping the requester.
+            NotificationTrigger.FinanceApprovedToRequester
+                => $"ID: {reference} is approved by {actor}. ✅",
 
-            NotificationTrigger.FinanceApprovedToRequester =>
-                ("🎉", "Your budget request was approved!",
-                 "Finance has approved your request. Payment will be processed shortly."),
+            NotificationTrigger.FinancePaidToRequester
+                => $"ID: {reference} is marked as paid by {actor}. 💸",
 
-            NotificationTrigger.FinancePaidToRequester =>
-                ("💸", "Payment has been recorded",
-                 "Finance has marked your request as paid."),
+            NotificationTrigger.FinanceSentBackToRequester
+                => $"ID: {reference} was sent back by {actor} for revision. 🔄",
 
-            NotificationTrigger.FinanceSentBackToRequester =>
-                ("🔄", "Your budget request was sent back for revision",
-                 "Finance has sent back your request. Please review the comment, edit your draft, and resubmit."),
-
-            _ => ("ℹ️", "Budget request update", "Your budget request status has changed.")
+            _ => $"ID: {reference} status updated."
         };
+
+        var message = $"{mentionPrefix}{line}";
+
+        // Comment only applies to rejection / send-back.
+        if (!string.IsNullOrWhiteSpace(evt.Comment))
+            message += $"\nComment: {evt.Comment}";
+
+        return message;
+    }
+
+    /// <summary>
+    /// Only the three Submitted* triggers show the full request body.
+    /// Everything else (approvals, rejections, paid, sent back) is a one-liner.
+    /// </summary>
+    private static bool IsSubmissionTrigger(NotificationTrigger trigger) => trigger is
+        NotificationTrigger.SubmittedToDeptHead or
+        NotificationTrigger.SubmittedToFinance or
+        NotificationTrigger.SubmittedToManagement;
 }

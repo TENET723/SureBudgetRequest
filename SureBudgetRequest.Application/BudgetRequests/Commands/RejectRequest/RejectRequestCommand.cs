@@ -1,7 +1,6 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
-using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
@@ -19,18 +18,18 @@ public sealed class RejectRequestCommandHandler
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly INotificationService _notificationService;
+    private readonly INotificationDispatcher _dispatcher;
 
     public RejectRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
-        INotificationService notificationService)
+        INotificationDispatcher dispatcher)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
-        _notificationService = notificationService;
+        _dispatcher = dispatcher;
     }
 
     public async Task<Result> Handle(
@@ -61,15 +60,15 @@ public sealed class RejectRequestCommandHandler
         var result = budgetRequest.Reject(command.ApproverId, command.Comment);
         if (result.IsFailure) return result;
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        await NotificationDispatcher.DispatchAsync(
+        await _dispatcher.DispatchAsync(
             budgetRequest,
             previousStatus,
             command.ApproverId,
-            command.Comment,
-            _notificationService,
+            actorName: approver.FullName,
+            comment: command.Comment,
             cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }
