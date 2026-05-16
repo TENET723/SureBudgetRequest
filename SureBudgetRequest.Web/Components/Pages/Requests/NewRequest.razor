@@ -242,9 +242,15 @@
             {
                 var submitResult = await Mediator.Send(new SubmitRequestCommand(draftResult.Value, CurrentUser.UserId));
                 if (submitResult.IsFailure) { _error = submitResult.Error; return; }
-            }
 
-            Nav.NavigateTo($"requests/{draftResult.Value}");
+                // Submitted → go to read-only Detail page.
+                Nav.NavigateTo($"requests/{draftResult.Value}");
+            }
+            else
+            {
+                // Draft saved → land on the Edit page so the user can attach files and review before submitting.
+                Nav.NavigateTo($"requests/{draftResult.Value}/edit");
+            }
         }
         finally { _saving = false; }
     }

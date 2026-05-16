@@ -12,6 +12,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Request Detail</PageTitle>
 
@@ -118,6 +119,16 @@ else
                         }
                     </div>
                 </div>
+            </div>
+        </div>
+
+        @* ── Attachments (read-only) ── *@
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Attachments</h6>
+                <AttachmentList BudgetRequestId="_request.Id"
+                                Attachments="_request.Attachments"
+                                Editable="false" />
             </div>
         </div>
 
