@@ -1,4 +1,5 @@
 using MediatR;
+using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Common;
@@ -28,13 +29,16 @@ public sealed class AuthenticateUserCommandHandler
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IUnitOfWork _unitOfWork;
 
     public AuthenticateUserCommandHandler(
         IUserRepository userRepository,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<Result<AuthenticatedUserDto>> Handle(
@@ -54,6 +58,9 @@ public sealed class AuthenticateUserCommandHandler
 
         if (!_passwordHasher.Verify(user.PasswordHash, command.Password))
             return Result.Failure<AuthenticatedUserDto>(genericFailure);
+
+        user.RecordLogin();
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return Result.Success(new AuthenticatedUserDto(
             user.Id,

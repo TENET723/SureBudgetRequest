@@ -9,6 +9,7 @@ public class User
     public string FullName { get; private set; } = null!;
     public string Email { get; private set; } = null!;
     public string PasswordHash { get; private set; } = null!;
+    public DateTime? LastLoginAt { get; private set; }
 
     /// <summary>
     /// True when the user must change their password before doing anything else.
@@ -84,4 +85,6 @@ public class User
 
     /// <summary>Email is stored lowercase + trimmed so uniqueness is case-insensitive.</summary>
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    public void RecordLogin() => LastLoginAt = DateTime.UtcNow;
 }

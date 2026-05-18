@@ -22,7 +22,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Role).IsRequired().HasConversion<int>();
         builder.Property(u => u.IsActive).IsRequired();
         builder.Property(u => u.CreatedAt).IsRequired();
-
+        builder.Property(u => u.LastLoginAt);   
         builder.HasIndex(u => u.Username).IsUnique();
 
         // Case-insensitive uniqueness is enforced at the application layer
