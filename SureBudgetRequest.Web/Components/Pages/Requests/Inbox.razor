@@ -5,6 +5,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Inbox</PageTitle>
 
@@ -52,7 +53,13 @@
                                     <div class="small text-muted">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N0") MMK</div>
                                 }
                             </td>
-                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td>
+                                <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
+                                <MonthlyOverrunBadge
+                                    MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
+                                    RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
+                            </td>
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">
                                 <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">Review</a>

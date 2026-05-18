@@ -5,6 +5,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>My Requests</PageTitle>
 
@@ -46,7 +47,13 @@
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
                             <td class="text-end">@r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span></td>
-                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td>
+                                <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
+                                <MonthlyOverrunBadge
+                                    MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
+                                    RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
+                            </td>
                             <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">
                                 <a href="requests/@r.Id" class="btn btn-sm btn-outline-secondary">View</a>

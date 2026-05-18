@@ -5,6 +5,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Outstanding Payments</PageTitle>
 
@@ -50,7 +51,12 @@
                             <td class="text-end">@r.ApprovedAmount.ToString("N0")</td>
                             <td class="text-end">@r.TotalPaid.ToString("N0")</td>
                             <td class="text-end fw-semibold">@r.RemainingBalance.ToString("N0")</td>
-                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span></td>
+                            <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
+                                <MonthlyOverrunBadge
+                                    MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
+                                    RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
+                            </td>
                             <td class="text-end">
                                 <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">View</a>
                             </td>

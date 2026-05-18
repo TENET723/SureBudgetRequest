@@ -1,0 +1,54 @@
+@*
+    Renders a small "⚠ Monthly limit" badge when the supplied snapshot values
+    indicate the request crossed its department's monthly cap at submission.
+    Renders nothing otherwise.
+
+    Snapshot-based: drafts (where the snapshots are null) never show the badge,
+    which is the desired behavior — the cap only matters at submission.
+
+    Use anywhere a budget request is shown:
+
+        <MonthlyOverrunBadge
+            MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+            MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
+            RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
+
+    Optional: pass Compact="true" to render just the icon (no text), for
+    tight cells. The native browser tooltip still carries the math.
+*@
+
+@if (IsOver)
+{
+    <span class="badge bg-warning text-dark border border-warning-subtle"
+          title="@TooltipText">
+        ⚠@(Compact ? "" : " Monthly limit")
+    </span>
+}
+
+@code {
+    [Parameter] public decimal? MonthlyLimitAtSubmission { get; set; }
+    [Parameter] public decimal? MonthlySpendBeforeAtSubmission { get; set; }
+    [Parameter] public decimal RequestedAmountInMmkAtSubmission { get; set; }
+    [Parameter] public bool Compact { get; set; }
+
+    private bool IsOver =>
+        MonthlyLimitAtSubmission.HasValue
+        && MonthlySpendBeforeAtSubmission.HasValue
+        && (MonthlySpendBeforeAtSubmission.Value + RequestedAmountInMmkAtSubmission) > MonthlyLimitAtSubmission.Value;
+
+    private string TooltipText
+    {
+        get
+        {
+            if (!IsOver) return "";
+            var spend = MonthlySpendBeforeAtSubmission!.Value;
+            var limit = MonthlyLimitAtSubmission!.Value;
+            var amount = RequestedAmountInMmkAtSubmission;
+            var total = spend + amount;
+            return
+                $"Exceeded the monthly limit at submission. " +
+                $"Already spent {spend:N0} MMK of {limit:N0} MMK; " +
+                $"this request adds {amount:N0} MMK (total {total:N0} MMK).";
+        }
+    }
+}
