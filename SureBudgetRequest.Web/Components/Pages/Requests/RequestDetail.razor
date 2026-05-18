@@ -47,6 +47,33 @@ else
             <div class="alert alert-success alert-dismissible">@_actionSuccess <button class="btn-close" @onclick="() => _actionSuccess = null"></button></div>
         }
 
+        @* ── Monthly overrun warning (headline) ──
+           Shown when the snapshots indicate this request crossed the monthly
+           limit at submission time. Independent of whether justification text
+           was preserved — uses the saved snapshot math for truthiness. *@
+        @if (_request.MonthlyLimitAtSubmission.HasValue
+             && _request.MonthlySpendBeforeAtSubmission.HasValue
+             && (_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission) > _request.MonthlyLimitAtSubmission.Value)
+        {
+            <div class="alert alert-warning d-flex align-items-start gap-2">
+                <span style="font-size:1.25rem; line-height:1">⚠</span>
+                <div class="small">
+                    <strong>This request exceeded the department's monthly limit at submission.</strong>
+                    <div class="mt-1">
+                        Already spent this month: <strong>@_request.MonthlySpendBeforeAtSubmission.Value.ToString("N0")</strong> MMK
+                        of a <strong>@_request.MonthlyLimitAtSubmission.Value.ToString("N0")</strong> MMK limit.
+                        This request adds <strong>@_request.RequestedAmountInMmkAtSubmission.ToString("N0")</strong> MMK,
+                        bringing the total to
+                        <strong>@((_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission).ToString("N0"))</strong> MMK.
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
+                    {
+                        <div class="mt-1 text-muted">See justification below.</div>
+                    }
+                </div>
+            </div>
+        }
+
         @* ── Request summary card ── *@
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
@@ -91,6 +118,25 @@ else
                         <div class="small text-muted">Reason</div>
                         <div>@_request.Reasons</div>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
+                    {
+                        <div class="col-12">
+                            <div class="small text-muted">Monthly overrun justification</div>
+                            <div class="border-start border-warning border-3 ps-2">
+                                @_request.MonthlyOverrunJustification
+                            </div>
+                            @if (_request.MonthlyLimitAtSubmission.HasValue
+                                && _request.MonthlySpendBeforeAtSubmission.HasValue)
+                            {
+                                <div class="small text-muted mt-1">
+                                    At submission:
+                                    @_request.MonthlySpendBeforeAtSubmission.Value.ToString("N0") MMK already
+                                    spent this month against a
+                                    @_request.MonthlyLimitAtSubmission.Value.ToString("N0") MMK monthly limit.
+                                </div>
+                            }
+                        </div>
+                    }
                     <div class="col-sm-6">
                         <div class="small text-muted">Withdrawer</div>
                         <div>@_request.WithdrawerName</div>
@@ -133,7 +179,9 @@ else
         </div>
 
         @* ── Action buttons ── *@
-        @{ var actions = GetAvailableActions(); }
+        @{
+            var actions = GetAvailableActions();
+        }
         @if (actions.Any())
         {
             <div class="card border-0 shadow-sm mb-3">
@@ -157,7 +205,10 @@ else
                         @if (actions.Contains("approve"))
                         {
                             <button class="btn btn-sm btn-success" @onclick="DoApprove" disabled="@_actioning">
-                                @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                @if (_actioning && _actionTarget == "approve")
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
                                 Approve
                             </button>
                         }
@@ -203,17 +254,27 @@ else
                             <div class="d-flex gap-3 mb-3">
                                 <div class="flex-shrink-0 mt-1">
                                     @if (a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved)
-                                    { <span class="badge rounded-pill bg-success">✓</span> }
+                                    {
+                                        <span class="badge rounded-pill bg-success">✓</span>
+                                    }
                                     else if (a.Decision == ApprovalDecision.Rejected)
-                                    { <span class="badge rounded-pill bg-danger">✗</span> }
+                                    {
+
+                                        <span class="badge rounded-pill bg-danger">✗</span>
+                                    }
                                     else
-                                    { <span class="badge rounded-pill bg-info text-dark">↩</span> }
+                                    {
+
+                                        <span class="badge rounded-pill bg-info text-dark">↩</span>
+                                    }
                                 </div>
                                 <div>
                                     <div class="small fw-semibold">
                                         @a.Stage
                                         @if (a.Decision == ApprovalDecision.AutoApproved)
-                                        { <span class="text-muted fw-normal">(auto-approved)</span> }
+                                        {
+                                            <span class="text-muted fw-normal">(auto-approved)</span>
+                                        }
                                     </div>
                                     <div class="small text-muted">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
@@ -559,45 +620,45 @@ else
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
-        RequestStatus.Draft          => "Draft",
+        RequestStatus.Draft => "Draft",
         RequestStatus.PendingDeptHead => "Pending Dept Head",
         RequestStatus.PendingManagement => "Pending Management",
         RequestStatus.PendingFinance => "Pending Finance",
-        RequestStatus.SentBack       => "Sent Back",
-        RequestStatus.Approved       => "Approved",
-        RequestStatus.PartiallyPaid  => "Partially Paid",
-        RequestStatus.Paid           => "Paid",
-        RequestStatus.Rejected       => "Rejected",
-        RequestStatus.Cancelled      => "Cancelled",
+        RequestStatus.SentBack => "Sent Back",
+        RequestStatus.Approved => "Approved",
+        RequestStatus.PartiallyPaid => "Partially Paid",
+        RequestStatus.Paid => "Paid",
+        RequestStatus.Rejected => "Rejected",
+        RequestStatus.Cancelled => "Cancelled",
         _ => s.ToString()
     };
 
     private static string TypeLabel(BudgetRequestType t) => t switch
     {
-        BudgetRequestType.Urgent          => "Urgent",
-        BudgetRequestType.Standard        => "Standard",
+        BudgetRequestType.Urgent => "Urgent",
+        BudgetRequestType.Standard => "Standard",
         BudgetRequestType.ProjectProposal => "Project Proposal",
         _ => t.ToString()
     };
 
     private static string TypeBadge(BudgetRequestType t) => t switch
     {
-        BudgetRequestType.Urgent          => "bg-danger",
-        BudgetRequestType.Standard        => "bg-secondary",
+        BudgetRequestType.Urgent => "bg-danger",
+        BudgetRequestType.Standard => "bg-secondary",
         BudgetRequestType.ProjectProposal => "bg-info text-dark",
         _ => "bg-secondary"
     };
 
     private static string StatusBadge(RequestStatus s) => s switch
     {
-        RequestStatus.Draft          => "bg-light text-dark border",
+        RequestStatus.Draft => "bg-light text-dark border",
         RequestStatus.PendingDeptHead or RequestStatus.PendingManagement or RequestStatus.PendingFinance => "bg-warning text-dark",
-        RequestStatus.SentBack       => "bg-info text-dark",
-        RequestStatus.Approved       => "bg-primary",
-        RequestStatus.PartiallyPaid  => "bg-primary",
-        RequestStatus.Paid           => "bg-success",
-        RequestStatus.Rejected       => "bg-danger",
-        RequestStatus.Cancelled      => "bg-secondary",
+        RequestStatus.SentBack => "bg-info text-dark",
+        RequestStatus.Approved => "bg-primary",
+        RequestStatus.PartiallyPaid => "bg-primary",
+        RequestStatus.Paid => "bg-success",
+        RequestStatus.Rejected => "bg-danger",
+        RequestStatus.Cancelled => "bg-secondary",
         _ => "bg-secondary"
     };
 }

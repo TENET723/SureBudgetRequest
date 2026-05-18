@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateDraft
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
@@ -57,6 +58,25 @@
             <div class="alert alert-danger">@_error</div>
         }
 
+        @if (WouldOverflowMonthly)
+        {
+            <div class="alert alert-warning d-flex align-items-start gap-2">
+                <span style="font-size:1.25rem; line-height:1">⚠</span>
+                <div class="small">
+                    <strong>This request would push the department over its monthly limit.</strong>
+                    <div class="mt-1">
+                        This month: <strong>@_monthlySpent.ToString("N0")</strong> MMK used
+                        of <strong>@_monthlyLimit!.Value.ToString("N0")</strong> MMK.
+                        This request adds <strong>@AmountInMmk.ToString("N0")</strong> MMK
+                        (total would be <strong>@((_monthlySpent + AmountInMmk).ToString("N0"))</strong> MMK).
+                    </div>
+                    <div class="mt-1 text-muted">
+                        A written justification will be required when you save or submit.
+                    </div>
+                </div>
+            </div>
+        }
+
         <div class="card border-0 shadow-sm">
             <div class="card-body">
 
@@ -106,6 +126,15 @@
                         <span class="text-muted">Current rate: 1 @_currencyCode = @_selectedRate.ToString("N4") MMK</span>
                     }
                 </div>
+
+                @if (_monthlyLimit.HasValue && !WouldOverflowMonthly)
+                {
+                    <div class="form-text small mb-3 text-muted">
+                        Monthly spending so far: @_monthlySpent.ToString("N0") /
+                        @_monthlyLimit.Value.ToString("N0") MMK
+                        (@((_monthlyLimit.Value - _monthlySpent).ToString("N0")) MMK remaining this month).
+                    </div>
+                }
 
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Reason / Purpose</label>
@@ -158,11 +187,11 @@
             </div>
             <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
                 <a href="requests/@Id" class="btn btn-sm btn-link text-muted">Cancel</a>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="() => Save(submit: false)" disabled="@_saving">
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OnSaveClicked(submit: false)" disabled="@_saving">
                     @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     @SaveLabel
                 </button>
-                <button class="btn btn-sm btn-primary" @onclick="() => Save(submit: true)" disabled="@_saving">
+                <button class="btn btn-sm btn-primary" @onclick="() => OnSaveClicked(submit: true)" disabled="@_saving">
                     @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     @SubmitLabel
                 </button>
@@ -170,6 +199,45 @@
         </div>
     }
 </div>
+
+@* ── Monthly overrun justification modal ────────────────────────────────────── *@
+@if (_showOverrunModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Monthly limit overrun — justification required</h6>
+                    <button class="btn-close" @onclick="CancelOverrunModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small mb-3">
+                        This request of <strong>@AmountInMmk.ToString("N0") MMK</strong> would bring
+                        your department's monthly total to
+                        <strong>@((_monthlySpent + AmountInMmk).ToString("N0")) MMK</strong>,
+                        exceeding the configured monthly limit of
+                        <strong>@_monthlyLimit!.Value.ToString("N0") MMK</strong>.
+                    </p>
+                    <label class="form-label small fw-semibold" for="overrunJustificationEdit">
+                        Please justify why this overrun is necessary.
+                    </label>
+                    <textarea id="overrunJustificationEdit" class="form-control form-control-sm" rows="4"
+                              @bind="_monthlyOverrunJustification" @bind:event="oninput"
+                              placeholder="e.g. Quarter-end software license renewal that cannot be deferred…"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CancelOverrunModal" disabled="@_saving">Cancel</button>
+                    <button class="btn btn-sm btn-primary"
+                            @onclick="ConfirmOverrunAndSave"
+                            disabled="@(_saving || string.IsNullOrWhiteSpace(_monthlyOverrunJustification))">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @ConfirmLabel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -195,8 +263,24 @@
     private string? _partialDetail;
     private string? _lastSendBackComment;
 
+    // Monthly limit state
+    private decimal? _monthlyLimit;
+    private decimal _monthlySpent;
+    private string _monthlyOverrunJustification = "";
+
+    // Overrun modal state
+    private bool _showOverrunModal;
+    private bool _pendingSubmit;
+
     private string SaveLabel => _request?.Status == RequestStatus.SentBack ? "Save" : "Save Draft";
     private string SubmitLabel => _request?.Status == RequestStatus.SentBack ? "Save & Resubmit" : "Save & Submit";
+    private string ConfirmLabel => _pendingSubmit
+        ? (_request?.Status == RequestStatus.SentBack ? "Confirm and Resubmit" : "Confirm and Submit")
+        : (_request?.Status == RequestStatus.SentBack ? "Confirm and Save" : "Confirm and Save Draft");
+
+    private decimal AmountInMmk => _amount * _selectedRate;
+    private bool WouldOverflowMonthly =>
+        _monthlyLimit.HasValue && (_monthlySpent + AmountInMmk) > _monthlyLimit.Value;
 
     protected override async Task OnInitializedAsync()
     {
@@ -219,6 +303,8 @@
             _withdrawerTitle = _request.WithdrawerJobTitle;
             _allowsPartial = _request.AllowsPartialPayment;
             _partialDetail = _request.PartialPaymentDetail;
+            // Pre-fill justification from the saved draft so the user doesn't retype it.
+            _monthlyOverrunJustification = _request.MonthlyOverrunJustification ?? "";
 
             // Load active currencies; include the draft's current code even if deactivated
             // so the selector reflects the saved state, but the submit-side handler will
@@ -235,6 +321,17 @@
 
             var headResult = await Mediator.Send(new GetUserQuery(_request.DeptHeadIdAtSubmission));
             if (headResult.IsSuccess) _deptHeadName = headResult.Value.FullName;
+
+            // Pull current monthly position. Use the requester's CURRENT department
+            // (CurrentUser.DepartmentId), matching Submit/Resubmit which always re-fetch
+            // the current dept. If the user changed dept since first submission, the
+            // monthly check applies to the new one — same rule the backend uses.
+            var spendResult = await Mediator.Send(new GetMonthlySpendQuery(CurrentUser.DepartmentId));
+            if (spendResult.IsSuccess)
+            {
+                _monthlyLimit = spendResult.Value.MonthlyLimit;
+                _monthlySpent = spendResult.Value.SpentInMmk;
+            }
 
             if (_request.Status == RequestStatus.SentBack)
             {
@@ -263,16 +360,52 @@
         if (result.IsSuccess) { _request = result.Value; StateHasChanged(); }
     }
 
-    private async Task Save(bool submit)
+    private async Task OnSaveClicked(bool submit)
+    {
+        _error = null;
+        if (!ValidateForm()) return;
+
+        // Over monthly? Pop the justification modal and let the user fill it in.
+        if (WouldOverflowMonthly)
+        {
+            _pendingSubmit = submit;
+            _showOverrunModal = true;
+            return;
+        }
+
+        await DoSave(submit);
+    }
+
+    private async Task ConfirmOverrunAndSave()
+    {
+        if (string.IsNullOrWhiteSpace(_monthlyOverrunJustification)) return;
+        await DoSave(_pendingSubmit);
+        if (string.IsNullOrEmpty(_error))
+        {
+            _showOverrunModal = false;
+        }
+    }
+
+    private void CancelOverrunModal()
+    {
+        _showOverrunModal = false;
+        // Intentionally keep _monthlyOverrunJustification so the user doesn't lose their text
+        // if they re-open the modal.
+    }
+
+    private bool ValidateForm()
+    {
+        if (_amount <= 0) { _error = "Amount must be greater than zero."; return false; }
+        if (string.IsNullOrWhiteSpace(_currencyCode)) { _error = "Currency is required."; return false; }
+        if (string.IsNullOrWhiteSpace(_reason)) { _error = "Reason is required."; return false; }
+        if (string.IsNullOrWhiteSpace(_withdrawerName)) { _error = "Withdrawer name is required."; return false; }
+        if (string.IsNullOrWhiteSpace(_withdrawerTitle)) { _error = "Withdrawer job title is required."; return false; }
+        return true;
+    }
+
+    private async Task DoSave(bool submit)
     {
         if (_request is null) return;
-
-        _error = null;
-        if (_amount <= 0) { _error = "Amount must be greater than zero."; return; }
-        if (string.IsNullOrWhiteSpace(_currencyCode)) { _error = "Currency is required."; return; }
-        if (string.IsNullOrWhiteSpace(_reason)) { _error = "Reason is required."; return; }
-        if (string.IsNullOrWhiteSpace(_withdrawerName)) { _error = "Withdrawer name is required."; return; }
-        if (string.IsNullOrWhiteSpace(_withdrawerTitle)) { _error = "Withdrawer job title is required."; return; }
 
         _saving = true;
         _submitting = submit;
@@ -287,10 +420,12 @@
                 CurrencyCode: _currencyCode,
                 Reasons: _reason,
                 WithdrawerName: _withdrawerName,
-
                 WithdrawerJobTitle: _withdrawerTitle,
                 AllowsPartialPayment: _allowsPartial,
-                PartialPaymentDetail: _allowsPartial ? _partialDetail : null));
+                PartialPaymentDetail: _allowsPartial ? _partialDetail : null,
+                MonthlyOverrunJustification: string.IsNullOrWhiteSpace(_monthlyOverrunJustification)
+                    ? null
+                    : _monthlyOverrunJustification));
 
             if (updateResult.IsFailure) { _error = updateResult.Error; return; }
 
