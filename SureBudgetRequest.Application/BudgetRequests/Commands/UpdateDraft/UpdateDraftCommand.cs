@@ -17,7 +17,8 @@ public sealed record UpdateDraftCommand(
     string WithdrawerName,
     string WithdrawerJobTitle,
     bool AllowsPartialPayment,
-    string? PartialPaymentDetail) : IRequest<Result>;
+    string? PartialPaymentDetail,
+    string? MonthlyOverrunJustification = null) : IRequest<Result>;
 
 public sealed class UpdateDraftCommandHandler
     : IRequestHandler<UpdateDraftCommand, Result>
@@ -63,7 +64,8 @@ public sealed class UpdateDraftCommandHandler
             command.WithdrawerName,
             command.WithdrawerJobTitle,
             command.AllowsPartialPayment,
-            command.PartialPaymentDetail);
+            command.PartialPaymentDetail,
+            command.MonthlyOverrunJustification);
 
         if (result.IsFailure) return result;
 

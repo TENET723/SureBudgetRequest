@@ -5,7 +5,23 @@ public class Department
     public Guid Id { get; private set; }
     public string Name { get; private set; } = null!;
     public Guid? HeadUserId { get; private set; }
+
+    /// <summary>
+    /// Per-request budget limit in MMK. A request whose MMK-equivalent amount
+    /// exceeds this value is routed through the Management stage at submission.
+    /// </summary>
     public decimal BudgetLimit { get; private set; }
+
+    /// <summary>
+    /// Optional monthly spending limit in MMK. When set, submission requires a
+    /// justification if the current month's spend plus the new request would
+    /// exceed this value. <c>null</c> means the department has no monthly limit
+    /// configured and the monthly check is skipped entirely (backwards-compatible
+    /// for departments that existed before this feature).
+    ///
+    /// Setting this to a non-null value (including 0) enables enforcement.
+    /// </summary>
+    public decimal? MonthlyLimit { get; private set; }
 
     /// <summary>
     /// Slack incoming webhook URL for this department's channel. Notifications
@@ -21,17 +37,25 @@ public class Department
     // For EF Core
     private Department() { }
 
-    public Department(string name, Guid? headUserId, decimal budgetLimit, string? slackWebhookUrl = null)
+    public Department(
+        string name,
+        Guid? headUserId,
+        decimal budgetLimit,
+        decimal? monthlyLimit = null,
+        string? slackWebhookUrl = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Department name is required.", nameof(name));
         if (budgetLimit < 0)
             throw new ArgumentException("Budget limit cannot be negative.", nameof(budgetLimit));
+        if (monthlyLimit.HasValue && monthlyLimit.Value < 0)
+            throw new ArgumentException("Monthly limit cannot be negative.", nameof(monthlyLimit));
 
         Id = Guid.NewGuid();
         Name = name;
         HeadUserId = headUserId;
         BudgetLimit = budgetLimit;
+        MonthlyLimit = monthlyLimit;
         SlackWebhookUrl = NormalizeAndValidateWebhook(slackWebhookUrl);
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
@@ -51,6 +75,17 @@ public class Department
         if (newLimit < 0)
             throw new ArgumentException("Budget limit cannot be negative.", nameof(newLimit));
         BudgetLimit = newLimit;
+    }
+
+    /// <summary>
+    /// Sets or clears the monthly spending limit. Pass <c>null</c> to disable
+    /// monthly enforcement entirely. Pass any non-negative value to enable it.
+    /// </summary>
+    public void ChangeMonthlyLimit(decimal? newLimit)
+    {
+        if (newLimit.HasValue && newLimit.Value < 0)
+            throw new ArgumentException("Monthly limit cannot be negative.", nameof(newLimit));
+        MonthlyLimit = newLimit;
     }
 
     /// <summary>

@@ -71,10 +71,24 @@ public sealed class ResubmitRequestCommandHandler
         if (!currency.IsActive)
             return Result.Failure($"Currency '{currency.Code}' is not active.");
 
+        // Re-check monthly position at resubmission time — the dept's spend may have
+        // changed since the original submission (other requests approved/paid in the
+        // meantime). The justification is required again if still applicable.
+        decimal? monthlySpendBeforeInMmk = null;
+        if (department.MonthlyLimit.HasValue)
+        {
+            var nowUtc = DateTime.UtcNow;
+            monthlySpendBeforeInMmk = await _budgetRequestRepository
+                .GetMonthlyApprovedSpendInMmkAsync(
+                    department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
+        }
+
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
             department.BudgetLimit,
+            department.MonthlyLimit,
+            monthlySpendBeforeInMmk,
             currency.RateToMmk,
             deptHead.Id,
             deptHead.FullName,

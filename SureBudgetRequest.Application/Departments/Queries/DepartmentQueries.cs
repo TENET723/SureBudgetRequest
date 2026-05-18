@@ -10,12 +10,13 @@ public sealed record DepartmentDto(
     string Name,
     Guid? HeadUserId,
     decimal BudgetLimit,
+    decimal? MonthlyLimit,
     string? SlackWebhookUrl,
     bool IsActive,
     DateTime CreatedAt)
 {
     public static DepartmentDto FromEntity(Department d) =>
-        new(d.Id, d.Name, d.HeadUserId, d.BudgetLimit, d.SlackWebhookUrl, d.IsActive, d.CreatedAt);
+        new(d.Id, d.Name, d.HeadUserId, d.BudgetLimit, d.MonthlyLimit, d.SlackWebhookUrl, d.IsActive, d.CreatedAt);
 }
 
 // ── Get single department ─────────────────────────────────────────────────────

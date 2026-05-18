@@ -10,6 +10,7 @@ public sealed record UpdateDepartmentCommand(
     string Name,
     Guid? HeadUserId,
     decimal BudgetLimit,
+    decimal? MonthlyLimit = null,
     string? SlackWebhookUrl = null) : IRequest<Result>;
 
 public sealed class UpdateDepartmentCommandHandler
@@ -47,6 +48,7 @@ public sealed class UpdateDepartmentCommandHandler
             dept.Rename(command.Name);
             dept.ChangeHead(command.HeadUserId);
             dept.ChangeBudgetLimit(command.BudgetLimit);
+            dept.ChangeMonthlyLimit(command.MonthlyLimit);
             dept.SetSlackWebhookUrl(command.SlackWebhookUrl);
         }
         catch (ArgumentException ex)

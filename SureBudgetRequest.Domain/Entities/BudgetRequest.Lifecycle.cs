@@ -25,7 +25,8 @@ public partial class BudgetRequest
         string withdrawerName,
         string withdrawerJobTitle,
         bool allowsPartialPayment,
-        string? partialPaymentDetail)
+        string? partialPaymentDetail,
+        string? monthlyOverrunJustification = null)
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
@@ -56,6 +57,7 @@ public partial class BudgetRequest
             WithdrawerJobTitle = withdrawerJobTitle,
             AllowsPartialPayment = allowsPartialPayment,
             PartialPaymentDetail = partialPaymentDetail,
+            MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification),
             Status = RequestStatus.Draft,
             ApprovedAmount = 0,
             CreatedAt = DateTime.UtcNow
@@ -72,7 +74,8 @@ public partial class BudgetRequest
         string withdrawerName,
         string withdrawerJobTitle,
         bool allowsPartialPayment,
-        string? partialPaymentDetail)
+        string? partialPaymentDetail,
+        string? monthlyOverrunJustification = null)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
@@ -97,18 +100,28 @@ public partial class BudgetRequest
         WithdrawerJobTitle = withdrawerJobTitle;
         AllowsPartialPayment = allowsPartialPayment;
         PartialPaymentDetail = partialPaymentDetail;
+        MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
         return Result.Success();
     }
 
     // Submit moves Draft/SentBack -> PendingDeptHead, fast-forwarding through the
     // DeptHead stage if the requester is the dept head (R9 auto-approval rule).
-    // The Management stage (when over limit) does NOT auto-approve — even a Management
-    // member's own over-limit request requires peer review by another Management member.
-    // This mirrors how Finance works.
-    // The MMK-equivalent of the requested amount is compared against the department limit.
+    // The Management stage (when over per-request limit) does NOT auto-approve — even a
+    // Management member's own over-limit request requires peer review by another Management
+    // member. This mirrors how Finance works.
+    //
+    // Monthly limit (R15/R16): if the department has a monthly limit configured
+    // (non-null) AND (monthlySpendBeforeInMmk + amountInMmk) > monthlyLimit, the
+    // requester must have supplied a non-empty MonthlyOverrunJustification. The
+    // monthly check does NOT alter routing — only the per-request limit triggers
+    // the Management stage. Monthly enforcement is independent.
+    //
+    // The MMK-equivalent of the requested amount is compared against both limits.
     public Result Submit(
         Guid departmentId,
         decimal departmentLimit,             // in MMK
+        decimal? monthlyLimit,               // in MMK; null = monthly enforcement disabled for this dept
+        decimal? monthlySpendBeforeInMmk,    // in MMK; pass null when monthlyLimit is null
         decimal exchangeRateToMmk,           // current rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
@@ -124,19 +137,41 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(requesterName))
             return Result.Failure("Requester name is required.");
 
-        // Convert to MMK for the limit comparison
-        var amountInMmk = RequestedAmount * exchangeRateToMmk;
-        var isOverLimit = amountInMmk > departmentLimit;
+        // Consistency check: spend must be supplied iff the dept has a monthly limit.
+        if (monthlyLimit.HasValue != monthlySpendBeforeInMmk.HasValue)
+            return Result.Failure(
+                "Monthly limit and monthly spend snapshot must both be supplied, or both be null.");
 
-        // Snapshot the routing context (R7, R12)
+        // Convert to MMK for the limit comparisons
+        var amountInMmk = RequestedAmount * exchangeRateToMmk;
+        var isOverPerRequestLimit = amountInMmk > departmentLimit;
+
+        // Monthly check — only when the department has a monthly limit configured.
+        var isOverMonthly = monthlyLimit.HasValue
+                         && (monthlySpendBeforeInMmk!.Value + amountInMmk) > monthlyLimit.Value;
+
+        if (isOverMonthly && string.IsNullOrWhiteSpace(MonthlyOverrunJustification))
+            return Result.Failure(
+                "This request would push the department over its monthly limit. " +
+                "A justification is required.");
+
+        // Snapshot the routing context (R7, R12, R15, R16)
         DepartmentIdAtSubmission = departmentId;
         DepartmentLimitAtSubmission = departmentLimit;
+        MonthlyLimitAtSubmission = monthlyLimit;
+        MonthlySpendBeforeAtSubmission = monthlySpendBeforeInMmk;
         ExchangeRateAtSubmission = exchangeRateToMmk;
         RequestedAmountInMmkAtSubmission = amountInMmk;
         DeptHeadIdAtSubmission = deptHeadId;
         DeptHeadNameAtSubmission = deptHeadName;
         RequesterNameAtSubmission = requesterName;
         SubmittedAt = DateTime.UtcNow;
+
+        // Clear the justification snapshot if it ended up not being needed.
+        // We intentionally do NOT clear it — keeping it preserves the requester's
+        // pre-submission expectation in the audit trail. Comment kept for future
+        // reviewers who might wonder. (If you change your mind, set it to null here
+        // when !isOverMonthly.)
 
         // Generate the human-friendly reference number.
         // Only set on first submission — resubmission after SendBack keeps the same Reference.
@@ -161,9 +196,10 @@ public partial class BudgetRequest
             return Result.Success();
         }
 
-        // Stage 2: Management (only if over limit) — never auto-approves.
+        // Stage 2: Management (only if over per-request limit) — never auto-approves.
         // Any Management member can approve; identity is checked by role in Application.
-        if (isOverLimit)
+        // Note: monthly overrun does NOT route here — only the per-request limit does.
+        if (isOverPerRequestLimit)
         {
             Status = RequestStatus.PendingManagement;
             return Result.Success();
@@ -260,4 +296,9 @@ public partial class BudgetRequest
         var rand = Random.Shared.Next(1000, 10000); // 1000-9999 inclusive
         return $"BR-{typeCode}-{datePart}-{rand}";
     }
+
+    // Normalize whitespace-only strings to null so the "is justification present?"
+    // check in Submit() doesn't have to repeat IsNullOrWhiteSpace.
+    private static string? NormalizeJustification(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -71,11 +71,25 @@ public sealed class SubmitRequestCommandHandler
         if (headUser is null)
             return Result.Failure("Department head not found.");
 
+        // Monthly spend lookup — only run when the dept has a monthly limit configured.
+        // The "month" of a request is determined by SubmittedAt in UTC; we use today's
+        // UTC year/month here because that's the calendar bucket this submission lands in.
+        decimal? monthlySpendBeforeInMmk = null;
+        if (department.MonthlyLimit.HasValue)
+        {
+            var nowUtc = DateTime.UtcNow;
+            monthlySpendBeforeInMmk = await _budgetRequestRepository
+                .GetMonthlyApprovedSpendInMmkAsync(
+                    department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
+        }
+
         var previousStatus = budgetRequest.Status;
 
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
+            department.MonthlyLimit,
+            monthlySpendBeforeInMmk,
             currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,

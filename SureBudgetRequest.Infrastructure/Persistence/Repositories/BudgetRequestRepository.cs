@@ -62,4 +62,37 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == attachmentId, cancellationToken);
     }
+
+    public async Task<decimal> GetMonthlyApprovedSpendInMmkAsync(
+        Guid departmentId,
+        int year,
+        int month,
+        CancellationToken cancellationToken = default)
+    {
+        // Half-open interval [monthStart, monthEnd) in UTC. Using SubmittedAt
+        // because the "month" of a request is defined by submission time, not
+        // Finance-approval time. See IBudgetRequestRepository.GetMonthlyApprovedSpendInMmkAsync.
+        var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEnd = monthStart.AddMonths(1);
+
+        // Statuses that count as "approved by Finance" (i.e. the request has
+        // crossed the Finance approval bar).
+        var countedStatuses = new[]
+        {
+            RequestStatus.Approved,
+            RequestStatus.PartiallyPaid,
+            RequestStatus.Paid
+        };
+
+        // SumAsync over an empty set returns 0 (not null) for decimal, so no
+        // null-coalesce is needed here.
+        return await _context.BudgetRequests
+            .AsNoTracking()
+            .Where(r => r.DepartmentIdAtSubmission == departmentId
+                     && countedStatuses.Contains(r.Status)
+                     && r.SubmittedAt != null
+                     && r.SubmittedAt >= monthStart
+                     && r.SubmittedAt < monthEnd)
+            .SumAsync(r => r.RequestedAmountInMmkAtSubmission, cancellationToken);
+    }
 }

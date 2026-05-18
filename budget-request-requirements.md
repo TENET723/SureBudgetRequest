@@ -1,4 +1,4 @@
-# Budget Request — Requirements Spec (v2)
+# Budget Request — Requirements Spec (v3)
 
 **Project:** SureBudgetRequest (aSure internal app)
 **Stack:** .NET 10 · Blazor Server · Clean Architecture · Supabase (PostgreSQL) · Slack notifications
@@ -23,7 +23,7 @@ Internal app for aSure employees to request budget for purchases or expenses. Re
 ## 3. Core Entities
 
 - **User** — belongs to a Department, has a Role
-- **Department** — has one Department Head and one budget limit (always denominated in MMK)
+- **Department** — has one Department Head, a **per-request budget limit**, and an **optional monthly limit** (both in MMK)
 - **BudgetRequest** — the request itself, with status, amount, requester, **currency**
 - **ApprovalAction** — audit row for every approve/reject/auto-approve decision
 - **Attachment** — supporting documents
@@ -34,12 +34,14 @@ Internal app for aSure employees to request budget for purchases or expenses. Re
 
 The flow is **strictly sequential**: Department Head → Boss (if applicable) → Finance.
 
-Whether the Boss stage applies is determined by **the request amount (converted to MMK) vs. the department's budget limit at submission time**:
+Whether the Boss stage applies is determined by **the request amount (converted to MMK) vs. the department's *per-request* budget limit at submission time**:
 
-- amount-in-MMK **≤ limit** → skip Boss stage
-- amount-in-MMK **> limit** → include Boss stage
+- amount-in-MMK **≤ per-request limit** → skip Boss stage
+- amount-in-MMK **> per-request limit** → include Boss stage
 
 When the request's currency is not MMK, the system converts the requested amount to MMK using the **exchange rate at submission time** (snapshotted onto the request — see R7 and R7a). Department limits are always denominated in MMK.
+
+**The monthly limit (R15) is independent of routing.** It does *not* add a Boss stage. Its only effect on the flow is to require a justification field on the request when triggered.
 
 ### 4.1 Auto-approval rule (handles self-approval cleanly)
 
@@ -55,30 +57,40 @@ The auto-approval is recorded in `ApprovalAction` with `Decision = AutoApproved`
 
 ### 4.2 Worked examples
 
-**Case A — Regular employee, under limit:**
+**Case A — Regular employee, under per-request limit, under monthly:**
 ```
 Submitted → PendingDeptHead (manual) → PendingFinance (manual) → Approved → Paid
 ```
 
-**Case B — Regular employee, over limit:**
+**Case B — Regular employee, over per-request limit:**
 ```
 Submitted → PendingDeptHead (manual) → PendingBoss (manual) → PendingFinance (manual) → Approved → Paid
 ```
 
-**Case C — Dept Head submits, under limit:**
+**Case C — Dept Head submits, under per-request limit:**
 ```
 Submitted → DeptHead AUTO-APPROVED → PendingFinance (manual) → Approved → Paid
 ```
 
-**Case D — Dept Head submits, over limit:**
+**Case D — Dept Head submits, over per-request limit:**
 ```
 Submitted → DeptHead AUTO-APPROVED → PendingBoss (manual) → PendingFinance (manual) → Approved → Paid
 ```
 
-**Case E — Boss submits, over their own dept's limit:**
+**Case E — Boss submits, over their own dept's per-request limit:**
 ```
 Submitted → PendingDeptHead (manual) → Boss AUTO-APPROVED → PendingFinance (manual) → Approved → Paid
 ```
+
+**Case F — Regular employee, under per-request limit, but pushes department over monthly:**
+```
+Submitted (with MonthlyOverrunJustification supplied) →
+  PendingDeptHead (manual) → PendingFinance (manual) → Approved → Paid
+```
+Note: the flow is unchanged from Case A. The only difference is that the requester
+*must* supply a `MonthlyOverrunJustification` when filling out the request, or
+submission is rejected with a validation error. The justification appears alongside
+`Reasons` on the request detail page for all approvers to see.
 
 ### 4.3 Rejection
 
@@ -94,7 +106,7 @@ Pending<Stage> → Rejected
 
 - `Draft` — saved but not submitted
 - `PendingDeptHead`
-- `PendingBoss` — only when amount-in-MMK > department limit
+- `PendingBoss` — only when amount-in-MMK > department per-request limit
 - `PendingFinance`
 - `Approved` — finance approved; awaiting payment dispatch
 - `Paid` — finance has marked it paid
@@ -111,8 +123,8 @@ Pending<Stage> → Rejected
 - **R3** — Each department has exactly **one** Department Head
 - **R4** — Each user belongs to exactly **one** department
 - **R5** — There is exactly **one** Boss role-holder in the system at a time
-- **R6** — Department budget limit is a **per-request threshold** (in MMK), not cumulative monthly/yearly. A 1.5M-MMK-equivalent request triggers boss approval; a 0.9M-MMK-equivalent does not. The system does not track total spending.
-- **R7** — The limit comparison uses the department's **current** limit AND the **current exchange rate** at submission time. Both are snapshotted onto the request. Future limit or rate changes do not retroactively re-route in-flight requests.
+- **R6** — The department **per-request limit** (in MMK) is a per-single-request threshold for routing. A request whose MMK-equivalent exceeds it triggers Boss approval. It is NOT cumulative.
+- **R7** — The per-request limit comparison uses the department's **current** per-request limit AND the **current exchange rate** at submission time. Both are snapshotted onto the request. Future limit or rate changes do not retroactively re-route in-flight requests.
 - **R7a** — Exchange rate snapshot fields on `BudgetRequest`: `CurrencyCode` (also stored from draft creation), `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`. These are immutable once set.
 - **R8** — Approval is **strictly sequential**: Dept Head → Boss (if applicable) → Finance. No parallel approvals.
 - **R9** — **Auto-approval rule**: any stage where the assigned approver is the requester is auto-approved by the system at submission time.
@@ -121,6 +133,24 @@ Pending<Stage> → Rejected
 - **R12** — All **currency rate changes** by admin write a `CurrencyRateChange` audit row in the same transaction (old rate, new rate, changed-by, timestamp).
 - **R13** — MMK is locked: its rate cannot be changed and it cannot be deactivated.
 - **R14** — A request in `SentBack` status that is resubmitted picks up the **then-current** exchange rate (rate is re-snapshotted, not preserved from the original submission), matching how the dept head / limit are re-evaluated.
+
+### Monthly limit rules
+
+- **R15** — Each department has an **optional `MonthlyLimit`** (in MMK, nullable). When set, it caps the department's *cumulative* approved-by-Finance spending for the current calendar month. When `null`, no monthly enforcement is performed for that department (backwards-compatible with departments that pre-date the feature).
+- **R15a** — Setting `MonthlyLimit` is the admin's call to enable enforcement. Setting it to a non-null value (including 0) enables the check. Clearing it back to null disables.
+- **R16** — **Monthly spend** for a department in a given calendar month is defined as the sum of `RequestedAmountInMmkAtSubmission` for all requests:
+  - `DepartmentIdAtSubmission` equals that department
+  - `SubmittedAt` falls within that calendar month (UTC, half-open `[start, end)`)
+  - `Status` is one of `Approved`, `PartiallyPaid`, `Paid`
+  - i.e. `Draft`, `Pending*`, `SentBack`, `Rejected`, `Cancelled` requests are excluded.
+- **R17** — **Monthly overrun check at submission**: if `MonthlyLimit` is set AND `(MonthlySpend + RequestedAmountInMmk) > MonthlyLimit`, the requester must have provided a non-empty `MonthlyOverrunJustification` on the request. Submission fails otherwise.
+- **R18** — Monthly overrun does **not** alter routing. It does not add the Boss stage. The flow is identical to a non-overrun request; only the justification field is required.
+- **R19** — At submission, the request snapshots `MonthlyLimitAtSubmission` (the dept's monthly limit at that moment) and `MonthlySpendBeforeAtSubmission` (the dept's monthly spend just before this request was counted). Both are nullable — null when monthly enforcement was off for the dept at submission. The justification text, once entered, is preserved on the request for audit even if it ended up not being strictly required (low-cost; aids audit).
+- **R20** — On `ResubmitAfterSendBack`, the monthly check re-runs against the *then-current* dept monthly limit and spend (parallel to R14). If conditions have changed during the fix, the justification requirement may now apply or no longer apply.
+
+### Known limitation (acceptable for v1)
+
+The monthly check happens at submission time using only Finance-approved requests in the totals. Two concurrent submissions can therefore each pass the at-submission check, even if together they would exceed the monthly limit. Finance sees the running total and is the de facto backstop. If this becomes a real-world issue, R16's status list can be widened to include `Pending*` for the at-submission check only.
 
 ---
 
@@ -132,10 +162,12 @@ These were open in v1 and are now decided:
 |---|---|
 | F1 — Who is Boss | Single user company-wide with Boss role |
 | F2 — Self-approval | Auto-approve any stage where approver = requester (R9) |
-| F3 — Limit period | Per-request threshold (not cumulative) |
+| F3 — Limit period | Per-request limit AND optional monthly limit, both coexist (R6, R15) |
 | F4 — Approval order | Sequential: Dept Head → Boss → Finance |
-| F5 — Race condition | Not applicable (not cumulative) |
+| F5 — Race condition | Known limitation, accepted for v1 — see "Known limitation" above |
 | F13 — Multi-currency | Supported as of v2. See R1, R1a, R7, R7a, R12, R13, R14. |
+| F16 — Monthly limit | Added in v3. Optional per-department cap; triggers justification, not extra approval. See R15–R20. |
+| F17 — Month definition | A request's "month" is determined by `SubmittedAt` (UTC). |
 
 ---
 
@@ -152,6 +184,8 @@ These were open in v1 and are now decided:
 | **F12** | What if employee changes department mid-flow? | Lock the dept head at submission time. Department change does not re-route in-flight requests. |
 | **F14** | Should approvers see the original-currency amount or the MMK-equivalent? | Show both side-by-side; lead with original currency, show MMK in parentheses with the snapshotted rate. |
 | **F15** | What if a currency is deactivated while a draft is in flight? | Draft cannot be submitted until the user changes to an active currency. (Enforced in `SubmitRequestCommand`.) |
+| **F18** | Should month boundaries use UTC or Myanmar local time (UTC+6:30)? | UTC for v1. Revisit if month-end edge cases bite. |
+| **F19** | Should the monthly-spend display on the form refresh live? | Yes — fetch on department change and amount change. |
 
 These all have safe defaults. Proceeding with these unless you object.
 
@@ -185,11 +219,13 @@ These flow from the rules above and shape the Domain layer:
 
 3. **Auto-approval is computed at `Submit()`-time**, not on demand. The flow is "fast-forwarded" through any stages where requester == approver, with corresponding `AutoApproved` `ApprovalAction` rows written in the same transaction.
 
-4. **`DepartmentLimitSnapshot`** — store the limit value on the `BudgetRequest` row at submission, so audit and re-display are stable even if the department's limit changes later. Same applies to `ExchangeRateAtSubmission` and `RequestedAmountInMmkAtSubmission`.
+4. **`DepartmentLimitSnapshot`** — store the limit value on the `BudgetRequest` row at submission, so audit and re-display are stable even if the department's limit changes later. Same applies to `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`, `MonthlyLimitAtSubmission`, and `MonthlySpendBeforeAtSubmission`.
 
 5. **`AssignedApproverId` per stage** — also snapshot at submission, for the same reason (and for F12).
 
 6. **Currency is a separate aggregate.** `BudgetRequest` references it by `CurrencyCode` (string FK); there is no navigation property between them. Currency rate changes are tracked in a dedicated `CurrencyRateChange` audit table written from the `UpdateCurrencyCommand` handler.
+
+7. **Monthly-spend aggregate query lives in the repository.** The Application layer doesn't reach into EF directly; it calls `IBudgetRequestRepository.GetMonthlyApprovedSpendInMmkAsync(deptId, year, month, ct)`. The Domain `Submit()` method takes the pre-computed spend value as a parameter — it doesn't query for itself.
 
 ---
 

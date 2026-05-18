@@ -81,9 +81,16 @@ public sealed class DbSeeder
         var hrDeptId = Guid.Parse("00000000-0000-0000-0001-000000000002");
         var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
 
-        var itDept = new Department("Information Technology", deptHeadItId, 5_000_000);
-        var hrDept = new Department("Human Resources", deptHeadHrId, 3_000_000);
-        var adminDept = new Department("Administration", adminId, 10_000_000);
+        // Per-request limit (BudgetLimit) is the threshold for Management routing.
+        // MonthlyLimit is the soft cap that triggers a required justification at
+        // submission. We seed sample values; admins can adjust per-department later.
+        // Pass null for monthlyLimit to disable monthly enforcement on a department.
+        var itDept = new Department("Information Technology", deptHeadItId,
+            budgetLimit: 5_000_000, monthlyLimit: 20_000_000);
+        var hrDept = new Department("Human Resources", deptHeadHrId,
+            budgetLimit: 3_000_000, monthlyLimit: 10_000_000);
+        var adminDept = new Department("Administration", adminId,
+            budgetLimit: 10_000_000, monthlyLimit: 40_000_000);
 
         _db.Departments.AddRange(itDept, hrDept, adminDept);
 

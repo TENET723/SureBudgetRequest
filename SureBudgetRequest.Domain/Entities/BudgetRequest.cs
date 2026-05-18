@@ -29,6 +29,16 @@ public partial class BudgetRequest
     public bool AllowsPartialPayment { get; private set; }
     public string? PartialPaymentDetail { get; private set; }
 
+    /// <summary>
+    /// Free-text justification from the requester for why a request that would
+    /// push the department over its monthly limit is still necessary. Set on
+    /// the entity in Draft/SentBack (via <see cref="CreateDraft"/> /
+    /// <see cref="UpdateDetails"/>) and validated at <see cref="Submit"/>-time
+    /// — Submit returns Failure if a monthly overrun is detected and this
+    /// field is null/whitespace.
+    /// </summary>
+    public string? MonthlyOverrunJustification { get; private set; }
+
     // === Currency (editable while Draft/SentBack; locked at Submit via the snapshot below) ===
     // The currency the request is denominated in. Amount, ApprovedAmount, and Payments
     // are all in this currency. Only the limit comparison converts to MMK.
@@ -42,6 +52,23 @@ public partial class BudgetRequest
     public Guid DeptHeadIdAtSubmission { get; private set; }
     public string DeptHeadNameAtSubmission { get; private set; } = null!;
     public string RequesterNameAtSubmission { get; private set; } = null!;
+
+    /// <summary>
+    /// The department's monthly limit (in MMK) at the moment this request was
+    /// submitted. <c>null</c> when monthly enforcement was not configured for
+    /// the department at submission. Used for stable audit display even if
+    /// the department's monthly limit changes later.
+    /// </summary>
+    public decimal? MonthlyLimitAtSubmission { get; private set; }
+
+    /// <summary>
+    /// The department's already-spent total (in MMK) for the calendar month
+    /// of submission, *before* this request was counted. <c>null</c> when
+    /// monthly enforcement was not configured for the department at submission.
+    /// Useful for audit display ("how close to the cap was this dept when this
+    /// request landed?").
+    /// </summary>
+    public decimal? MonthlySpendBeforeAtSubmission { get; private set; }
 
     // === Workflow state ===
     public RequestStatus Status { get; private set; }

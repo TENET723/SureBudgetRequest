@@ -25,6 +25,10 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.AllowsPartialPayment).IsRequired();
         builder.Property(r => r.PartialPaymentDetail).HasMaxLength(1000);
 
+        // Nullable — only populated when the dept has a monthly limit AND the
+        // requested amount would push them over. Validated by Submit().
+        builder.Property(r => r.MonthlyOverrunJustification).HasMaxLength(2000);
+
         // ── Currency (draft-phase, editable while Draft/SentBack) ─────────────
         builder.Property(r => r.CurrencyCode).IsRequired().HasMaxLength(10);
         builder.HasIndex(r => r.CurrencyCode);
@@ -39,6 +43,13 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.DepartmentLimitAtSubmission)
                .IsRequired()
                .HasColumnType("numeric(18,2)");
+
+        // Both nullable — null when the dept had no monthly limit at submission.
+        builder.Property(r => r.MonthlyLimitAtSubmission)
+               .HasColumnType("numeric(18,2)");
+        builder.Property(r => r.MonthlySpendBeforeAtSubmission)
+               .HasColumnType("numeric(18,2)");
+
         builder.Property(r => r.ExchangeRateAtSubmission)
                .IsRequired()
                .HasColumnType("numeric(18,6)");
@@ -69,6 +80,10 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);
         builder.HasIndex(r => r.DepartmentIdAtSubmission);
+
+        // Composite index supporting the monthly-spend aggregate query
+        // (filter by dept + status + SubmittedAt range).
+        builder.HasIndex(r => new { r.DepartmentIdAtSubmission, r.Status, r.SubmittedAt });
 
         // ── Private collection backing fields ─────────────────────────────────
         // EF Core must use the private List<T> fields, not the IReadOnlyList<T> properties.
