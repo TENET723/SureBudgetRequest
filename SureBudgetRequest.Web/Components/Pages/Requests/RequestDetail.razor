@@ -33,7 +33,7 @@ else
             <div>
                 <a href="requests/mine" class="text-muted small">← Back</a>
                 <h5 class="mb-1 mt-1">Budget Request</h5>
-                <span class="text-muted small font-monospace">@_request.Id.ToString()[..8]…</span>
+                <span class="text-muted small font-monospace">@_request.Reference</span>
             </div>
             <span class="badge fs-6 @StatusBadge(_request.Status)">@StatusLabel(_request.Status)</span>
         </div>

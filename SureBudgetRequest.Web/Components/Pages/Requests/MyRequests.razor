@@ -29,6 +29,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th>Reference</th>
                         <th>Date</th>
                         <th>Reason</th>
                         <th class="text-end">Amount</th>
@@ -41,6 +42,7 @@
                     @foreach (var r in _requests)
                     {
                         <tr>
+                            <td><strong>@r.Reference</strong></td>
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
                             <td class="text-end">@r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span></td>

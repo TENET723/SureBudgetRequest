@@ -6,6 +6,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest;
 public sealed record BudgetRequestDto(
     Guid Id,
     Guid RequesterId,
+    string? Reference,
     DateTime RequestDate,
     BudgetRequestType Type,
     decimal RequestedAmount,
@@ -36,6 +37,7 @@ public sealed record BudgetRequestDto(
     public static BudgetRequestDto FromEntity(BudgetRequest e) => new(
         e.Id,
         e.RequesterId,
+        e.Reference,
         e.RequestDate,
         e.Type,
         e.RequestedAmount,

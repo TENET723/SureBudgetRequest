@@ -40,8 +40,9 @@
     else
     {
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <h5 class="mb-0">Edit Budget Request</h5>
             <a href="requests/@Id" class="text-muted small">← Back to detail</a>
+            <h5 class="mb-0">Edit Budget Request</h5>
+            <span class="text-muted small font-monospace">@_request.Reference</span>
         </div>
 
         @if (_request.Status == RequestStatus.SentBack && !string.IsNullOrEmpty(_lastSendBackComment))
@@ -111,12 +112,12 @@
                     <textarea class="form-control form-control-sm" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
                 </div>
                 <div class="mb-3">
-    <label class="form-label small fw-semibold">Attachments</label>
-    <AttachmentList BudgetRequestId="_request.Id"
-                    Attachments="_request.Attachments"
-                    Editable="true"
-                    OnChanged="ReloadAsync" />
-</div>
+                    <label class="form-label small fw-semibold">Attachments</label>
+                    <AttachmentList BudgetRequestId="_request.Id"
+                                    Attachments="_request.Attachments"
+                                    Editable="true"
+                                    OnChanged="ReloadAsync" />
+                </div>
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Department Head (approver)</label>
                     <input class="form-control form-control-sm" value="@_deptHeadName" disabled />
