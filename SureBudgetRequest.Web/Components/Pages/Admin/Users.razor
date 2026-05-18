@@ -70,6 +70,7 @@
                         <th>Department</th>
                         <th>Role</th>
                         <th>Status</th>
+                        <th>Last Login At</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -82,6 +83,7 @@
                             <td class="text-muted small">@u.Username</td>
                             <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
                             <td><span class="badge @RoleBadge(u.Role)">@u.Role</span></td>
+                            <td class="small">@(u.LastLoginAt?.ToString("dd MMM yyyy") ?? "—")</td>
                             <td>
                                 @if (u.IsActive)
                                 {
