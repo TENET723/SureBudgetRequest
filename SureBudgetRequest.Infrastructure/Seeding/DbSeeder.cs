@@ -10,7 +10,7 @@ namespace SureBudgetRequest.Infrastructure.Seeding;
 /// <summary>
 /// Seeds the database with initial data for development.
 /// Each section checks its own table independently, so adding a new section
-/// (e.g. currencies) will seed even on a database that already has users.
+/// (e.g. currencies, COAs) will seed even on a database that already has users.
 /// Run only when <c>ASPNETCORE_ENVIRONMENT</c> is Development.
 /// </summary>
 public sealed class DbSeeder
@@ -36,6 +36,7 @@ public sealed class DbSeeder
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await SeedCurrenciesAsync(cancellationToken);
+        await SeedCoasAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
     }
 
@@ -55,6 +56,33 @@ public sealed class DbSeeder
             new Currency("USD", "US Dollar", 4500m),
             new Currency("SGD", "Singapore Dollar", 3300m),
             new Currency("THB", "Thai Baht", 130m));
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // ── Chart of Accounts ─────────────────────────────────────────────────────
+    private async Task SeedCoasAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.Coas.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("Chart of Accounts already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding chart of accounts...");
+
+        _db.Coas.AddRange(
+            new Coa("5110", "Office Supplies",   "Stationery, printer ink, small office goods."),
+            new Coa("5120", "IT Equipment",      "Hardware purchases — laptops, monitors, peripherals."),
+            new Coa("5130", "Software & SaaS",   "Software licenses, cloud subscriptions, SaaS tools."),
+            new Coa("5210", "Travel & Transport","Local transport, mileage, taxi, fuel."),
+            new Coa("5220", "Meals & Entertainment", "Client meals, team meals during travel."),
+            new Coa("5310", "Training & Education",  "Courses, certifications, books for staff."),
+            new Coa("5410", "Marketing & Advertising", "Campaigns, ads, promotional materials."),
+            new Coa("6100", "Salaries & Wages",  "Payroll — regular salaries (HR / Finance use only)."),
+            new Coa("6200", "Bonuses & Incentives", "Performance bonuses and incentive payouts."),
+            new Coa("7100", "Utilities",         "Electricity, water, internet at office.")
+        );
 
         await _db.SaveChangesAsync(cancellationToken);
     }

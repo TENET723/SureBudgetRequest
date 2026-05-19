@@ -1,0 +1,289 @@
+@page "/coas"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.Coas.Queries
+@using SureBudgetRequest.Application.Coas.Commands.CreateCoa
+@using SureBudgetRequest.Application.Coas.Commands.UpdateCoa
+@using SureBudgetRequest.Application.Coas.Commands.DeactivateCoa
+@using SureBudgetRequest.Application.Coas.Commands.ReactivateCoa
+
+<PageTitle>Chart of Accounts</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Chart of Accounts</h5>
+        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Account</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="showInactiveCoas" @bind="_showInactive" @bind:after="LoadData" />
+        <label class="form-check-label small" for="showInactiveCoas">Show inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _coas)
+                    {
+                        <tr class="@(!c.IsActive ? "text-muted" : "")">
+                            <td><strong>@c.Code</strong></td>
+                            <td>@c.Name</td>
+                            <td class="small text-muted">
+                                @(string.IsNullOrWhiteSpace(c.Description) ? "—" : c.Description)
+                            </td>
+                            <td>
+                                @if (c.IsActive) { <span class="badge bg-success">Active</span> }
+                                else             { <span class="badge bg-secondary">Inactive</span> }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(c)">Edit</button>
+                                @if (c.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(c)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => DoReactivate(c)" disabled="@_saving">Reactivate</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!_coas.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted py-3">No accounts found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingId.HasValue ? "Edit Account" : "New Account")</h6>
+                    <button class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-danger small py-2">@_formError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Code</label>
+                        <input class="form-control form-control-sm" @bind="_formCode"
+                               placeholder="e.g. 5110" maxlength="32" />
+                        <div class="form-text small">Must be unique. Used by Finance to book the transaction.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Name</label>
+                        <input class="form-control form-control-sm" @bind="_formName"
+                               placeholder="e.g. Office Supplies" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Description <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <textarea class="form-control form-control-sm" rows="2" maxlength="1000"
+                                  @bind="_formDescription"
+                                  placeholder="What kinds of expenses belong in this account?"></textarea>
+                    </div>
+                    @if (_editingId.HasValue)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="coaFormActive" @bind="_formIsActive" />
+                            <label class="form-check-label small" for="coaFormActive">Active</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
+@if (_deactivatingCoa is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Deactivate Account</h6>
+                    <button class="btn-close" @onclick="() => _deactivatingCoa = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 small">
+                        Deactivate <strong>@_deactivatingCoa.Code — @_deactivatingCoa.Name</strong>?
+                        It won't appear in the approval picker. Existing approved requests keep their link.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingCoa = null">Cancel</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CoaDto> _coas = new();
+    private bool _loading = true;
+    private bool _showInactive;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Form state
+    private bool _showForm;
+    private bool _saving;
+    private string? _formError;
+    private Guid? _editingId;
+    private string _formCode = "";
+    private string _formName = "";
+    private string _formDescription = "";
+    private bool _formIsActive = true;
+
+    // Deactivate confirm
+    private CoaDto? _deactivatingCoa;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Finance owns the COA list; Admin retains access as a safety net.
+        if (CurrentUser.Role is not UserRole.Finance and not UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new ListCoasQuery(IncludeInactive: _showInactive));
+        if (result.IsSuccess)
+            _coas = result.Value.OrderBy(c => c.Code).ToList();
+        else
+            _errorMessage = result.Error;
+        _loading = false;
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = null;
+        _formCode = "";
+        _formName = "";
+        _formDescription = "";
+        _formIsActive = true;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(CoaDto c)
+    {
+        _editingId = c.Id;
+        _formCode = c.Code;
+        _formName = c.Name;
+        _formDescription = c.Description ?? "";
+        _formIsActive = c.IsActive;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private async Task SaveForm()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formCode)) { _formError = "Code is required."; return; }
+        if (string.IsNullOrWhiteSpace(_formName)) { _formError = "Name is required."; return; }
+
+        var desc = string.IsNullOrWhiteSpace(_formDescription) ? null : _formDescription;
+
+        _saving = true;
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                var result = await Mediator.Send(new UpdateCoaCommand(
+                    _editingId.Value, _formCode, _formName, desc, _formIsActive));
+                if (result.IsFailure) { _formError = result.Error; return; }
+                _successMessage = "Account updated.";
+            }
+            else
+            {
+                var result = await Mediator.Send(new CreateCoaCommand(_formCode, _formName, desc));
+                if (result.IsFailure) { _formError = result.Error; return; }
+                _successMessage = "Account created.";
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        finally { _saving = false; }
+    }
+
+    private void ConfirmDeactivate(CoaDto c) => _deactivatingCoa = c;
+
+    private async Task DoDeactivate()
+    {
+        if (_deactivatingCoa is null) return;
+        _saving = true;
+        var result = await Mediator.Send(new DeactivateCoaCommand(_deactivatingCoa.Id));
+        _saving = false;
+        _deactivatingCoa = null;
+        if (result.IsFailure) { _errorMessage = result.Error; }
+        else { _successMessage = "Account deactivated."; await LoadData(); }
+    }
+
+    private async Task DoReactivate(CoaDto c)
+    {
+        _saving = true;
+        var result = await Mediator.Send(new ReactivateCoaCommand(c.Id));
+        _saving = false;
+        if (result.IsFailure) { _errorMessage = result.Error; }
+        else { _successMessage = $"Account '{c.Code}' reactivated."; await LoadData(); }
+    }
+}

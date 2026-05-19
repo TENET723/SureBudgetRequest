@@ -76,6 +76,18 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.SubmittedAt);
         builder.Property(r => r.FinalizedAt);
 
+        // ── Chart of Account FK ───────────────────────────────────────────────
+        // Nullable — only set when Finance has approved (and stays set through
+        // PartiallyPaid / Paid / SentBack). Restrict on delete: a Coa cannot be
+        // deleted while any request references it. Admins should Deactivate
+        // unused codes instead of deleting them.
+        builder.Property(r => r.CoaId);
+        builder.HasOne<Coa>()
+               .WithMany()
+               .HasForeignKey(r => r.CoaId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => r.CoaId);
+
         // ── Indexes ───────────────────────────────────────────────────────────
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);

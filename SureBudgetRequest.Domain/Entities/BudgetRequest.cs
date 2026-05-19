@@ -44,7 +44,7 @@ public partial class BudgetRequest
     // are all in this currency. Only the limit comparison converts to MMK.
     public string CurrencyCode { get; private set; } = null!;
 
-    // === Snapshots taken at submission (for stable audit/routing) ===
+    // === Submission snapshots (for stable audit/routing) ===
     public Guid DepartmentIdAtSubmission { get; private set; }
     public decimal DepartmentLimitAtSubmission { get; private set; }                // MMK
     public decimal ExchangeRateAtSubmission { get; private set; }                   // CurrencyCode -> MMK at submit time
@@ -77,6 +77,17 @@ public partial class BudgetRequest
     public DateTime CreatedAt { get; private set; }
     public DateTime? SubmittedAt { get; private set; }
     public DateTime? FinalizedAt { get; private set; }      // when Paid / Rejected / Cancelled
+
+    /// <summary>
+    /// Chart of Account assigned by Finance at approval time. Null until the
+    /// Finance stage; required when Finance approves (validated in
+    /// <see cref="ApproveBy"/>). Pre-existing approved requests created before
+    /// the COA feature shipped remain null indefinitely — there is no backfill.
+    ///
+    /// Preserved across send-back / re-approval cycles to pre-fill the next
+    /// Finance approver's choice. The next Finance approval overwrites it.
+    /// </summary>
+    public Guid? CoaId { get; private set; }
 
     // === Child collections (part of the aggregate) ===
     private readonly List<ApprovalAction> _approvalActions = new();

@@ -10,9 +10,15 @@ public sealed class GetBudgetRequestQueryHandler
     : IRequestHandler<GetBudgetRequestQuery, Result<BudgetRequestDto>>
 {
     private readonly IBudgetRequestRepository _repository;
+    private readonly ICoaRepository _coaRepository;
 
-    public GetBudgetRequestQueryHandler(IBudgetRequestRepository repository)
-        => _repository = repository;
+    public GetBudgetRequestQueryHandler(
+        IBudgetRequestRepository repository,
+        ICoaRepository coaRepository)
+    {
+        _repository = repository;
+        _coaRepository = coaRepository;
+    }
 
     public async Task<Result<BudgetRequestDto>> Handle(
         GetBudgetRequestQuery request,
@@ -22,6 +28,12 @@ public sealed class GetBudgetRequestQueryHandler
         if (entity is null)
             return Result.Failure<BudgetRequestDto>("Budget request not found.");
 
-        return Result.Success(BudgetRequestDto.FromEntity(entity));
+        // Resolve the assigned Coa for display (null when never approved or when
+        // the row pre-dates the COA feature).
+        var coa = entity.CoaId.HasValue
+            ? await _coaRepository.GetByIdAsync(entity.CoaId.Value, cancellationToken)
+            : null;
+
+        return Result.Success(BudgetRequestDto.FromEntity(entity, coa));
     }
 }

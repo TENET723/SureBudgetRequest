@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
+@using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
@@ -141,6 +142,13 @@ else
                             }
                         </div>
                     }
+                    @if (!string.IsNullOrWhiteSpace(_request.CoaCode))
+                    {
+                        <div class="col-sm-6">
+                            <div class="small text-muted">Chart of Account</div>
+                            <div><strong>@_request.CoaCode</strong> — @_request.CoaName</div>
+                        </div>
+                    }
                     <div class="col-sm-6">
                         <div class="small text-muted">Withdrawer</div>
                         <div>@_request.WithdrawerName</div>
@@ -206,10 +214,21 @@ else
                         @* Approve *@
                         @if (actions.Contains("approve"))
                         {
-                            <button class="btn btn-sm btn-success" @onclick="DoApprove" disabled="@_actioning">
-                                @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm me-1"></span> }
-                                Approve
-                            </button>
+                            @if (_request.Status == RequestStatus.PendingFinance)
+                            {
+                                @* Finance approval needs a COA — opens the picker modal. *@
+                                <button class="btn btn-sm btn-success" @onclick="OpenFinanceApproveModal" disabled="@_actioning">
+                                    Approve
+                                </button>
+                            }
+                            else
+                            {
+                                @* DeptHead and Management approvals are one-click. *@
+                                <button class="btn btn-sm btn-success" @onclick="DoApprove" disabled="@_actioning">
+                                    @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                    Approve
+                                </button>
+                            }
                         }
 
                         @* Reject *@
@@ -326,6 +345,68 @@ else
             </div>
         }
 
+    </div>
+}
+
+@* ── Finance Approve Modal (COA picker) ─────────────────────────────────────── *@
+@if (_showFinanceApproveModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-success">Approve Request</h6>
+                    <button class="btn-close" @onclick="CancelFinanceApproveModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_approveError))
+                    {
+                        <div class="alert alert-danger small py-2">@_approveError</div>
+                    }
+                    <p class="small text-muted mb-3">
+                        Select the Chart of Account this expense will be booked against.
+                        Only active accounts are shown.
+                    </p>
+                    <label class="form-label small fw-semibold">Chart of Account</label>
+                    @if (_coasLoading)
+                    {
+                        <div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>
+                    }
+                    else
+                    {
+                        <select class="form-select form-select-sm" @bind="_selectedCoaId">
+                            <option value="">— select an account —</option>
+                            @foreach (var c in _availableCoas)
+                            {
+                                <option value="@c.Id">@c.Code — @c.Name</option>
+                            }
+                        </select>
+                        @if (!_availableCoas.Any())
+                        {
+                            <div class="form-text small text-warning">
+                                No active Chart of Accounts found. Add one under
+                                <a href="coas">Chart of accounts</a> before approving.
+                            </div>
+                        }
+                        else if (_request?.CoaId.HasValue == true)
+                        {
+                            <div class="form-text small text-muted">
+                                Pre-filled with the previously selected account. You can change it.
+                            </div>
+                        }
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CancelFinanceApproveModal" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-sm btn-success"
+                            @onclick="DoApproveAsFinance"
+                            disabled="@(_actioning || string.IsNullOrWhiteSpace(_selectedCoaId))">
+                        @if (_actioning) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Confirm Approval
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 }
 
@@ -477,6 +558,13 @@ else
     private string? _paymentError;
     private bool _showCancelModal;
 
+    // Finance approve modal state
+    private bool _showFinanceApproveModal;
+    private List<CoaDto> _availableCoas = new();
+    private bool _coasLoading;
+    private string _selectedCoaId = "";   // bound to the <select>; empty = "no selection"
+    private string? _approveError;
+
     protected override async Task OnInitializedAsync() => await LoadRequest();
 
     private async Task LoadRequest()
@@ -550,6 +638,66 @@ else
         _actioning = false;
         if (result.IsFailure) { _actionError = result.Error; }
         else { _actionSuccess = "Request approved."; await LoadRequest(); }
+    }
+
+    private async Task OpenFinanceApproveModal()
+    {
+        _approveError = null;
+        _coasLoading = true;
+        _availableCoas = new();
+        // Pre-fill with the previously selected COA (e.g. after a send-back) so the
+        // next Finance user just confirms unless they want to change it.
+        _selectedCoaId = _request?.CoaId.HasValue == true
+            ? _request.CoaId.Value.ToString()
+            : "";
+        _showFinanceApproveModal = true;
+        StateHasChanged();
+
+        var result = await Mediator.Send(new ListCoasQuery(IncludeInactive: false));
+        if (result.IsSuccess)
+        {
+            _availableCoas = result.Value.OrderBy(c => c.Code).ToList();
+            // If the pre-filled COA happens to be inactive now, clear the selection
+            // so the user explicitly picks an active one.
+            if (!string.IsNullOrWhiteSpace(_selectedCoaId)
+                && !_availableCoas.Any(c => c.Id.ToString() == _selectedCoaId))
+            {
+                _selectedCoaId = "";
+            }
+        }
+        _coasLoading = false;
+    }
+
+    private void CancelFinanceApproveModal()
+    {
+        _showFinanceApproveModal = false;
+        _approveError = null;
+    }
+
+    private async Task DoApproveAsFinance()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedCoaId)) return;
+        if (!Guid.TryParse(_selectedCoaId, out var coaId))
+        {
+            _approveError = "Invalid Chart of Account selection.";
+            return;
+        }
+
+        _actioning = true; _actionTarget = "approve";
+        var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId, coaId));
+        _actioning = false;
+
+        if (result.IsFailure)
+        {
+            // Keep the modal open so the user can correct (e.g. pick another COA
+            // if theirs got deactivated in the meantime).
+            _approveError = result.Error;
+            return;
+        }
+
+        _showFinanceApproveModal = false;
+        _actionSuccess = "Request approved.";
+        await LoadRequest();
     }
 
     private async Task DoReject()

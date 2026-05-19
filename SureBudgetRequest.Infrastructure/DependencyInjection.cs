@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
+        services.AddScoped<ICoaRepository, CoaRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // ── Security ──────────────────────────────────────────────────────────

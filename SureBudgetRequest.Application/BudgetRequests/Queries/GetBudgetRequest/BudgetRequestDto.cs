@@ -32,12 +32,22 @@ public sealed record BudgetRequestDto(
     decimal ExchangeRateAtSubmission,
     decimal RequestedAmountInMmkAtSubmission,
     Guid DeptHeadIdAtSubmission,
+    // Chart of Account — null until Finance approves; display fields resolved
+    // from the Coa entity by the query handler.
+    Guid? CoaId,
+    string? CoaCode,
+    string? CoaName,
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
     IReadOnlyList<AttachmentDto> Attachments)
 {
-    public static BudgetRequestDto FromEntity(BudgetRequest e) => new(
+    /// <summary>
+    /// Construct from the aggregate, optionally resolving the assigned Coa for
+    /// display. Pass <paramref name="coa"/> when <c>entity.CoaId</c> is set;
+    /// pass null otherwise and the CoaCode/CoaName fields will be null too.
+    /// </summary>
+    public static BudgetRequestDto FromEntity(BudgetRequest e, Coa? coa = null) => new(
         e.Id,
         e.RequesterId,
         e.Reference,
@@ -65,6 +75,9 @@ public sealed record BudgetRequestDto(
         e.ExchangeRateAtSubmission,
         e.RequestedAmountInMmkAtSubmission,
         e.DeptHeadIdAtSubmission,
+        e.CoaId,
+        coa?.Code,
+        coa?.Name,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList());

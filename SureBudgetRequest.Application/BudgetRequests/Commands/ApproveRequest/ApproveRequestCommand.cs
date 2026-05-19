@@ -9,24 +9,28 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest;
 
 public sealed record ApproveRequestCommand(
     Guid BudgetRequestId,
-    Guid ApproverId) : IRequest<Result>;
+    Guid ApproverId,
+    Guid? CoaId = null) : IRequest<Result>;
 
 public sealed class ApproveRequestCommandHandler
     : IRequestHandler<ApproveRequestCommand, Result>
 {
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
+    private readonly ICoaRepository _coaRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
     public ApproveRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
+        ICoaRepository coaRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
+        _coaRepository = coaRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -55,8 +59,22 @@ public sealed class ApproveRequestCommandHandler
         if (!roleCheck)
             return Result.Failure($"User with role '{approver.Role}' cannot approve at the current stage '{budgetRequest.Status}'.");
 
+        // Finance-stage gate: validate the supplied CoaId exists and is active
+        // BEFORE handing off to the domain. The domain only enforces "non-null."
+        if (budgetRequest.Status == RequestStatus.PendingFinance)
+        {
+            if (!command.CoaId.HasValue || command.CoaId.Value == Guid.Empty)
+                return Result.Failure("Chart of Account is required when Finance approves.");
+
+            var coa = await _coaRepository.GetByIdAsync(command.CoaId.Value, cancellationToken);
+            if (coa is null)
+                return Result.Failure("The selected Chart of Account no longer exists.");
+            if (!coa.IsActive)
+                return Result.Failure($"Chart of Account '{coa.Code}' has been deactivated and cannot be used.");
+        }
+
         var previousStatus = budgetRequest.Status;
-        var result = budgetRequest.ApproveBy(command.ApproverId);
+        var result = budgetRequest.ApproveBy(command.ApproverId, command.CoaId);
         if (result.IsFailure) return result;
 
         await _dispatcher.DispatchAsync(

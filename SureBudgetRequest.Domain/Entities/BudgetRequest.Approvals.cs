@@ -5,7 +5,15 @@ namespace SureBudgetRequest.Domain.Entities;
 
 public partial class BudgetRequest
 {
-    public Result ApproveBy(Guid approverId)
+    /// <summary>
+    /// Approve at the current stage. The <paramref name="coaId"/> parameter is
+    /// required when the request is at the Finance stage (
+    /// <see cref="RequestStatus.PendingFinance"/>) and ignored at all other
+    /// stages. Application layer is responsible for verifying that the chosen
+    /// Coa exists and is active — the domain only enforces "non-null at the
+    /// Finance stage."
+    /// </summary>
+    public Result ApproveBy(Guid approverId, Guid? coaId = null)
     {
         if (Status is not RequestStatus.PendingDeptHead
             and not RequestStatus.PendingManagement
@@ -32,6 +40,10 @@ public partial class BudgetRequest
         if (approverId == RequesterId && stage == ApprovalStage.DeptHead)
             return Result.Failure("Requester cannot manually approve their own request.");
 
+        // Finance-stage gate: must pick a Chart of Account.
+        if (stage == ApprovalStage.Finance && (!coaId.HasValue || coaId.Value == Guid.Empty))
+            return Result.Failure("Chart of Account is required when Finance approves.");
+
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
             Id, stage, ApprovalDecision.Approved, approverId, comment: null, actionedAt: now));
@@ -51,9 +63,15 @@ public partial class BudgetRequest
             _ => Status
         };
 
-        // When Finance approves, lock in the approved amount.
+        // When Finance approves, lock in the approved amount AND assign the COA.
+        // Overwriting CoaId is intentional — if Finance approved-then-sent-back-then-
+        // re-approved with a different code, the new code wins. The audit trail of
+        // approval timestamps in ApprovalActions still tells the story.
         if (stage == ApprovalStage.Finance)
+        {
             ApprovedAmount = RequestedAmount;
+            CoaId = coaId;
+        }
 
         return Result.Success();
     }
@@ -96,6 +114,8 @@ public partial class BudgetRequest
             Id, ApprovalStage.Finance, ApprovalDecision.SentBack, financeUserId, comment, actionedAt: now));
 
         Status = RequestStatus.SentBack;
+        // CoaId intentionally preserved — used as a pre-fill hint for the next
+        // Finance approval after the requester fixes and resubmits.
         return Result.Success();
     }
 
