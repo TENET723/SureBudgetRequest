@@ -27,6 +27,12 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         Guid? departmentId = null,
         RequestStatus? status = null,
         IReadOnlyCollection<RequestStatus>? statuses = null,
+        DateTime? submittedFromUtc = null,
+        DateTime? submittedUntilUtc = null,
+        Guid? coaId = null,
+        string? currencyCode = null,
+        Guid? approverId = null,
+        bool? overLimitOnly = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.BudgetRequests
@@ -46,6 +52,41 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
 
         if (statuses is { Count: > 0 })
             query = query.Where(r => statuses.Contains(r.Status));
+
+        // ── Report filters (v4+) ──────────────────────────────────────────────
+
+        // Date range — half-open [from, until). Either bound implies SubmittedAt
+        // is non-null (drafts are excluded from date-bounded queries).
+        if (submittedFromUtc.HasValue)
+            query = query.Where(r => r.SubmittedAt != null && r.SubmittedAt >= submittedFromUtc.Value);
+
+        if (submittedUntilUtc.HasValue)
+            query = query.Where(r => r.SubmittedAt != null && r.SubmittedAt < submittedUntilUtc.Value);
+
+        if (coaId.HasValue)
+            query = query.Where(r => r.CoaId == coaId.Value);
+
+        if (!string.IsNullOrWhiteSpace(currencyCode))
+            query = query.Where(r => r.CurrencyCode == currencyCode);
+
+        if (approverId.HasValue)
+        {
+            // Match if this user appears anywhere in the approval chain with
+            // an approving decision (Approved or AutoApproved — Rejected /
+            // SentBack are excluded; those aren't "approvals").
+            var aid = approverId.Value;
+            query = query.Where(r => r.ApprovalActions.Any(a =>
+                a.ApproverId == aid
+                && (a.Decision == ApprovalDecision.Approved
+                 || a.Decision == ApprovalDecision.AutoApproved)));
+        }
+
+        if (overLimitOnly.HasValue)
+        {
+            query = overLimitOnly.Value
+                ? query.Where(r => r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission)
+                : query.Where(r => r.RequestedAmountInMmkAtSubmission <= r.DepartmentLimitAtSubmission);
+        }
 
         return await query
             .OrderByDescending(r => r.CreatedAt)

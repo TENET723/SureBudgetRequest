@@ -1,0 +1,503 @@
+@page "/reports/budget-requests"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.Coas.Queries
+@using SureBudgetRequest.Application.Currencies.Queries
+@using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
+
+<PageTitle>Budget Request Report</PageTitle>
+
+<div class="container-fluid py-3">
+
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Budget Request Report</h5>
+        @if (!_loading)
+        {
+            <span class="text-muted small">
+                @_requests.Count result@(_requests.Count == 1 ? "" : "s")
+            </span>
+        }
+    </div>
+
+    @if (CurrentUser.Role == UserRole.Employee)
+    {
+        <div class="alert alert-info">
+            Reports are not available for the Employee role.
+            <a href="requests/mine">View your own requests instead.</a>
+        </div>
+    }
+    else
+    {
+        @* ─── Filter card ─────────────────────────────────────────────── *@
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+
+                    @* Date range *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Submitted from</label>
+                        <input type="date" class="form-control form-control-sm"
+                               @bind="_fromDate" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Submitted to</label>
+                        <input type="date" class="form-control form-control-sm"
+                               @bind="_toDate" />
+                    </div>
+
+                    @* Department *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Department</label>
+                        @if (_departmentLocked)
+                        {
+                            <input type="text" class="form-control form-control-sm" readonly
+                                   value="@(_departments.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "—")" />
+                        }
+                        else
+                        {
+                            <select class="form-select form-select-sm" @bind="_selectedDepartmentId">
+                                <option value="">All departments</option>
+                                @foreach (var d in _departments)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                        }
+                    </div>
+
+                    @* COA *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Chart of Account</label>
+                        <select class="form-select form-select-sm" @bind="_selectedCoaId">
+                            <option value="">All accounts</option>
+                            @foreach (var c in _coas)
+                            {
+                                <option value="@c.Id">@c.Code — @c.Name@(c.IsActive ? "" : " (inactive)")</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Currency *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Currency</label>
+                        <select class="form-select form-select-sm" @bind="_selectedCurrencyCode">
+                            <option value="">All currencies</option>
+                            @foreach (var c in _currencies)
+                            {
+                                <option value="@c.Code">@c.Code — @c.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Requester *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Requester</label>
+                        <select class="form-select form-select-sm" @bind="_selectedRequesterId">
+                            <option value="">Any requester</option>
+                            @foreach (var u in _allUsers)
+                            {
+                                <option value="@u.Id">@u.FullName</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Approver *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Approved by</label>
+                        <select class="form-select form-select-sm" @bind="_selectedApproverId">
+                            <option value="">Any approver</option>
+                            @foreach (var u in _approverCandidates)
+                            {
+                                <option value="@u.Id">@u.FullName (@RoleLabel(u.Role))</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Over-limit *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Over-limit</label>
+                        <select class="form-select form-select-sm" @bind="_overLimitFilter">
+                            <option value="any">All requests</option>
+                            <option value="over">Over-limit only (routed Management)</option>
+                            <option value="within">Within-limit only</option>
+                        </select>
+                    </div>
+
+                    @* Status — multi-select via checkboxes *@
+                    <div class="col-12">
+                        <label class="form-label small text-muted mb-1">Status</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            @foreach (var s in AllStatuses)
+                            {
+                                var status = s;
+                                <label class="form-check small mb-0">
+                                    <input class="form-check-input" type="checkbox"
+                                           checked="@_selectedStatuses.Contains(status)"
+                                           @onchange="@((ChangeEventArgs e) => ToggleStatus(status, (bool)e.Value!))" />
+                                    <span class="form-check-label">@StatusLabel(status)</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-sm btn-primary" @onclick="ApplyAsync" disabled="@_loading">
+                        @if (_loading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Apply
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearAsync" disabled="@_loading">
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @* ─── Results ──────────────────────────────────────────────────── *@
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger">@_errorMessage</div>
+        }
+
+        @if (_loading)
+        {
+            <div class="text-center py-4">
+                <div class="spinner-border spinner-border-sm"></div>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Reference</th>
+                            <th>Submitted</th>
+                            <th>Requester</th>
+                            <th>Department</th>
+                            <th>Reason</th>
+                            <th>Ccy</th>
+                            <th class="text-end">Requested</th>
+                            <th class="text-end">≈ MMK</th>
+                            <th>Status</th>
+                            <th>COA</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _requests)
+                        {
+                            <tr>
+                                <td class="small"><strong>@(r.Reference ?? "—")</strong></td>
+                                <td class="small text-muted">@(r.SubmittedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+                                <td class="small">@LookupUser(r.RequesterId)</td>
+                                <td class="small">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
+                                <td>@Truncate(r.Reasons, 40)</td>
+                                <td class="small text-muted">@r.CurrencyCode</td>
+                                <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
+                                <td class="text-end small text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N0")</td>
+                                <td>
+                                    <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
+                                    @if (r.IsOverLimit)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" title="Routed through Management">Over-limit</span>
+                                    }
+                                </td>
+                                <td class="small">
+                                    @if (!string.IsNullOrEmpty(r.CoaCode))
+                                    {
+                                        <span title="@r.CoaName">@r.CoaCode</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-end">
+                                    <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">View</a>
+                                </td>
+                            </tr>
+                        }
+                        @if (!_requests.Any())
+                        {
+                            <tr><td colspan="11" class="text-center text-muted py-4">No requests match the current filters.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_requests.Any())
+            {
+                <div class="d-flex justify-content-end mt-2">
+                    <div class="small text-muted text-end">
+                        <div>Total across @_requests.Count request@(_requests.Count == 1 ? "" : "s"):</div>
+                        <div><strong class="text-dark">@_requests.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N0") MMK</strong> (at submission rate)</div>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>
+
+@code {
+    // ── Filter state ─────────────────────────────────────────────────────────
+    // Note: dropdown bindings use string state (not Guid?). Blazor's @bind on
+    // a <select> with an empty-value option ("") doesn't reliably round-trip
+    // to Guid?. We follow the pattern already established in Admin/Users.razor
+    // (_filterDept = "") and parse to the typed value at query time.
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private string _selectedDepartmentId = "";
+    private string _selectedCoaId = "";
+    private string _selectedCurrencyCode = "";
+    private string _selectedRequesterId = "";
+    private string _selectedApproverId = "";
+    // "any" | "over" | "within"
+    private string _overLimitFilter = "any";
+    private HashSet<RequestStatus> _selectedStatuses = new();
+
+    private bool _departmentLocked; // true for DeptHead — filter is forced to their dept
+
+    // ── Reference data for dropdowns ─────────────────────────────────────────
+    private List<DepartmentDto> _departments = new();
+    private List<CoaDto> _coas = new();
+    private List<CurrencyDto> _currencies = new();
+    private List<UserDto> _allUsers = new();
+    private List<UserDto> _approverCandidates = new();
+    private Dictionary<Guid, string> _userNames = new();
+    private Dictionary<Guid, string> _departmentNames = new();
+
+    // ── Results ──────────────────────────────────────────────────────────────
+    private List<BudgetRequestSummaryDto> _requests = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    // All statuses, displayed in workflow order.
+    private static readonly RequestStatus[] AllStatuses =
+    {
+        RequestStatus.Draft,
+        RequestStatus.PendingDeptHead,
+        RequestStatus.PendingManagement,
+        RequestStatus.PendingFinance,
+        RequestStatus.SentBack,
+        RequestStatus.Approved,
+        RequestStatus.PartiallyPaid,
+        RequestStatus.Paid,
+        RequestStatus.Rejected,
+        RequestStatus.Cancelled,
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role == UserRole.Employee)
+        {
+            _loading = false;
+            return;
+        }
+
+        // Default date range: current calendar month → today (UTC).
+        var nowUtc = DateTime.UtcNow;
+        _fromDate = new DateTime(nowUtc.Year, nowUtc.Month, 1);
+        _toDate = nowUtc.Date;
+
+        // Dept Heads: lock dept filter to their own department.
+        if (CurrentUser.Role == UserRole.DepartmentHead)
+        {
+            _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
+            _departmentLocked = true;
+        }
+
+        await LoadReferenceDataAsync();
+        await RunQueryAsync();
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        // Departments — load all (active + inactive) so we can resolve names
+        // for historical rows that reference deactivated depts. But only show
+        // active ones in the dropdown.
+        var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
+        if (depts.IsSuccess)
+        {
+            _departments = depts.Value!.Where(d => d.IsActive).OrderBy(d => d.Name).ToList();
+            _departmentNames = depts.Value!.ToDictionary(d => d.Id, d => d.Name);
+        }
+
+        // COAs — include inactive in dropdown so historical filters still work.
+        var coas = await Mediator.Send(new ListCoasQuery(IncludeInactive: true));
+        if (coas.IsSuccess)
+            _coas = coas.Value!.OrderBy(c => c.Code).ToList();
+
+        // Currencies.
+        var ccys = await Mediator.Send(new ListCurrenciesQuery(IncludeInactive: true));
+        if (ccys.IsSuccess)
+            _currencies = ccys.Value!.OrderBy(c => c.Code == "MMK" ? 0 : 1).ThenBy(c => c.Code).ToList();
+
+        // Users — load all active users for the requester picker; the approver
+        // picker is narrowed to roles that can actually approve.
+        var users = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
+        if (users.IsSuccess)
+        {
+            _allUsers = users.Value!.OrderBy(u => u.FullName).ToList();
+            _approverCandidates = _allUsers
+                .Where(u => u.Role is UserRole.DepartmentHead
+                                   or UserRole.Management
+                                   or UserRole.Finance
+                                   or UserRole.Admin)
+                .ToList();
+            _userNames = _allUsers.ToDictionary(u => u.Id, u => u.FullName);
+        }
+    }
+
+    private async Task RunQueryAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Convert the To-date picker to an EXCLUSIVE upper bound by
+            // adding a day. Keeps the SQL filter unambiguous and avoids the
+            // off-by-one trap where "to = May 19" excludes May 19 evening
+            // submissions.
+            DateTime? fromUtc = _fromDate.HasValue
+                ? DateTime.SpecifyKind(_fromDate.Value.Date, DateTimeKind.Utc)
+                : null;
+            DateTime? untilUtc = _toDate.HasValue
+                ? DateTime.SpecifyKind(_toDate.Value.Date, DateTimeKind.Utc).AddDays(1)
+                : null;
+
+            bool? overLimitOnly = _overLimitFilter switch
+            {
+                "over"   => true,
+                "within" => false,
+                _        => null
+            };
+
+            // Multi-select status: pass via Statuses when at least one is
+            // selected, null when none (= "any status").
+            IReadOnlyCollection<RequestStatus>? statuses =
+                _selectedStatuses.Count > 0 ? _selectedStatuses.ToList() : null;
+
+            var result = await Mediator.Send(new ListBudgetRequestsQuery(
+                RequesterId: ParseGuid(_selectedRequesterId),
+                DepartmentId: ParseGuid(_selectedDepartmentId),
+                Status: null,
+                Statuses: statuses,
+                SubmittedFromUtc: fromUtc,
+                SubmittedUntilUtc: untilUtc,
+                CoaId: ParseGuid(_selectedCoaId),
+                CurrencyCode: string.IsNullOrEmpty(_selectedCurrencyCode) ? null : _selectedCurrencyCode,
+                ApproverId: ParseGuid(_selectedApproverId),
+                OverLimitOnly: overLimitOnly));
+
+            if (result.IsSuccess)
+            {
+                _requests = result.Value!
+                    .OrderByDescending(r => r.SubmittedAt ?? r.CreatedAt)
+                    .ToList();
+            }
+            else
+            {
+                _errorMessage = result.Error;
+                _requests = new();
+            }
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task ApplyAsync() => RunQueryAsync();
+
+    private async Task ClearAsync()
+    {
+        _fromDate = null;
+        _toDate = null;
+        _selectedCoaId = "";
+        _selectedCurrencyCode = "";
+        _selectedRequesterId = "";
+        _selectedApproverId = "";
+        _overLimitFilter = "any";
+        _selectedStatuses.Clear();
+
+        // Don't unlock the dept filter for Dept Heads — they always see only
+        // their own dept regardless of "Clear".
+        if (!_departmentLocked)
+            _selectedDepartmentId = "";
+
+        await RunQueryAsync();
+    }
+
+    private void ToggleStatus(RequestStatus s, bool isChecked)
+    {
+        if (isChecked) _selectedStatuses.Add(s);
+        else _selectedStatuses.Remove(s);
+    }
+
+    // ── Display helpers ──────────────────────────────────────────────────────
+
+    private static Guid? ParseGuid(string s) =>
+        Guid.TryParse(s, out var g) ? g : null;
+
+    private string LookupUser(Guid id) =>
+        _userNames.TryGetValue(id, out var name) ? name : "—";
+
+    private string LookupDepartment(Guid id) =>
+        _departmentNames.TryGetValue(id, out var name) ? name : "—";
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "…";
+
+    private static string StatusLabel(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft             => "Draft",
+        RequestStatus.PendingDeptHead   => "Pending Head",
+        RequestStatus.PendingManagement => "Pending Mgmt",
+        RequestStatus.PendingFinance    => "Pending Finance",
+        RequestStatus.SentBack          => "Sent Back",
+        RequestStatus.Approved          => "Approved",
+        RequestStatus.PartiallyPaid     => "Part. Paid",
+        RequestStatus.Paid              => "Paid",
+        RequestStatus.Rejected          => "Rejected",
+        RequestStatus.Cancelled         => "Cancelled",
+        _                               => s.ToString()
+    };
+
+    private static string StatusBadge(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft             => "bg-light text-dark border",
+        RequestStatus.PendingDeptHead
+            or RequestStatus.PendingManagement
+            or RequestStatus.PendingFinance => "bg-warning text-dark",
+        RequestStatus.SentBack          => "bg-warning text-dark",
+        RequestStatus.Approved          => "bg-primary",
+        RequestStatus.PartiallyPaid     => "bg-info text-dark",
+        RequestStatus.Paid              => "bg-success",
+        RequestStatus.Rejected          => "bg-danger",
+        RequestStatus.Cancelled         => "bg-secondary",
+        _                               => "bg-secondary"
+    };
+
+    private static string RoleLabel(UserRole r) => r switch
+    {
+        UserRole.DepartmentHead => "Dept Head",
+        UserRole.Management     => "Mgmt",
+        UserRole.Finance        => "Finance",
+        UserRole.Admin          => "Admin",
+        UserRole.Employee       => "Employee",
+        _                       => r.ToString()
+    };
+}

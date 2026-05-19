@@ -40,6 +40,15 @@
             </div>
         }
 
+        @if (CurrentUser.Role != UserRole.Employee)
+        {
+            <div class="nav-section">Reports</div>
+
+            <div class="nav-item">
+                <NavLink class="nav-link" href="reports/budget-requests">Budget requests</NavLink>
+            </div>
+        }
+
         @if (CurrentUser.Role == UserRole.Admin)
         {
             <div class="nav-section">Admin</div>

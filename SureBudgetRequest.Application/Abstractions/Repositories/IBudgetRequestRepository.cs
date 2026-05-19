@@ -8,18 +8,37 @@ public interface IBudgetRequestRepository
     Task<BudgetRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns requests visible to the given user based on their role:
-    /// - Employee: only their own requests.
-    /// - DeptHead: requests from their department.
-    /// - Management: all over-limit requests at PendingManagement.
-    /// - Finance: all requests at PendingFinance or beyond.
-    /// - Admin: all requests.
+    /// Returns requests matching the supplied filters. Any/all parameters are
+    /// optional; null means "no filter on this dimension". Role-based scoping
+    /// is the caller's responsibility (Inbox.razor / OutstandingPayments.razor
+    /// / the report page each apply their own scoping rules).
     /// </summary>
+    /// <remarks>
+    /// New filter parameters added for the report page (v4):
+    /// <list type="bullet">
+    ///   <item><c>submittedFromUtc</c> / <c>submittedUntilUtc</c> — half-open
+    ///   range on <c>SubmittedAt</c>. Drafts (null SubmittedAt) are excluded
+    ///   when either bound is supplied.</item>
+    ///   <item><c>coaId</c> — match the assigned Chart of Account.</item>
+    ///   <item><c>currencyCode</c> — match the request currency.</item>
+    ///   <item><c>approverId</c> — match requests where this user appears in
+    ///   the approval chain with Approved/AutoApproved decision at any
+    ///   stage.</item>
+    ///   <item><c>overLimitOnly</c> — null = either; true = only over-limit
+    ///   (routed through Management); false = only within-limit.</item>
+    /// </list>
+    /// </remarks>
     Task<IReadOnlyList<BudgetRequest>> ListAsync(
         Guid? requesterId = null,
         Guid? departmentId = null,
         RequestStatus? status = null,
         IReadOnlyCollection<RequestStatus>? statuses = null,
+        DateTime? submittedFromUtc = null,
+        DateTime? submittedUntilUtc = null,
+        Guid? coaId = null,
+        string? currencyCode = null,
+        Guid? approverId = null,
+        bool? overLimitOnly = null,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);

@@ -22,11 +22,43 @@ public sealed record BudgetRequestSummaryDto(
     RequestStatus Status,
     DateTime CreatedAt,
     DateTime? SubmittedAt,
-    DateTime? FinalizedAt)
+    DateTime? FinalizedAt,
+    // ── Additive fields for the budget-request report (v4+) ─────────────────
+    // Added at the end with defaults so existing positional callers
+    // (FromEntity) compile unchanged.
+    Guid DepartmentIdAtSubmission = default,
+    decimal DepartmentLimitAtSubmission = 0m,
+    Guid? CoaId = null,
+    string? CoaCode = null,
+    string? CoaName = null)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
-    public static BudgetRequestSummaryDto FromEntity(BudgetRequest e) => new(
+    /// <summary>
+    /// True when this request's MMK-equivalent at submission exceeded the
+    /// department's per-request limit at that time — i.e. it routed through
+    /// Management. Computed from the submission snapshots so the answer is
+    /// stable even if the department's limit changes later.
+    /// </summary>
+    public bool IsOverLimit =>
+        RequestedAmountInMmkAtSubmission > DepartmentLimitAtSubmission;
+
+    /// <summary>
+    /// Existing factory — preserved as-is for backward compatibility. Callers
+    /// that don't need COA display fields can keep using this overload. The
+    /// new department/COA fields are populated from the entity (Coa lookup
+    /// fields are left null and should be filled by the
+    /// <see cref="FromEntity(BudgetRequest, Coa?)"/> overload).
+    /// </summary>
+    public static BudgetRequestSummaryDto FromEntity(BudgetRequest e) =>
+        FromEntity(e, coa: null);
+
+    /// <summary>
+    /// Report-friendly factory. Pass the resolved <see cref="Coa"/> (or null
+    /// when <c>e.CoaId</c> is null) to populate <see cref="CoaCode"/> and
+    /// <see cref="CoaName"/> for display.
+    /// </summary>
+    public static BudgetRequestSummaryDto FromEntity(BudgetRequest e, Coa? coa) => new(
         e.Id,
         e.Reference,
         e.RequesterId,
@@ -43,5 +75,10 @@ public sealed record BudgetRequestSummaryDto(
         e.Status,
         e.CreatedAt,
         e.SubmittedAt,
-        e.FinalizedAt);
+        e.FinalizedAt,
+        e.DepartmentIdAtSubmission,
+        e.DepartmentLimitAtSubmission,
+        e.CoaId,
+        coa?.Code,
+        coa?.Name);
 }
