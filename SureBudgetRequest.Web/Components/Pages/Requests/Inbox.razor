@@ -60,7 +60,7 @@
                                     MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
-                            <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
+                            <td class="small text-muted">@(r.SubmittedAt?.ToLocalTime().ToString("g"))</td>
                             <td class="text-end">
                                 <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">Review</a>
                             </td>

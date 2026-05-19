@@ -198,7 +198,7 @@
                         {
                             <tr>
                                 <td class="small"><strong>@(r.Reference ?? "—")</strong></td>
-                                <td class="small text-muted">@(r.SubmittedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+                                <td class="small text-muted">@(r.SubmittedAt?.ToLocalTime().ToString("g") ?? "—")</td>
                                 <td class="small">@LookupUser(r.RequesterId)</td>
                                 <td class="small">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
                                 <td>@Truncate(r.Reasons, 40)</td>

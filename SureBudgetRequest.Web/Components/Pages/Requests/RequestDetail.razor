@@ -158,7 +158,7 @@ else
                     {
                         <div class="col-sm-6">
                             <div class="small text-muted">Submitted</div>
-                            <div>@_request.SubmittedAt.Value.ToString("dd MMM yyyy HH:mm")</div>
+                            <div>@_request.SubmittedAt.Value.ToLocalTime().ToString("g")</div>
                         </div>
                     }
                     <div class="col-12">
@@ -286,7 +286,7 @@ else
                                     </div>
                                     <div class="small text-muted">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
-                                        · @a.ActionedAt.ToString("dd MMM yyyy HH:mm")
+                                        · @a.ActionedAt.ToLocalTime().ToString("g")
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
                                     {
@@ -321,7 +321,7 @@ else
                                 @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
                                 {
                                     <tr>
-                                        <td class="small">@p.PaidAt.ToString("dd MMM yyyy")</td>
+                                        <td class="small">@p.PaidAt.ToLocalTime().ToString("g")</td>
                                         <td class="text-end">@p.Amount.ToString("N0")</td>
                                         <td class="small text-muted">@(p.Reference ?? "—")</td>
                                         <td class="small">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
