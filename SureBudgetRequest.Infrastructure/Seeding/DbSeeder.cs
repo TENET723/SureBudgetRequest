@@ -127,13 +127,20 @@ public sealed class DbSeeder
         var deptHeadHr = CreateUser("ma_thida", "Ma Thida (HR Head)", "ma.thida@asure.local", hrDeptId, UserRole.DepartmentHead);
         var mgmt1 = CreateUser("u_kyaw", "U Kyaw Zin (Management)", "u.kyaw@asure.local", adminDeptId, UserRole.Management);
         var mgmt2 = CreateUser("daw_mya", "Daw Mya Sein (Management)", "daw.mya@asure.local", adminDeptId, UserRole.Management);
-        var finance = CreateUser("ko_aung", "Ko Aung Naing (Finance)", "ko.aung@asure.local", adminDeptId, UserRole.Finance);
+
+        // Finance Approver (Type 1) — can approve, reject, send back, and record payments.
+        var finance = CreateUser("ko_aung", "Ko Aung Naing (Finance Approver)", "ko.aung@asure.local", adminDeptId, UserRole.Finance);
+        finance.SetFinanceApprover(true);
+
+        // Finance Payer-only (Type 2) — can only record payments.
+        var financePayer = CreateUser("daw_hla", "Daw Hla Win (Finance Payer)", "daw.hla@asure.local", adminDeptId, UserRole.Finance);
+
         var employee = CreateUser("ma_aye", "Ma Aye Aye (Employee)", "ma.aye@asure.local", itDeptId, UserRole.Employee);
 
-        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, mgmt1, mgmt2, finance, employee);
+        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, mgmt1, mgmt2, finance, financePayer, employee);
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 7);
+        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 8);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

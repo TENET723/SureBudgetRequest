@@ -15,6 +15,7 @@ public sealed class CurrentUserService : ICurrentUser
     public const string ClaimDepartmentId = "asure_dept_id";
     public const string ClaimUsername = "asure_username";
     public const string ClaimMustChangePassword = "asure_must_change_password";
+    public const string ClaimIsFinanceApprover = "asure_is_finance_approver";
 
     private readonly AuthenticationStateProvider _authStateProvider;
     private ClaimsPrincipal? _principal;
@@ -58,6 +59,19 @@ public sealed class CurrentUserService : ICurrentUser
         {
             var v = Principal.FindFirstValue(ClaimDepartmentId);
             return Guid.TryParse(v, out var id) ? id : Guid.Empty;
+        }
+    }
+
+    public bool IsFinanceApprover
+    {
+        get
+        {
+            // Defensive: only meaningful for Finance users; never trust the
+            // claim alone — gate on Role too so a stale or tampered claim
+            // can't grant approver rights to a non-Finance account.
+            if (Role != UserRole.Finance) return false;
+            var v = Principal.FindFirstValue(ClaimIsFinanceApprover);
+            return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
         }
     }
 

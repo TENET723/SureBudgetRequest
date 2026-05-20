@@ -102,6 +102,7 @@
             new(CurrentUserService.ClaimUsername, user.Username),
             new(CurrentUserService.ClaimDepartmentId, user.DepartmentId.ToString()),
             new(CurrentUserService.ClaimMustChangePassword, user.MustChangePassword ? "true" : "false"),
+            new(CurrentUserService.ClaimIsFinanceApprover, user.IsFinanceApprover ? "true" : "false"),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

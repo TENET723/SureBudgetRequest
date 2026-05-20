@@ -59,6 +59,11 @@ public sealed class ApproveRequestCommandHandler
         if (!roleCheck)
             return Result.Failure($"User with role '{approver.Role}' cannot approve at the current stage '{budgetRequest.Status}'.");
 
+        // Finance-stage gate: only Finance Approvers (Type 1) may approve.
+        // Payer-only (Type 2) Finance users can record payments but cannot approve.
+        if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
+            return Result.Failure("This Finance user is restricted to recording payments and cannot approve requests.");
+
         // Finance-stage gate: validate the supplied CoaId exists and is active
         // BEFORE handing off to the domain. The domain only enforces "non-null."
         if (budgetRequest.Status == RequestStatus.PendingFinance)

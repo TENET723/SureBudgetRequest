@@ -82,8 +82,21 @@
                             <td class="small">@u.Email</td>
                             <td class="text-muted small">@u.Username</td>
                             <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
-                            <td><span class="badge @RoleBadge(u.Role)">@u.Role</span></td>
-                            <td class="small">@(u.LastLoginAt.Value.ToLocalTime().ToString("g"))</td>
+                            <td>
+                                <span class="badge @RoleBadge(u.Role)">@u.Role</span>
+                                @if (u.Role == UserRole.Finance)
+                                {
+                                    @if (u.IsFinanceApprover)
+                                    {
+                                        <span class="badge bg-success ms-1" title="Can approve, reject, send back, and record payments.">Approver</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary ms-1" title="Can only record payments.">Payer only</span>
+                                    }
+                                }
+                            </td>
+                            <td class="small">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
                             <td>
                                 @if (u.IsActive)
                                 {
@@ -169,13 +182,37 @@
                         </div>
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Role</label>
-                            <select class="form-select form-select-sm" @bind="_formRole">
+                            <select class="form-select form-select-sm" @bind="_formRole" @bind:after="OnRoleChanged">
                                 @foreach (var r in Enum.GetValues<UserRole>())
                                 {
                                     <option value="@((int)r)">@r</option>
                                 }
                             </select>
                         </div>
+                        @if (_formRole == (int)UserRole.Finance)
+                        {
+                            <div class="col-12">
+                                <div class="border rounded p-2 bg-light-subtle">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="isFinanceApproverCheck"
+                                               @bind="_formIsFinanceApprover" />
+                                        <label class="form-check-label small fw-semibold" for="isFinanceApproverCheck">
+                                            Finance Approver
+                                        </label>
+                                    </div>
+                                    <div class="form-text small mt-1">
+                                        @if (_formIsFinanceApprover)
+                                        {
+                                            <span><strong>Approver:</strong> can approve, reject, send back, and record payments.</span>
+                                        }
+                                        else
+                                        {
+                                            <span><strong>Payer only:</strong> can only record payments. Cannot approve, reject, or send back.</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Slack User ID <span class="text-muted fw-normal">(optional)</span></label>
                             <input class="form-control form-control-sm" @bind="_formSlackId" placeholder="U0123ABCDEF" />
@@ -285,6 +322,7 @@
     private string _formDeptId = "";
     private int _formRole = (int)UserRole.Employee;
     private string? _formSlackId;
+    private bool _formIsFinanceApprover;
 
     // Deactivate
     private UserDto? _deactivatingUser;
@@ -304,8 +342,8 @@
         var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
         if (depts.IsSuccess)
         {
-            _departments = depts.Value.ToList();
-            _deptNames = depts.Value.ToDictionary(d => d.Id, d => d.Name);
+            _departments = depts.Value?.ToList() ?? new();
+            _deptNames = depts.Value?.ToDictionary(d => d.Id, d => d.Name) ?? new();
         }
         await LoadUsers();
     }
@@ -314,7 +352,7 @@
     {
         _loading = true;
         var result = await Mediator.Send(new ListUsersQuery(IncludeInactive: _showInactive));
-        if (result.IsSuccess) _allUsers = result.Value.ToList();
+        if (result.IsSuccess) _allUsers = result.Value?.ToList() ?? new();
         ApplyFilter();
         _loading = false;
     }
@@ -338,6 +376,7 @@
         _formDeptId = "";
         _formRole = (int)UserRole.Employee;
         _formSlackId = null;
+        _formIsFinanceApprover = false; // defaults to "payer only" — admin opts in
         _formError = null;
         _showForm = true;
     }
@@ -352,8 +391,18 @@
         _formDeptId = u.DepartmentId.ToString();
         _formRole = (int)u.Role;
         _formSlackId = u.SlackUserId;
+        _formIsFinanceApprover = u.IsFinanceApprover;
         _formError = null;
         _showForm = true;
+    }
+
+    private void OnRoleChanged()
+    {
+        // Clear the approver flag whenever the role moves away from Finance — keeps
+        // the UI in sync with the domain rule (the approver bit is meaningless
+        // off-role and gets stripped server-side anyway).
+        if (_formRole != (int)UserRole.Finance)
+            _formIsFinanceApprover = false;
     }
 
     private void CloseForm() { _showForm = false; _formError = null; }
@@ -373,6 +422,9 @@
         }
         if (!Guid.TryParse(_formDeptId, out var deptId)) { _formError = "Select a department."; return; }
 
+        // Belt-and-braces: never send IsFinanceApprover=true unless role is Finance.
+        var isFinanceApprover = _formRole == (int)UserRole.Finance && _formIsFinanceApprover;
+
         _saving = true;
         try
         {
@@ -384,7 +436,8 @@
                     _formEmail,
                     deptId,
                     (UserRole)_formRole,
-                    _formSlackId);
+                    _formSlackId,
+                    isFinanceApprover);
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure) { _formError = result.Error; return; }
             }
@@ -397,7 +450,8 @@
                     _formInitialPassword,
                     deptId,
                     (UserRole)_formRole,
-                    _formSlackId);
+                    _formSlackId,
+                    isFinanceApprover);
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure) { _formError = result.Error; return; }
             }

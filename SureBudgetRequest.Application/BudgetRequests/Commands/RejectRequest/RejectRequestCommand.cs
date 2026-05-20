@@ -56,6 +56,10 @@ public sealed class RejectRequestCommandHandler
         if (!roleCheck)
             return Result.Failure($"User with role '{approver.Role}' cannot reject at the current stage '{budgetRequest.Status}'.");
 
+        // Finance-stage gate: only Finance Approvers (Type 1) may reject.
+        if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
+            return Result.Failure("This Finance user is restricted to recording payments and cannot reject requests.");
+
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.Reject(command.ApproverId, command.Comment);
         if (result.IsFailure) return result;

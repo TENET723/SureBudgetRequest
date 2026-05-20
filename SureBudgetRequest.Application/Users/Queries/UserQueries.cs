@@ -38,7 +38,14 @@ public sealed class ListUsersQueryHandler
 
     public async Task<Result<IReadOnlyList<UserDto>>> Handle(ListUsersQuery request, CancellationToken ct)
     {
-        var users = await _repository.ListAsync(request.DepartmentId, request.Role, request.IncludeInactive, ct);
+        // Use named arguments — IUserRepository.ListAsync gained an
+        // `isFinanceApprover` parameter before `cancellationToken`, so positional
+        // calls would now bind the ct value to the wrong slot.
+        var users = await _repository.ListAsync(
+            departmentId: request.DepartmentId,
+            role: request.Role,
+            includeInactive: request.IncludeInactive,
+            cancellationToken: ct);
         return Result.Success<IReadOnlyList<UserDto>>(users.Select(UserDto.FromEntity).ToList());
     }
 }

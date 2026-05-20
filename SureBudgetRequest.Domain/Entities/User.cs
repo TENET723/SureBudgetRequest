@@ -21,6 +21,15 @@ public class User
     public string? SlackUserId { get; private set; }
     public Guid DepartmentId { get; private set; }
     public UserRole Role { get; private set; }
+
+    /// <summary>
+    /// Distinguishes the two Finance sub-types. Only meaningful when <see cref="Role"/> is <see cref="UserRole.Finance"/>.
+    ///   - true  → "Finance Approver" (Type 1): can Approve, Reject, Send Back, AND Record Payment.
+    ///   - false → "Finance Payer only" (Type 2): can Record Payment only.
+    /// Automatically cleared when the role changes to anything other than Finance.
+    /// </summary>
+    public bool IsFinanceApprover { get; private set; }
+
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
@@ -43,13 +52,39 @@ public class User
         Role = role;
         IsActive = true;
         MustChangePassword = true; // default — Admin sets initial password, user must change on first login
+        IsFinanceApprover = false; // default — Admin must explicitly grant approver rights
         CreatedAt = DateTime.UtcNow;
     }
 
     public void Deactivate() => IsActive = false;
     public void Reactivate() => IsActive = true;
-    public void ChangeRole(UserRole newRole) => Role = newRole;
+
+    public void ChangeRole(UserRole newRole)
+    {
+        Role = newRole;
+
+        // Approver flag is only meaningful for Finance users. Clear it automatically
+        // whenever the role moves away from Finance so we never end up with a
+        // non-Finance user carrying a stale "approver" bit.
+        if (newRole != UserRole.Finance)
+            IsFinanceApprover = false;
+    }
+
     public void ChangeDepartment(Guid newDepartmentId) => DepartmentId = newDepartmentId;
+
+    /// <summary>
+    /// Sets the Finance-approver flag. Caller (Application layer) must ensure
+    /// the user has <see cref="UserRole.Finance"/> before calling with <c>true</c>;
+    /// the domain rejects mismatched combinations defensively.
+    /// </summary>
+    public void SetFinanceApprover(bool value)
+    {
+        if (value && Role != UserRole.Finance)
+            throw new InvalidOperationException(
+                "Only a user with the Finance role can be marked as a Finance Approver.");
+
+        IsFinanceApprover = value;
+    }
 
     public void SetEmail(string email)
     {

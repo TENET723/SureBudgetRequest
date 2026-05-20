@@ -55,7 +55,7 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
                 case RequestStatus.PendingFinance
                     when request.DeptHeadIdAtSubmission == request.RequesterId:
                     trigger = NotificationTrigger.SubmittedToFinance;
-                    recipients = await GetUserIdsByRoleAsync(UserRole.Finance, ct);
+                    recipients = await GetFinanceApproverIdsAsync(ct);
                     break;
 
                 // Dept head self-submitted, over limit → Management
@@ -84,7 +84,7 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             else
             {
                 trigger = NotificationTrigger.DeptHeadApprovedToFinance;
-                recipients = await GetUserIdsByRoleAsync(UserRole.Finance, ct);
+                recipients = await GetFinanceApproverIdsAsync(ct);
             }
         }
         // --- Dept Head rejected ---
@@ -99,7 +99,7 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
                  && request.Status == RequestStatus.PendingFinance)
         {
             trigger = NotificationTrigger.ManagementApprovedToFinance;
-            recipients = await GetUserIdsByRoleAsync(UserRole.Finance, ct);
+            recipients = await GetFinanceApproverIdsAsync(ct);
         }
         // --- Management rejected ---
         else if (previousStatus == RequestStatus.PendingManagement
@@ -145,6 +145,20 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
         UserRole role, CancellationToken ct)
     {
         var users = await _userRepository.ListAsync(role: role, cancellationToken: ct);
+        return users.Select(u => u.Id).ToArray();
+    }
+
+    /// <summary>
+    /// Returns IDs of active Finance users with <c>IsFinanceApprover = true</c>.
+    /// Payer-only (Type 2) Finance users are excluded — they don't need to be
+    /// pinged when something hits the Finance approval queue.
+    /// </summary>
+    private async Task<IReadOnlyList<Guid>> GetFinanceApproverIdsAsync(CancellationToken ct)
+    {
+        var users = await _userRepository.ListAsync(
+            role: UserRole.Finance,
+            isFinanceApprover: true,
+            cancellationToken: ct);
         return users.Select(u => u.Id).ToArray();
     }
 }

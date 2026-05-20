@@ -22,7 +22,8 @@ public sealed record AuthenticatedUserDto(
     string FullName,
     UserRole Role,
     Guid DepartmentId,
-    bool MustChangePassword);
+    bool MustChangePassword,
+    bool IsFinanceApprover);
 
 public sealed class AuthenticateUserCommandHandler
     : IRequestHandler<AuthenticateUserCommand, Result<AuthenticatedUserDto>>
@@ -69,6 +70,7 @@ public sealed class AuthenticateUserCommandHandler
             user.FullName,
             user.Role,
             user.DepartmentId,
-            user.MustChangePassword));
+            user.MustChangePassword,
+            user.IsFinanceApprover));
     }
 }

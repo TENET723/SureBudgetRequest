@@ -12,10 +12,11 @@ public sealed record UserDto(
     Guid DepartmentId,
     UserRole Role,
     bool IsActive,
+    bool IsFinanceApprover,
     DateTime CreatedAt,
     DateTime? LastLoginAt)
 {
     public static UserDto FromEntity(User u) => new(
         u.Id, u.Username, u.FullName, u.Email, u.SlackUserId,
-        u.DepartmentId, u.Role, u.IsActive, u.CreatedAt, u.LastLoginAt);
+        u.DepartmentId, u.Role, u.IsActive, u.IsFinanceApprover, u.CreatedAt, u.LastLoginAt);
 }

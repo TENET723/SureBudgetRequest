@@ -45,6 +45,10 @@ public sealed class SendBackRequestCommandHandler
         if (financeUser is null || financeUser.Role != UserRole.Finance)
             return Result.Failure("Only a Finance user can send back a request.");
 
+        // Send-back is an approver action; payer-only (Type 2) Finance users cannot do it.
+        if (!financeUser.IsFinanceApprover)
+            return Result.Failure("This Finance user is restricted to recording payments and cannot send requests back.");
+
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.SendBack(command.FinanceUserId, command.Comment);
         if (result.IsFailure) return result;

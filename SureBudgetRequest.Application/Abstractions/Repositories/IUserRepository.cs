@@ -14,11 +14,24 @@ public interface IUserRepository
     /// <summary>True if a user with the given email already exists (case-insensitive).</summary>
     Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Generic list with optional filters.
+    /// <paramref name="isFinanceApprover"/> is most commonly used with
+    /// <paramref name="role"/> = <see cref="UserRole.Finance"/> to find users
+    /// who can act at the Finance approval stage.
+    /// </summary>
     Task<IReadOnlyList<User>> ListAsync(
         Guid? departmentId = null,
         UserRole? role = null,
         bool includeInactive = false,
+        bool? isFinanceApprover = null,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts active Finance users with <c>IsFinanceApprover = true</c>.
+    /// Used by the bus-factor safeguard to prevent removing the last approver.
+    /// </summary>
+    Task<int> CountActiveFinanceApproversAsync(CancellationToken cancellationToken = default);
 }

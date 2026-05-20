@@ -15,7 +15,8 @@ public sealed record CreateUserCommand(
     string InitialPassword,
     Guid DepartmentId,
     UserRole Role,
-    string? SlackUserId) : IRequest<Result<Guid>>;
+    string? SlackUserId,
+    bool IsFinanceApprover = false) : IRequest<Result<Guid>>;
 
 public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Result<Guid>>
 {
@@ -47,6 +48,11 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
             || command.InitialPassword.Length < MinimumPasswordLength)
             return Result.Failure<Guid>($"Initial password must be at least {MinimumPasswordLength} characters.");
 
+        // The Finance-approver flag only makes sense for Finance users.
+        // Reject up front rather than silently dropping the flag.
+        if (command.IsFinanceApprover && command.Role != UserRole.Finance)
+            return Result.Failure<Guid>("Only a user with the Finance role can be marked as a Finance Approver.");
+
         if (await _userRepository.EmailExistsAsync(command.Email, ct))
             return Result.Failure<Guid>("A user with this email already exists.");
 
@@ -67,6 +73,9 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
         // MustChangePassword defaults to true in the User constructor.
         user.SetPasswordHash(_passwordHasher.Hash(command.InitialPassword), mustChangeOnNextLogin: true);
         user.SetSlackUserId(command.SlackUserId);
+
+        if (command.IsFinanceApprover)
+            user.SetFinanceApprover(true);
 
         await _userRepository.AddAsync(user, ct);
         await _unitOfWork.SaveChangesAsync(ct);

@@ -14,6 +14,13 @@ public interface ICurrentUser
     UserRole Role { get; }
     Guid DepartmentId { get; }
 
+    /// <summary>
+    /// True when the current user is a Finance user with approver rights
+    /// (can Approve / Reject / Send Back). False for Finance "payer-only" users.
+    /// Always false for non-Finance roles.
+    /// </summary>
+    bool IsFinanceApprover { get; }
+
     /// <summary>True once the service has been initialised with an actual user.</summary>
     bool IsLoaded { get; }
 }

@@ -16,6 +16,13 @@
     {
         <div class="alert alert-info">You have no inbox as an employee. <a href="requests/mine">View your requests instead.</a></div>
     }
+    else if (CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover)
+    {
+        <div class="alert alert-info">
+            As a Finance Payer your job is recording payments, not approving requests.
+            <a href="requests/outstanding">Open the Outstanding Payments queue instead.</a>
+        </div>
+    }
     else if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -84,6 +91,13 @@
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser.Role == UserRole.Employee) { _loading = false; return; }
+
+        // Payer-only Finance users have no inbox — they work from Outstanding Payments.
+        if (CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover)
+        {
+            _loading = false;
+            return;
+        }
 
         // Load requests based on role
         var statusFilter = CurrentUser.Role switch

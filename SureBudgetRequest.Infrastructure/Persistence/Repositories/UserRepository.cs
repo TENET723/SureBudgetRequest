@@ -34,6 +34,7 @@ public sealed class UserRepository : IUserRepository
         Guid? departmentId = null,
         UserRole? role = null,
         bool includeInactive = false,
+        bool? isFinanceApprover = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.Users.AsQueryable();
@@ -47,6 +48,9 @@ public sealed class UserRepository : IUserRepository
         if (role.HasValue)
             query = query.Where(u => u.Role == role.Value);
 
+        if (isFinanceApprover.HasValue)
+            query = query.Where(u => u.IsFinanceApprover == isFinanceApprover.Value);
+
         return await query
             .OrderBy(u => u.FullName)
             .ToListAsync(cancellationToken);
@@ -54,4 +58,9 @@ public sealed class UserRepository : IUserRepository
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default)
         => await _context.Users.AddAsync(user, cancellationToken);
+
+    public Task<int> CountActiveFinanceApproversAsync(CancellationToken cancellationToken = default)
+        => _context.Users
+            .Where(u => u.IsActive && u.Role == UserRole.Finance && u.IsFinanceApprover)
+            .CountAsync(cancellationToken);
 }

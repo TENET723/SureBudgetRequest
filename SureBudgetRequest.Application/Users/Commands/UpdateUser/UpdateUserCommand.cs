@@ -12,7 +12,8 @@ public sealed record UpdateUserCommand(
     string Email,
     Guid DepartmentId,
     UserRole Role,
-    string? SlackUserId) : IRequest<Result>;
+    string? SlackUserId,
+    bool IsFinanceApprover = false) : IRequest<Result>;
 
 public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Result>
 {
@@ -49,11 +50,38 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
             return Result.Failure("A user with this email already exists.");
         }
 
+        // The Finance-approver flag only makes sense for Finance users.
+        if (command.IsFinanceApprover && command.Role != UserRole.Finance)
+            return Result.Failure("Only a user with the Finance role can be marked as a Finance Approver.");
+
+        // ── Bus-factor safeguard ───────────────────────────────────────────────
+        // If this user is currently the LAST active Finance approver and the
+        // update would strip them of that capability (role change away from
+        // Finance, OR approver flag flipped off), block the save so the queue
+        // never ends up with zero approvers.
+        var wasApprover = user.IsActive && user.Role == UserRole.Finance && user.IsFinanceApprover;
+        var willStillBeApprover = command.Role == UserRole.Finance && command.IsFinanceApprover;
+
+        if (wasApprover && !willStillBeApprover)
+        {
+            var approverCount = await _userRepository.CountActiveFinanceApproversAsync(ct);
+            if (approverCount <= 1)
+            {
+                return Result.Failure(
+                    "Cannot remove the last active Finance Approver — Finance-stage requests " +
+                    "would have no one to approve them. Promote another Finance user first.");
+            }
+        }
+        // ───────────────────────────────────────────────────────────────────────
+
         user.Rename(command.FullName);
         user.ChangeDepartment(command.DepartmentId);
-        user.ChangeRole(command.Role);
+        user.ChangeRole(command.Role); // also clears IsFinanceApprover when role != Finance
         user.SetEmail(command.Email);
         user.SetSlackUserId(command.SlackUserId);
+
+        if (command.Role == UserRole.Finance)
+            user.SetFinanceApprover(command.IsFinanceApprover);
 
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Success();

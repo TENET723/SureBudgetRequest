@@ -610,9 +610,12 @@ else
         if (r.Status == RequestStatus.PendingManagement && role == UserRole.Management)
         { list.Add("approve"); list.Add("reject"); }
 
-        if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance)
+        // Approve / Reject / Send Back are Finance-Approver-only actions (Type 1).
+        // Payer-only (Type 2) Finance users don't see these buttons.
+        if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance && CurrentUser.IsFinanceApprover)
         { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
 
+        // Recording payments is allowed for BOTH Finance sub-types.
         if (r.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid && role == UserRole.Finance)
             list.Add("recordpayment");
 
