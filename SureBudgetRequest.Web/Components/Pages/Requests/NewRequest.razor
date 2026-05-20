@@ -9,6 +9,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
 
 <PageTitle>New Budget Request</PageTitle>
@@ -149,6 +150,23 @@
                 </div>
             </div>
 
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Withdraw Method</label>
+                <select class="form-select form-select-sm" @bind="_withdrawMethodId">
+                    <option value="">— select a method —</option>
+                    @foreach (var m in _withdrawMethods)
+                    {
+                        <option value="@m.Id">@m.Name</option>
+                    }
+                </select>
+                @if (!_withdrawMethods.Any())
+                {
+                    <div class="form-text small text-danger">
+                        No active withdraw methods configured. Ask Finance or Admin to add one.
+                    </div>
+                }
+            </div>
+
         </div>
         <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
             <a href="requests/mine" class="btn btn-sm btn-link text-muted">Cancel</a>
@@ -224,6 +242,8 @@
     private bool _saving;
     private bool _submitting;
     private List<CurrencyDto> _currencies = new();
+    private List<WithdrawMethodDto> _withdrawMethods = new();
+    private string _withdrawMethodId = "";
 
     // Monthly limit state
     private decimal? _monthlyLimit;
@@ -257,6 +277,13 @@
                 _currencyCode = _currencies[0].Code;
                 _selectedRate = _currencies[0].RateToMmk;
             }
+        }
+
+        // Load active withdraw methods for the selector
+        var methodsResult = await Mediator.Send(new ListWithdrawMethodsQuery(IncludeInactive: false));
+        if (methodsResult.IsSuccess)
+        {
+            _withdrawMethods = methodsResult.Value.OrderBy(m => m.Name).ToList();
         }
 
         var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
@@ -340,6 +367,8 @@
         if (string.IsNullOrWhiteSpace(_reason)) { _error = "Reason is required."; return false; }
         if (string.IsNullOrWhiteSpace(_withdrawerName)) { _error = "Withdrawer name is required."; return false; }
         if (string.IsNullOrWhiteSpace(_withdrawerTitle)) { _error = "Withdrawer job title is required."; return false; }
+        if (string.IsNullOrWhiteSpace(_withdrawMethodId) || !Guid.TryParse(_withdrawMethodId, out _))
+        { _error = "Withdraw method is required."; return false; }
         if (_deptHeadId == Guid.Empty || string.IsNullOrWhiteSpace(_deptHeadName))
         { _error = "Department head is not set for your department."; return false; }
         return true;
@@ -362,6 +391,7 @@
                 Reasons: _reason,
                 WithdrawerName: _withdrawerName,
                 WithdrawerJobTitle: _withdrawerTitle,
+                WithdrawMethodId: Guid.Parse(_withdrawMethodId),
                 AllowsPartialPayment: _allowsPartial,
                 PartialPaymentDetail: _allowsPartial ? _partialDetail : null,
                 MonthlyOverrunJustification: string.IsNullOrWhiteSpace(_monthlyOverrunJustification)

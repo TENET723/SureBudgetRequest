@@ -88,6 +88,17 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(r => r.CoaId);
 
+        // ── Withdraw Method FK ────────────────────────────────────────────────
+        // Nullable in DB only for rows that pre-date the feature; new drafts
+        // require it. Restrict on delete so a method cannot be hard-deleted
+        // while referenced — admins must Deactivate instead.
+        builder.Property(r => r.WithdrawMethodId);
+        builder.HasOne<WithdrawMethod>()
+               .WithMany()
+               .HasForeignKey(r => r.WithdrawMethodId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => r.WithdrawMethodId);
+
         // ── Indexes ───────────────────────────────────────────────────────────
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);

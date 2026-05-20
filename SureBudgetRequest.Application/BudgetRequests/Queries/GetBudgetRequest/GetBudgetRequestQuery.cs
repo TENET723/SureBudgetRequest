@@ -11,13 +11,16 @@ public sealed class GetBudgetRequestQueryHandler
 {
     private readonly IBudgetRequestRepository _repository;
     private readonly ICoaRepository _coaRepository;
+    private readonly IWithdrawMethodRepository _withdrawMethodRepository;
 
     public GetBudgetRequestQueryHandler(
         IBudgetRequestRepository repository,
-        ICoaRepository coaRepository)
+        ICoaRepository coaRepository,
+        IWithdrawMethodRepository withdrawMethodRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
+        _withdrawMethodRepository = withdrawMethodRepository;
     }
 
     public async Task<Result<BudgetRequestDto>> Handle(
@@ -34,6 +37,12 @@ public sealed class GetBudgetRequestQueryHandler
             ? await _coaRepository.GetByIdAsync(entity.CoaId.Value, cancellationToken)
             : null;
 
-        return Result.Success(BudgetRequestDto.FromEntity(entity, coa));
+        // Resolve the chosen withdraw method (null only for rows that pre-date
+        // the feature).
+        var withdrawMethod = entity.WithdrawMethodId.HasValue
+            ? await _withdrawMethodRepository.GetByIdAsync(entity.WithdrawMethodId.Value, cancellationToken)
+            : null;
+
+        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod));
     }
 }

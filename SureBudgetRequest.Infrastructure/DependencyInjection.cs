@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
         services.AddScoped<ICoaRepository, CoaRepository>();
+        services.AddScoped<IWithdrawMethodRepository, WithdrawMethodRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // ── Security ──────────────────────────────────────────────────────────

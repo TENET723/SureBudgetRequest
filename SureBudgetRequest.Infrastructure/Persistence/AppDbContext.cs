@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Currency> Currencies => Set<Currency>();
     public DbSet<CurrencyRateChange> CurrencyRateChanges => Set<CurrencyRateChange>();
     public DbSet<Coa> Coas => Set<Coa>();
+    public DbSet<WithdrawMethod> WithdrawMethods => Set<WithdrawMethod>();
 
     // Infrastructure-only (outbox)
     public DbSet<NotificationOutboxEntry> NotificationOutbox => Set<NotificationOutboxEntry>();

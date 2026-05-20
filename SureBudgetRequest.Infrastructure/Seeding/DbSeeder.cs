@@ -37,6 +37,7 @@ public sealed class DbSeeder
     {
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCoasAsync(cancellationToken);
+        await SeedWithdrawMethodsAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
     }
 
@@ -82,6 +83,27 @@ public sealed class DbSeeder
             new Coa("6100", "Salaries & Wages",  "Payroll — regular salaries (HR / Finance use only)."),
             new Coa("6200", "Bonuses & Incentives", "Performance bonuses and incentive payouts."),
             new Coa("7100", "Utilities",         "Electricity, water, internet at office.")
+        );
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // ── Withdraw Methods ──────────────────────────────────────────────────────
+    private async Task SeedWithdrawMethodsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.WithdrawMethods.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("Withdraw methods already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding withdraw methods...");
+
+        _db.WithdrawMethods.AddRange(
+            new WithdrawMethod("Cash"),
+            new WithdrawMethod("Bank Transfer"),
+            new WithdrawMethod("Cheque"),
+            new WithdrawMethod("Mobile Wallet")
         );
 
         await _db.SaveChangesAsync(cancellationToken);

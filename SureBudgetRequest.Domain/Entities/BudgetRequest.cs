@@ -89,6 +89,14 @@ public partial class BudgetRequest
     /// </summary>
     public Guid? CoaId { get; private set; }
 
+    /// <summary>
+    /// Withdraw method chosen by the requester at draft time (e.g. "Cash",
+    /// "Bank Transfer"). Required on every new draft; nullable in DB only so
+    /// rows that pre-date the feature can survive without backfill. Editable
+    /// while the request is in Draft or SentBack.
+    /// </summary>
+    public Guid? WithdrawMethodId { get; private set; }
+
     // === Child collections (part of the aggregate) ===
     private readonly List<ApprovalAction> _approvalActions = new();
     public IReadOnlyList<ApprovalAction> ApprovalActions => _approvalActions.AsReadOnly();

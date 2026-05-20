@@ -52,13 +52,16 @@ public sealed class ListBudgetRequestsQueryHandler
 {
     private readonly IBudgetRequestRepository _repository;
     private readonly ICoaRepository _coaRepository;
+    private readonly IWithdrawMethodRepository _withdrawMethodRepository;
 
     public ListBudgetRequestsQueryHandler(
         IBudgetRequestRepository repository,
-        ICoaRepository coaRepository)
+        ICoaRepository coaRepository,
+        IWithdrawMethodRepository withdrawMethodRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
+        _withdrawMethodRepository = withdrawMethodRepository;
     }
 
     public async Task<Result<IReadOnlyList<BudgetRequestSummaryDto>>> Handle(
@@ -104,13 +107,38 @@ public sealed class ListBudgetRequestsQueryHandler
                 .ToDictionary(c => c.Id);
         }
 
+        // Same batch-lookup pattern for withdraw methods.
+        var methodIds = entities
+            .Select(e => e.WithdrawMethodId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToHashSet();
+
+        Dictionary<Guid, WithdrawMethod> methodLookup;
+        if (methodIds.Count == 0)
+        {
+            methodLookup = new Dictionary<Guid, WithdrawMethod>();
+        }
+        else
+        {
+            var allMethods = await _withdrawMethodRepository.ListAsync(includeInactive: true, cancellationToken);
+            methodLookup = allMethods
+                .Where(m => methodIds.Contains(m.Id))
+                .ToDictionary(m => m.Id);
+        }
+
         var dtos = entities
             .Select(e =>
             {
                 Coa? coa = null;
                 if (e.CoaId.HasValue)
                     coaLookup.TryGetValue(e.CoaId.Value, out coa);
-                return BudgetRequestSummaryDto.FromEntity(e, coa);
+
+                WithdrawMethod? method = null;
+                if (e.WithdrawMethodId.HasValue)
+                    methodLookup.TryGetValue(e.WithdrawMethodId.Value, out method);
+
+                return BudgetRequestSummaryDto.FromEntity(e, coa, method);
             })
             .ToList();
 

@@ -30,7 +30,9 @@ public sealed record BudgetRequestSummaryDto(
     decimal DepartmentLimitAtSubmission = 0m,
     Guid? CoaId = null,
     string? CoaCode = null,
-    string? CoaName = null)
+    string? CoaName = null,
+    Guid? WithdrawMethodId = null,
+    string? WithdrawMethodName = null)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -48,17 +50,20 @@ public sealed record BudgetRequestSummaryDto(
     /// that don't need COA display fields can keep using this overload. The
     /// new department/COA fields are populated from the entity (Coa lookup
     /// fields are left null and should be filled by the
-    /// <see cref="FromEntity(BudgetRequest, Coa?)"/> overload).
+    /// <see cref="FromEntity(BudgetRequest, Coa?, WithdrawMethod?)"/> overload).
     /// </summary>
     public static BudgetRequestSummaryDto FromEntity(BudgetRequest e) =>
-        FromEntity(e, coa: null);
+        FromEntity(e, coa: null, withdrawMethod: null);
 
     /// <summary>
-    /// Report-friendly factory. Pass the resolved <see cref="Coa"/> (or null
-    /// when <c>e.CoaId</c> is null) to populate <see cref="CoaCode"/> and
-    /// <see cref="CoaName"/> for display.
+    /// Report-friendly factory. Pass the resolved <see cref="Coa"/> and
+    /// <see cref="WithdrawMethod"/> (or null when the corresponding FK is null)
+    /// to populate the display fields.
     /// </summary>
-    public static BudgetRequestSummaryDto FromEntity(BudgetRequest e, Coa? coa) => new(
+    public static BudgetRequestSummaryDto FromEntity(
+        BudgetRequest e,
+        Coa? coa,
+        WithdrawMethod? withdrawMethod) => new(
         e.Id,
         e.Reference,
         e.RequesterId,
@@ -80,5 +85,7 @@ public sealed record BudgetRequestSummaryDto(
         e.DepartmentLimitAtSubmission,
         e.CoaId,
         coa?.Code,
-        coa?.Name);
+        coa?.Name,
+        e.WithdrawMethodId,
+        withdrawMethod?.Name);
 }

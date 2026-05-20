@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 
@@ -184,6 +185,23 @@
                     </div>
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Withdraw Method</label>
+                    <select class="form-select form-select-sm" @bind="_withdrawMethodId">
+                        <option value="">— select a method —</option>
+                        @foreach (var m in _withdrawMethods)
+                        {
+                            <option value="@m.Id">@m.Name</option>
+                        }
+                    </select>
+                    @if (!_withdrawMethods.Any())
+                    {
+                        <div class="form-text small text-danger">
+                            No active withdraw methods configured. Ask Finance or Admin to add one.
+                        </div>
+                    }
+                </div>
+
             </div>
             <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
                 <a href="requests/@Id" class="btn btn-sm btn-link text-muted">Cancel</a>
@@ -255,6 +273,8 @@
     private string _currencyCode = "MMK";
     private decimal _selectedRate = 1m;
     private List<CurrencyDto> _currencies = new();
+    private List<WithdrawMethodDto> _withdrawMethods = new();
+    private string _withdrawMethodId = "";
     private string _reason = "";
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
@@ -303,6 +323,7 @@
             _withdrawerTitle = _request.WithdrawerJobTitle;
             _allowsPartial = _request.AllowsPartialPayment;
             _partialDetail = _request.PartialPaymentDetail;
+            _withdrawMethodId = _request.WithdrawMethodId?.ToString() ?? "";
             // Pre-fill justification from the saved draft so the user doesn't retype it.
             _monthlyOverrunJustification = _request.MonthlyOverrunJustification ?? "";
 
@@ -317,6 +338,19 @@
                     .ThenBy(c => c.Code)
                     .ToList();
                 OnCurrencyChanged();
+            }
+
+            // Load active withdraw methods. If the draft references an inactive one,
+            // clear the selection so the user is forced to pick a current method.
+            var methodsResult = await Mediator.Send(new ListWithdrawMethodsQuery(IncludeInactive: false));
+            if (methodsResult.IsSuccess)
+            {
+                _withdrawMethods = methodsResult.Value.OrderBy(m => m.Name).ToList();
+                if (!string.IsNullOrEmpty(_withdrawMethodId)
+                    && !_withdrawMethods.Any(m => m.Id.ToString() == _withdrawMethodId))
+                {
+                    _withdrawMethodId = "";
+                }
             }
 
             var headResult = await Mediator.Send(new GetUserQuery(_request.DeptHeadIdAtSubmission));
@@ -400,6 +434,8 @@
         if (string.IsNullOrWhiteSpace(_reason)) { _error = "Reason is required."; return false; }
         if (string.IsNullOrWhiteSpace(_withdrawerName)) { _error = "Withdrawer name is required."; return false; }
         if (string.IsNullOrWhiteSpace(_withdrawerTitle)) { _error = "Withdrawer job title is required."; return false; }
+        if (string.IsNullOrWhiteSpace(_withdrawMethodId) || !Guid.TryParse(_withdrawMethodId, out _))
+        { _error = "Withdraw method is required."; return false; }
         return true;
     }
 
@@ -421,6 +457,7 @@
                 Reasons: _reason,
                 WithdrawerName: _withdrawerName,
                 WithdrawerJobTitle: _withdrawerTitle,
+                WithdrawMethodId: Guid.Parse(_withdrawMethodId),
                 AllowsPartialPayment: _allowsPartial,
                 PartialPaymentDetail: _allowsPartial ? _partialDetail : null,
                 MonthlyOverrunJustification: string.IsNullOrWhiteSpace(_monthlyOverrunJustification)

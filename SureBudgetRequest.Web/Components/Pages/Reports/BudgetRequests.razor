@@ -190,6 +190,7 @@
                             <th class="text-end">≈ MMK</th>
                             <th>Status</th>
                             <th>COA</th>
+                            <th>Withdraw</th>
                             <th></th>
                         </tr>
                     </thead>
@@ -222,6 +223,16 @@
                                         <span class="text-muted">—</span>
                                     }
                                 </td>
+                                <td class="small">
+                                    @if (!string.IsNullOrEmpty(r.WithdrawMethodName))
+                                    {
+                                        @r.WithdrawMethodName
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
                                 <td class="text-end">
                                     <a href="requests/@r.Id" class="btn btn-sm btn-outline-primary">View</a>
                                 </td>
@@ -229,7 +240,7 @@
                         }
                         @if (!_requests.Any())
                         {
-                            <tr><td colspan="11" class="text-center text-muted py-4">No requests match the current filters.</td></tr>
+                            <tr><td colspan="12" class="text-center text-muted py-4">No requests match the current filters.</td></tr>
                         }
                     </tbody>
                 </table>

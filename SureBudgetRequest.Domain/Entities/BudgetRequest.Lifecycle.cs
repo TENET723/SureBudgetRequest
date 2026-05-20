@@ -24,6 +24,7 @@ public partial class BudgetRequest
         string reasons,
         string withdrawerName,
         string withdrawerJobTitle,
+        Guid withdrawMethodId,
         bool allowsPartialPayment,
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null)
@@ -38,6 +39,8 @@ public partial class BudgetRequest
             throw new ArgumentException("Withdrawer name is required.", nameof(withdrawerName));
         if (string.IsNullOrWhiteSpace(withdrawerJobTitle))
             throw new ArgumentException("Withdrawer job title is required.", nameof(withdrawerJobTitle));
+        if (withdrawMethodId == Guid.Empty)
+            throw new ArgumentException("Withdraw method is required.", nameof(withdrawMethodId));
         if (string.IsNullOrWhiteSpace(deptHeadName))
             throw new ArgumentException("Dept head name is required.", nameof(deptHeadName));
 
@@ -55,6 +58,7 @@ public partial class BudgetRequest
             Reasons = reasons,
             WithdrawerName = withdrawerName,
             WithdrawerJobTitle = withdrawerJobTitle,
+            WithdrawMethodId = withdrawMethodId,
             AllowsPartialPayment = allowsPartialPayment,
             PartialPaymentDetail = partialPaymentDetail,
             MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification),
@@ -73,6 +77,7 @@ public partial class BudgetRequest
         string reasons,
         string withdrawerName,
         string withdrawerJobTitle,
+        Guid withdrawMethodId,
         bool allowsPartialPayment,
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null)
@@ -90,6 +95,8 @@ public partial class BudgetRequest
             return Result.Failure("Withdrawer name is required.");
         if (string.IsNullOrWhiteSpace(withdrawerJobTitle))
             return Result.Failure("Withdrawer job title is required.");
+        if (withdrawMethodId == Guid.Empty)
+            return Result.Failure("Withdraw method is required.");
 
         RequestDate = requestDate;
         RequestedAmount = requestedAmount;
@@ -98,6 +105,7 @@ public partial class BudgetRequest
         Reasons = reasons;
         WithdrawerName = withdrawerName;
         WithdrawerJobTitle = withdrawerJobTitle;
+        WithdrawMethodId = withdrawMethodId;
         AllowsPartialPayment = allowsPartialPayment;
         PartialPaymentDetail = partialPaymentDetail;
         MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
@@ -136,6 +144,8 @@ public partial class BudgetRequest
             return Result.Failure("Dept head name is required.");
         if (string.IsNullOrWhiteSpace(requesterName))
             return Result.Failure("Requester name is required.");
+        if (!WithdrawMethodId.HasValue)
+            return Result.Failure("Withdraw method is required.");
 
         // Consistency check: spend must be supplied iff the dept has a monthly limit.
         if (monthlyLimit.HasValue != monthlySpendBeforeInMmk.HasValue)

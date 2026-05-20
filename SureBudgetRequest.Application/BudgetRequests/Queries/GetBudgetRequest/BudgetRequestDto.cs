@@ -37,17 +37,25 @@ public sealed record BudgetRequestDto(
     Guid? CoaId,
     string? CoaCode,
     string? CoaName,
+    // Withdraw method — set by requester at draft time. Null only for rows that
+    // pre-date the feature; resolved name comes from the WithdrawMethod entity.
+    Guid? WithdrawMethodId,
+    string? WithdrawMethodName,
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
     IReadOnlyList<AttachmentDto> Attachments)
 {
     /// <summary>
-    /// Construct from the aggregate, optionally resolving the assigned Coa for
-    /// display. Pass <paramref name="coa"/> when <c>entity.CoaId</c> is set;
-    /// pass null otherwise and the CoaCode/CoaName fields will be null too.
+    /// Construct from the aggregate, optionally resolving the assigned Coa and
+    /// WithdrawMethod for display. Pass each entity when the corresponding
+    /// FK on <paramref name="e"/> is set; pass null otherwise and the
+    /// related display fields will be null too.
     /// </summary>
-    public static BudgetRequestDto FromEntity(BudgetRequest e, Coa? coa = null) => new(
+    public static BudgetRequestDto FromEntity(
+        BudgetRequest e,
+        Coa? coa = null,
+        WithdrawMethod? withdrawMethod = null) => new(
         e.Id,
         e.RequesterId,
         e.Reference,
@@ -78,6 +86,8 @@ public sealed record BudgetRequestDto(
         e.CoaId,
         coa?.Code,
         coa?.Name,
+        e.WithdrawMethodId,
+        withdrawMethod?.Name,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList());

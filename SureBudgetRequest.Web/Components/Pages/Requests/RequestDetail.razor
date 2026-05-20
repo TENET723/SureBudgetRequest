@@ -154,6 +154,13 @@ else
                         <div>@_request.WithdrawerName</div>
                         <div class="small text-muted">@_request.WithdrawerJobTitle</div>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(_request.WithdrawMethodName))
+                    {
+                        <div class="col-sm-6">
+                            <div class="small text-muted">Withdraw Method</div>
+                            <div>@_request.WithdrawMethodName</div>
+                        </div>
+                    }
                     @if (_request.SubmittedAt.HasValue)
                     {
                         <div class="col-sm-6">
