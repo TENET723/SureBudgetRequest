@@ -165,6 +165,14 @@
                         No active withdraw methods configured. Ask Finance or Admin to add one.
                     </div>
                 }
+                @if (SelectedMethodRequiresAttachment)
+                {
+                    <div class="form-text small text-warning mt-1">
+                        ⚠ This method requires a banking-info attachment. You'll be able to
+                        upload it after saving the draft. Submission will be blocked until
+                        at least one banking file is attached.
+                    </div>
+                }
             </div>
 
         </div>
@@ -258,6 +266,10 @@
     private bool WouldOverflowMonthly =>
         _monthlyLimit.HasValue && (_monthlySpent + AmountInMmk) > _monthlyLimit.Value;
 
+    private bool SelectedMethodRequiresAttachment =>
+        !string.IsNullOrEmpty(_withdrawMethodId)
+        && _withdrawMethods.Any(m => m.Id.ToString() == _withdrawMethodId && m.RequiresAttachment);
+
     protected override async Task OnInitializedAsync()
     {
         _withdrawerName = CurrentUser.FullName;
@@ -328,6 +340,17 @@
     {
         _error = null;
         if (!ValidateForm()) return;
+
+        // If the chosen method requires a banking attachment, direct submissions
+        // from this page can't succeed — attachments are added on the Edit page,
+        // which only exists after the draft is saved. Save-as-draft is fine and
+        // will land the user on the Edit page where they can upload + submit.
+        if (submit && SelectedMethodRequiresAttachment)
+        {
+            _error = "This withdraw method requires a banking-info attachment. " +
+                     "Save the draft first, then upload the banking file before submitting.";
+            return;
+        }
 
         // Over monthly? Pop the justification modal and let the user fill it in.
         // Submission only proceeds after they hit "Confirm" in the modal.

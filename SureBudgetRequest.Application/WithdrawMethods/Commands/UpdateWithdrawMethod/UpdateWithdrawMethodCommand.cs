@@ -8,7 +8,8 @@ namespace SureBudgetRequest.Application.WithdrawMethods.Commands.UpdateWithdrawM
 public sealed record UpdateWithdrawMethodCommand(
     Guid WithdrawMethodId,
     string Name,
-    bool IsActive) : IRequest<Result>;
+    bool IsActive,
+    bool RequiresAttachment) : IRequest<Result>;
 
 public sealed class UpdateWithdrawMethodCommandHandler
     : IRequestHandler<UpdateWithdrawMethodCommand, Result>
@@ -38,6 +39,7 @@ public sealed class UpdateWithdrawMethodCommandHandler
         try
         {
             method.Rename(command.Name);
+            method.SetRequiresAttachment(command.RequiresAttachment);
             if (command.IsActive) method.Reactivate(); else method.Deactivate();
         }
         catch (ArgumentException ex)

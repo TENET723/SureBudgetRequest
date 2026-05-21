@@ -101,9 +101,9 @@ public sealed class DbSeeder
 
         _db.WithdrawMethods.AddRange(
             new WithdrawMethod("Cash"),
-            new WithdrawMethod("Bank Transfer"),
-            new WithdrawMethod("Cheque"),
-            new WithdrawMethod("Mobile Wallet")
+            new WithdrawMethod("Bank Transfer", requiresAttachment: true),
+            new WithdrawMethod("Cheque", requiresAttachment: true),
+            new WithdrawMethod("Mobile Wallet", requiresAttachment: true)
         );
 
         await _db.SaveChangesAsync(cancellationToken);

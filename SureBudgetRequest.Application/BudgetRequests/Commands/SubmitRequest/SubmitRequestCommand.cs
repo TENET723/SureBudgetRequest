@@ -17,6 +17,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
+    private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -25,6 +26,7 @@ public sealed class SubmitRequestCommandHandler
         IUserRepository userRepository,
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
+        IWithdrawMethodRepository withdrawMethodRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -32,6 +34,7 @@ public sealed class SubmitRequestCommandHandler
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
+        _withdrawMethodRepository = withdrawMethodRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -83,6 +86,24 @@ public sealed class SubmitRequestCommandHandler
                     department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
         }
 
+        // Resolve the chosen withdraw method so the domain can enforce its
+        // RequiresAttachment invariant. The method must exist by this point —
+        // CreateDraft / UpdateDraft already gate it; the entity guard re-checks
+        // WithdrawMethodId is non-null inside Submit.
+        bool methodRequiresAttachment = false;
+        if (budgetRequest.WithdrawMethodId.HasValue)
+        {
+            var method = await _withdrawMethodRepository.GetByIdAsync(
+                budgetRequest.WithdrawMethodId.Value, cancellationToken);
+            if (method is null)
+                return Result.Failure("Selected withdraw method no longer exists.");
+            if (!method.IsActive)
+                return Result.Failure(
+                    $"Withdraw method '{method.Name}' has been deactivated. " +
+                    "Edit the draft and pick a different method before submitting.");
+            methodRequiresAttachment = method.RequiresAttachment;
+        }
+
         var previousStatus = budgetRequest.Status;
 
         var result = budgetRequest.Submit(
@@ -93,7 +114,8 @@ public sealed class SubmitRequestCommandHandler
             currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,
-            requester.FullName);
+            requester.FullName,
+            methodRequiresAttachment);
 
         if (result.IsFailure) return result;
 

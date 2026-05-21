@@ -15,9 +15,16 @@ public class WithdrawMethod
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>
+    /// When true, the requester must attach at least one banking-info file
+    /// (<see cref="Enums.AttachmentCategory.WithdrawMethod"/>) before they
+    /// can submit. Enforced inside <c>BudgetRequest.Submit</c>.
+    /// </summary>
+    public bool RequiresAttachment { get; private set; }
+
     private WithdrawMethod() { }
 
-    public WithdrawMethod(string name)
+    public WithdrawMethod(string name, bool requiresAttachment = false)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name is required.", nameof(name));
@@ -26,6 +33,7 @@ public class WithdrawMethod
         Name = name.Trim();
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
+        RequiresAttachment = requiresAttachment;
     }
 
     public void Rename(string newName)
@@ -34,6 +42,8 @@ public class WithdrawMethod
             throw new ArgumentException("Name is required.", nameof(newName));
         Name = newName.Trim();
     }
+
+    public void SetRequiresAttachment(bool value) => RequiresAttachment = value;
 
     public void Deactivate() => IsActive = false;
     public void Reactivate() => IsActive = true;

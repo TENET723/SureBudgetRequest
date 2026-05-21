@@ -9,10 +9,11 @@ public sealed record WithdrawMethodDto(
     Guid Id,
     string Name,
     bool IsActive,
+    bool RequiresAttachment,
     DateTime CreatedAt)
 {
     public static WithdrawMethodDto FromEntity(WithdrawMethod m) =>
-        new(m.Id, m.Name, m.IsActive, m.CreatedAt);
+        new(m.Id, m.Name, m.IsActive, m.RequiresAttachment, m.CreatedAt);
 }
 
 // ── Get single ─────────────────────────────────────────────────────────────

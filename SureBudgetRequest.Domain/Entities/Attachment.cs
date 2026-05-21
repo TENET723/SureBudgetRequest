@@ -1,3 +1,5 @@
+using SureBudgetRequest.Domain.Enums;
+
 namespace SureBudgetRequest.Domain.Entities;
 
 // Placeholder. Will be wired up when we add file storage in Infrastructure.
@@ -14,6 +16,13 @@ public class Attachment
     public Guid UploadedByUserId { get; private set; }
     public DateTime UploadedAt { get; private set; }
 
+    /// <summary>
+    /// Discriminator for what kind of supporting file this is. Defaults to
+    /// <see cref="AttachmentCategory.General"/> for backward compatibility with
+    /// rows that pre-date the category column.
+    /// </summary>
+    public AttachmentCategory Category { get; private set; }
+
     // For EF Core
     private Attachment() { }
 
@@ -23,7 +32,8 @@ public class Attachment
         string storedPath,
         string contentType,
         long sizeBytes,
-        Guid uploadedByUserId)
+        Guid uploadedByUserId,
+        AttachmentCategory category = AttachmentCategory.General)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -33,5 +43,6 @@ public class Attachment
         SizeBytes = sizeBytes;
         UploadedByUserId = uploadedByUserId;
         UploadedAt = DateTime.UtcNow;
+        Category = category;
     }
 }

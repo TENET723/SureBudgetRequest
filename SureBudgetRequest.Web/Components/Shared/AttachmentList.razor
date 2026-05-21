@@ -5,6 +5,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
+@using SureBudgetRequest.Domain.Enums
 
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
@@ -27,11 +28,17 @@
     }
 
     @{
-        var images = Attachments.Where(a => IsImage(a.ContentType)).ToList();
-        var files = Attachments.Where(a => !IsImage(a.ContentType)).ToList();
+        // Visible = the slice this section is responsible for rendering.
+        // When Category is null we keep the legacy behavior (show everything passed in).
+        var visible = Category.HasValue
+            ? Attachments.Where(a => a.Category == Category.Value).ToList()
+            : Attachments.ToList();
+
+        var images = visible.Where(a => IsImage(a.ContentType)).ToList();
+        var files = visible.Where(a => !IsImage(a.ContentType)).ToList();
     }
 
-    @if (Attachments.Count == 0)
+    @if (visible.Count == 0)
     {
         <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
     }
@@ -148,6 +155,19 @@
     /// <summary>True iff the request is in Draft or SentBack AND the viewer is the requester.</summary>
     [Parameter] public bool Editable { get; set; }
 
+    /// <summary>
+    /// When set, the component renders only attachments of this category and
+    /// tags new uploads with it. When null (default), the component renders the
+    /// full <see cref="Attachments"/> list unfiltered and uploads tag as
+    /// <see cref="AttachmentCategory.General"/> — preserving the pre-category
+    /// single-section behavior for callers that pass a flat list.
+    ///
+    /// The file-count cap is always checked against the TOTAL attachment count
+    /// (across categories) so the limit is honored whichever section the upload
+    /// happens in.
+    /// </summary>
+    [Parameter] public AttachmentCategory? Category { get; set; }
+
     /// <summary>Fired after a successful upload or remove so the parent can refetch.</summary>
     [Parameter] public EventCallback OnChanged { get; set; }
 
@@ -193,7 +213,8 @@
                     file.Name,
                     file.ContentType,
                     file.Size,
-                    stream);
+                    stream,
+                    Category ?? AttachmentCategory.General);
 
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure)

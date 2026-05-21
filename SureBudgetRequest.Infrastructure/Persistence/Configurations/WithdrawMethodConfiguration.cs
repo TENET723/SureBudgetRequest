@@ -16,6 +16,12 @@ public class WithdrawMethodConfiguration : IEntityTypeConfiguration<WithdrawMeth
         builder.Property(m => m.IsActive).IsRequired();
         builder.Property(m => m.CreatedAt).IsRequired();
 
+        // Default false so existing rows (and the migration's NOT NULL column add)
+        // get the same value without a backfill pass.
+        builder.Property(m => m.RequiresAttachment)
+               .IsRequired()
+               .HasDefaultValue(false);
+
         builder.HasIndex(m => m.Name).IsUnique();
     }
 }

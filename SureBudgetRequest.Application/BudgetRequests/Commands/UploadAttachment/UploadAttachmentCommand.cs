@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment;
 
@@ -26,7 +27,8 @@ public sealed record UploadAttachmentCommand(
     string FileName,
     string ContentType,
     long SizeBytes,
-    Stream Content) : IRequest<Result<Guid>>;
+    Stream Content,
+    AttachmentCategory Category = AttachmentCategory.General) : IRequest<Result<Guid>>;
 
 public sealed class UploadAttachmentCommandHandler
     : IRequestHandler<UploadAttachmentCommand, Result<Guid>>
@@ -87,7 +89,8 @@ public sealed class UploadAttachmentCommandHandler
             storedPath,
             command.ContentType,
             command.SizeBytes,
-            command.UploadedByUserId);
+            command.UploadedByUserId,
+            command.Category);
 
         if (addResult.IsFailure)
         {

@@ -3,6 +3,11 @@ using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest;
 
+// Note: AttachmentDto + BudgetRequestDto carry AttachmentCategory and
+// WithdrawMethodRequiresAttachment so the Web layer can split attachments
+// into two sections (Banking info vs Supporting documents) and warn the user
+// before submission when the chosen method needs a banking file.
+
 public sealed record BudgetRequestDto(
     Guid Id,
     Guid RequesterId,
@@ -38,9 +43,11 @@ public sealed record BudgetRequestDto(
     string? CoaCode,
     string? CoaName,
     // Withdraw method — set by requester at draft time. Null only for rows that
-    // pre-date the feature; resolved name comes from the WithdrawMethod entity.
+    // pre-date the feature; resolved name + requires-attachment flag come from
+    // the WithdrawMethod entity.
     Guid? WithdrawMethodId,
     string? WithdrawMethodName,
+    bool WithdrawMethodRequiresAttachment,
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
@@ -88,6 +95,7 @@ public sealed record BudgetRequestDto(
         coa?.Name,
         e.WithdrawMethodId,
         withdrawMethod?.Name,
+        withdrawMethod?.RequiresAttachment ?? false,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList());
@@ -123,8 +131,9 @@ public sealed record AttachmentDto(
     string ContentType,
     long SizeBytes,
     Guid UploadedByUserId,
-    DateTime UploadedAt)
+    DateTime UploadedAt,
+    AttachmentCategory Category)
 {
     public static AttachmentDto FromEntity(Attachment e) => new(
-        e.Id, e.FileName, e.ContentType, e.SizeBytes, e.UploadedByUserId, e.UploadedAt);
+        e.Id, e.FileName, e.ContentType, e.SizeBytes, e.UploadedByUserId, e.UploadedAt, e.Category);
 }

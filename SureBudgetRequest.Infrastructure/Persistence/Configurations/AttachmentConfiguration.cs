@@ -20,6 +20,12 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
         builder.Property(a => a.UploadedByUserId).IsRequired();
         builder.Property(a => a.UploadedAt).IsRequired();
 
+        // Stored as int; default 0 (General) so existing rows backfill correctly.
+        builder.Property(a => a.Category)
+               .IsRequired()
+               .HasConversion<int>()
+               .HasDefaultValue(Domain.Enums.AttachmentCategory.General);
+
         builder.HasIndex(a => a.BudgetRequestId);
     }
 }

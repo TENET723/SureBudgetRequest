@@ -13,6 +13,7 @@
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
 @using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Request Detail</PageTitle>
@@ -188,11 +189,29 @@ else
         </div>
 
         @* ── Attachments (read-only) ── *@
+        @{
+            var hasBanking = _request.Attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod);
+        }
+
+        @if (hasBanking)
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Banking info</h6>
+                    <AttachmentList BudgetRequestId="_request.Id"
+                                    Attachments="_request.Attachments"
+                                    Category="AttachmentCategory.WithdrawMethod"
+                                    Editable="false" />
+                </div>
+            </div>
+        }
+
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
-                <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Attachments</h6>
+                <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Supporting documents</h6>
                 <AttachmentList BudgetRequestId="_request.Id"
                                 Attachments="_request.Attachments"
+                                Category="AttachmentCategory.General"
                                 Editable="false" />
             </div>
         </div>

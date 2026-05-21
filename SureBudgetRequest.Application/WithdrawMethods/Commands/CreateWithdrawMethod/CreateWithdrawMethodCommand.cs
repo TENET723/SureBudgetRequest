@@ -6,7 +6,9 @@ using SureBudgetRequest.Domain.Entities;
 
 namespace SureBudgetRequest.Application.WithdrawMethods.Commands.CreateWithdrawMethod;
 
-public sealed record CreateWithdrawMethodCommand(string Name) : IRequest<Result<Guid>>;
+public sealed record CreateWithdrawMethodCommand(
+    string Name,
+    bool RequiresAttachment = false) : IRequest<Result<Guid>>;
 
 public sealed class CreateWithdrawMethodCommandHandler
     : IRequestHandler<CreateWithdrawMethodCommand, Result<Guid>>
@@ -29,7 +31,7 @@ public sealed class CreateWithdrawMethodCommandHandler
         WithdrawMethod method;
         try
         {
-            method = new WithdrawMethod(command.Name);
+            method = new WithdrawMethod(command.Name, command.RequiresAttachment);
         }
         catch (ArgumentException ex)
         {

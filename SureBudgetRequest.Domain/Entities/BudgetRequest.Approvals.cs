@@ -127,7 +127,8 @@ public partial class BudgetRequest
         decimal exchangeRateToMmk,
         Guid deptHeadId,
         string deptHeadName,
-        string requesterName)
+        string requesterName,
+        bool withdrawMethodRequiresAttachment)
     {
         if (Status != RequestStatus.SentBack)
             return Result.Failure("Only sent-back requests can be resubmitted.");
@@ -138,6 +139,7 @@ public partial class BudgetRequest
         // have changed since the original submission.
         return Submit(
             departmentId, departmentLimit, monthlyLimit, monthlySpendBeforeInMmk,
-            exchangeRateToMmk, deptHeadId, deptHeadName, requesterName);
+            exchangeRateToMmk, deptHeadId, deptHeadName, requesterName,
+            withdrawMethodRequiresAttachment);
     }
 }

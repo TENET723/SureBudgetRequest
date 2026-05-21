@@ -17,6 +17,7 @@ public sealed class ResubmitRequestCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
+    private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -25,6 +26,7 @@ public sealed class ResubmitRequestCommandHandler
         IUserRepository userRepository,
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
+        IWithdrawMethodRepository withdrawMethodRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -32,6 +34,7 @@ public sealed class ResubmitRequestCommandHandler
         _userRepository = userRepository;
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
+        _withdrawMethodRepository = withdrawMethodRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -83,6 +86,23 @@ public sealed class ResubmitRequestCommandHandler
                     department.Id, nowUtc.Year, nowUtc.Month, cancellationToken);
         }
 
+        // Same withdraw-method check as Submit. A method may have been
+        // deactivated or had its RequiresAttachment toggled in the gap between
+        // first submission and resubmission.
+        bool methodRequiresAttachment = false;
+        if (budgetRequest.WithdrawMethodId.HasValue)
+        {
+            var method = await _withdrawMethodRepository.GetByIdAsync(
+                budgetRequest.WithdrawMethodId.Value, cancellationToken);
+            if (method is null)
+                return Result.Failure("Selected withdraw method no longer exists.");
+            if (!method.IsActive)
+                return Result.Failure(
+                    $"Withdraw method '{method.Name}' has been deactivated. " +
+                    "Edit the draft and pick a different method before resubmitting.");
+            methodRequiresAttachment = method.RequiresAttachment;
+        }
+
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.ResubmitAfterSendBack(
             department.Id,
@@ -92,7 +112,8 @@ public sealed class ResubmitRequestCommandHandler
             currency.RateToMmk,
             deptHead.Id,
             deptHead.FullName,
-            requester.FullName);
+            requester.FullName,
+            methodRequiresAttachment);
 
         if (result.IsFailure) return result;
 

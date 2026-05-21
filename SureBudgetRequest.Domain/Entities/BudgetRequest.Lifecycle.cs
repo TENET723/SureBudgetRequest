@@ -133,7 +133,8 @@ public partial class BudgetRequest
         decimal exchangeRateToMmk,           // current rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
-        string requesterName)
+        string requesterName,
+        bool withdrawMethodRequiresAttachment)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
@@ -146,6 +147,17 @@ public partial class BudgetRequest
             return Result.Failure("Requester name is required.");
         if (!WithdrawMethodId.HasValue)
             return Result.Failure("Withdraw method is required.");
+
+        // Banking-info attachment guard. The chosen WithdrawMethod's
+        // RequiresAttachment flag is passed in by the Application layer (which
+        // looked it up) — domain doesn't reach into the master record.
+        if (withdrawMethodRequiresAttachment
+            && !_attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod))
+        {
+            return Result.Failure(
+                "This withdraw method requires a banking-info attachment. " +
+                "Please upload at least one banking file before submitting.");
+        }
 
         // Consistency check: spend must be supplied iff the dept has a monthly limit.
         if (monthlyLimit.HasValue != monthlySpendBeforeInMmk.HasValue)
@@ -245,7 +257,8 @@ public partial class BudgetRequest
         string storedPath,
         string contentType,
         long sizeBytes,
-        Guid uploadedByUserId)
+        Guid uploadedByUserId,
+        AttachmentCategory category = AttachmentCategory.General)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Attachments can only be added while the request is in Draft or SentBack (current: '{Status}').");
@@ -263,7 +276,7 @@ public partial class BudgetRequest
         if (_attachments.Count >= MaxAttachmentsPerRequest)
             return Result.Failure($"Cannot add more than {MaxAttachmentsPerRequest} attachments to a request.");
 
-        _attachments.Add(new Attachment(Id, fileName, storedPath, contentType, sizeBytes, uploadedByUserId));
+        _attachments.Add(new Attachment(Id, fileName, storedPath, contentType, sizeBytes, uploadedByUserId, category));
         return Result.Success();
     }
 

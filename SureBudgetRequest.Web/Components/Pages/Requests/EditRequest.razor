@@ -12,6 +12,7 @@
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
+@using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
 @using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Edit Request</PageTitle>
@@ -141,10 +142,33 @@
                     <label class="form-label small fw-semibold">Reason / Purpose</label>
                     <textarea class="form-control form-control-sm" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
                 </div>
+
+                @if (SelectedMethodRequiresAttachment)
+                {
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Banking info <span class="text-danger">*</span>
+                        </label>
+                        <div class="form-text small mb-2">
+                            The chosen withdraw method requires at least one banking-info file
+                            (e.g. bank book photo, account details).
+                        </div>
+                        <AttachmentList BudgetRequestId="_request.Id"
+                                        Attachments="_request.Attachments"
+                                        Category="AttachmentCategory.WithdrawMethod"
+                                        Editable="true"
+                                        OnChanged="ReloadAsync" />
+                    </div>
+                }
+
                 <div class="mb-3">
-                    <label class="form-label small fw-semibold">Attachments</label>
+                    <label class="form-label small fw-semibold">Supporting documents</label>
+                    <div class="form-text small mb-2">
+                        Quotes, receipts, contracts — anything that supports the request.
+                    </div>
                     <AttachmentList BudgetRequestId="_request.Id"
                                     Attachments="_request.Attachments"
+                                    Category="AttachmentCategory.General"
                                     Editable="true"
                                     OnChanged="ReloadAsync" />
                 </div>
@@ -302,6 +326,13 @@
     private bool WouldOverflowMonthly =>
         _monthlyLimit.HasValue && (_monthlySpent + AmountInMmk) > _monthlyLimit.Value;
 
+    private bool SelectedMethodRequiresAttachment =>
+        !string.IsNullOrEmpty(_withdrawMethodId)
+        && _withdrawMethods.Any(m => m.Id.ToString() == _withdrawMethodId && m.RequiresAttachment);
+
+    private bool HasBankingAttachment =>
+        _request?.Attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod) == true;
+
     protected override async Task OnInitializedAsync()
     {
         var result = await Mediator.Send(new GetBudgetRequestQuery(Id));
@@ -398,6 +429,15 @@
     {
         _error = null;
         if (!ValidateForm()) return;
+
+        // Banking-attachment guard — only blocks Submit / Resubmit, not Save Draft.
+        // The user can save partial work; only the submit transition needs the file.
+        if (submit && SelectedMethodRequiresAttachment && !HasBankingAttachment)
+        {
+            _error = "This withdraw method requires a banking-info attachment. " +
+                     "Upload at least one banking file before submitting.";
+            return;
+        }
 
         // Over monthly? Pop the justification modal and let the user fill it in.
         if (WouldOverflowMonthly)

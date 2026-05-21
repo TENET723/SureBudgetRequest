@@ -43,6 +43,7 @@
                     <tr>
                         <th>Name</th>
                         <th>Status</th>
+                        <th>Requires attachment</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -54,6 +55,16 @@
                             <td>
                                 @if (m.IsActive) { <span class="badge bg-success">Active</span> }
                                 else             { <span class="badge bg-secondary">Inactive</span> }
+                            </td>
+                            <td>
+                                @if (m.RequiresAttachment)
+                                {
+                                    <span class="badge bg-info text-dark">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted small">—</span>
+                                }
                             </td>
                             <td class="text-end">
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(m)">Edit</button>
@@ -70,7 +81,7 @@
                     }
                     @if (!_methods.Any())
                     {
-                        <tr><td colspan="3" class="text-center text-muted py-3">No withdraw methods found.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted py-3">No withdraw methods found.</td></tr>
                     }
                 </tbody>
             </table>
@@ -98,6 +109,17 @@
                         <input class="form-control form-control-sm" @bind="_formName"
                                placeholder="e.g. Cash, Bank Transfer" maxlength="200" />
                         <div class="form-text small">Shown to requesters in the draft form.</div>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="methodFormRequiresAttachment"
+                               @bind="_formRequiresAttachment" />
+                        <label class="form-check-label small" for="methodFormRequiresAttachment">
+                            Requires banking-info attachment
+                        </label>
+                        <div class="form-text small">
+                            When enabled, the requester must upload at least one banking file
+                            (e.g. bank book photo) before submitting.
+                        </div>
                     </div>
                     @if (_editingId.HasValue)
                     {
@@ -158,6 +180,7 @@
     private Guid? _editingId;
     private string _formName = "";
     private bool _formIsActive = true;
+    private bool _formRequiresAttachment;
 
     // Deactivate confirm
     private WithdrawMethodDto? _deactivatingMethod;
@@ -189,6 +212,7 @@
         _editingId = null;
         _formName = "";
         _formIsActive = true;
+        _formRequiresAttachment = false;
         _formError = null;
         _showForm = true;
     }
@@ -198,6 +222,7 @@
         _editingId = m.Id;
         _formName = m.Name;
         _formIsActive = m.IsActive;
+        _formRequiresAttachment = m.RequiresAttachment;
         _formError = null;
         _showForm = true;
     }
@@ -220,13 +245,14 @@
             if (_editingId.HasValue)
             {
                 var result = await Mediator.Send(new UpdateWithdrawMethodCommand(
-                    _editingId.Value, _formName, _formIsActive));
+                    _editingId.Value, _formName, _formIsActive, _formRequiresAttachment));
                 if (result.IsFailure) { _formError = result.Error; return; }
                 _successMessage = "Withdraw method updated.";
             }
             else
             {
-                var result = await Mediator.Send(new CreateWithdrawMethodCommand(_formName));
+                var result = await Mediator.Send(new CreateWithdrawMethodCommand(
+                    _formName, _formRequiresAttachment));
                 if (result.IsFailure) { _formError = result.Error; return; }
                 _successMessage = "Withdraw method created.";
             }
