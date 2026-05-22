@@ -135,6 +135,23 @@ internal static class SlackMessageBuilder
             NotificationTrigger.FinanceSentBackToRequester
                 => $"ID: {reference} was sent back by {actor} for revision. 🔄",
 
+            // ── Advance withdrawal — reconciliation phase ──────────────────
+            NotificationTrigger.AdvanceApprovedToRequester
+                => $"ID: {reference} (advance) is approved by {actor}. ✅ "
+                 + $"Reconcile your spending by {DeadlineText(request)} — "
+                 + "record how the advance was used on the request page.",
+
+            NotificationTrigger.ReconciliationSubmittedToFinance
+                => $"ID: {reference}: reconciliation submitted by {actor}. 🧾",
+
+            NotificationTrigger.AdvanceAwaitingRefund
+                => $"ID: {reference}: reconciliation complete — a refund of "
+                 + $"{RefundText(request)} is now due from the requester. 💵",
+
+            NotificationTrigger.RefundRecordedToRequester
+                => $"ID: {reference}: refund received and recorded by {actor}. "
+                 + "The advance is now fully reconciled. ✅",
+
             _ => $"ID: {reference} status updated."
         };
 
@@ -149,10 +166,19 @@ internal static class SlackMessageBuilder
 
     /// <summary>
     /// Only the three Submitted* triggers show the full request body.
-    /// Everything else (approvals, rejections, paid, sent back) is a one-liner.
+    /// Everything else (approvals, rejections, paid, sent back, reconciliation)
+    /// is a one-liner.
     /// </summary>
     private static bool IsSubmissionTrigger(NotificationTrigger trigger) => trigger is
         NotificationTrigger.SubmittedToDeptHead or
         NotificationTrigger.SubmittedToFinance or
         NotificationTrigger.SubmittedToManagement;
+
+    private static string DeadlineText(BudgetRequest request) =>
+        request.ReconciliationDeadline.HasValue
+            ? request.ReconciliationDeadline.Value.ToString("yyyy-MM-dd")
+            : "—";
+
+    private static string RefundText(BudgetRequest request) =>
+        $"{request.RefundAmount:N0} {request.CurrencyCode}";
 }

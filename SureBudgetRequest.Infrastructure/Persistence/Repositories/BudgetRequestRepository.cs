@@ -14,11 +14,13 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
     public async Task<BudgetRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         // Always eager-load child collections — the aggregate must be fully
-        // hydrated to enforce domain invariants (e.g. payment sum check).
+        // hydrated to enforce domain invariants (e.g. payment sum check, and the
+        // advance-usage no-overspending check).
         return await _context.BudgetRequests
             .Include(r => r.ApprovalActions)
             .Include(r => r.Payments)
             .Include(r => r.Attachments)
+            .Include(r => r.AdvanceUsages)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 

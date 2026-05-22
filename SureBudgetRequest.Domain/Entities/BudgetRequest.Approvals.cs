@@ -12,8 +12,13 @@ public partial class BudgetRequest
     /// stages. Application layer is responsible for verifying that the chosen
     /// Coa exists and is active — the domain only enforces "non-null at the
     /// Finance stage."
+    ///
+    /// The <paramref name="reconciliationDeadline"/> parameter applies only at
+    /// the Finance stage: it is REQUIRED (and must be in the future) when the
+    /// request is an <see cref="BudgetRequestType.Advance"/>, and must be null
+    /// for every other type. Ignored at non-Finance stages.
     /// </summary>
-    public Result ApproveBy(Guid approverId, Guid? coaId = null)
+    public Result ApproveBy(Guid approverId, Guid? coaId = null, DateTime? reconciliationDeadline = null)
     {
         if (Status is not RequestStatus.PendingDeptHead
             and not RequestStatus.PendingManagement
@@ -44,6 +49,22 @@ public partial class BudgetRequest
         if (stage == ApprovalStage.Finance && (!coaId.HasValue || coaId.Value == Guid.Empty))
             return Result.Failure("Chart of Account is required when Finance approves.");
 
+        // Finance-stage gate: advance requests need a future reconciliation
+        // deadline; every other type must NOT carry one.
+        if (stage == ApprovalStage.Finance)
+        {
+            if (Type == BudgetRequestType.Advance)
+            {
+                if (!reconciliationDeadline.HasValue || reconciliationDeadline.Value <= DateTime.UtcNow)
+                    return Result.Failure(
+                        "Reconciliation deadline is required and must be in the future when Finance approves an advance.");
+            }
+            else if (reconciliationDeadline.HasValue)
+            {
+                return Result.Failure("Reconciliation deadline is only valid for advance requests.");
+            }
+        }
+
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
             Id, stage, ApprovalDecision.Approved, approverId, comment: null, actionedAt: now));
@@ -71,6 +92,12 @@ public partial class BudgetRequest
         {
             ApprovedAmount = RequestedAmount;
             CoaId = coaId;
+
+            // Advances carry a reconciliation deadline from this point on. The
+            // gate above guarantees it is non-null here for advances and null
+            // for every other type.
+            if (Type == BudgetRequestType.Advance)
+                ReconciliationDeadline = reconciliationDeadline;
         }
 
         return Result.Success();

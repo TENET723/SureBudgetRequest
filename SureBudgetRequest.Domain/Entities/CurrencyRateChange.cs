@@ -29,7 +29,7 @@ public class CurrencyRateChange
         if (newRate <= 0)
             throw new ArgumentException("New rate must be greater than zero.", nameof(newRate));
 
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         CurrencyCode = currencyCode.ToUpperInvariant();
         OldRate = oldRate;
         NewRate = newRate;

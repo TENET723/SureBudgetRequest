@@ -32,9 +32,22 @@ public sealed record BudgetRequestSummaryDto(
     string? CoaCode = null,
     string? CoaName = null,
     Guid? WithdrawMethodId = null,
-    string? WithdrawMethodName = null)
+    string? WithdrawMethodName = null,
+    // Advance-withdrawal reconciliation deadline — null for non-advance requests
+    // and for advances not yet Finance-approved. Drives the inbox overdue filter.
+    DateTime? ReconciliationDeadline = null)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
+
+    /// <summary>
+    /// True when this is an advance still in the reconciliation phase whose
+    /// deadline has passed. Evaluated against the current UTC time.
+    /// </summary>
+    public bool IsOverdueAdvance =>
+        Type == BudgetRequestType.Advance
+        && Status == RequestStatus.PendingReconciliation
+        && ReconciliationDeadline.HasValue
+        && ReconciliationDeadline.Value < DateTime.UtcNow;
 
     /// <summary>
     /// True when this request's MMK-equivalent at submission exceeded the
@@ -87,5 +100,6 @@ public sealed record BudgetRequestSummaryDto(
         coa?.Code,
         coa?.Name,
         e.WithdrawMethodId,
-        withdrawMethod?.Name);
+        withdrawMethod?.Name,
+        e.ReconciliationDeadline);
 }

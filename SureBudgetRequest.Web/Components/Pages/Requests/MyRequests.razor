@@ -148,6 +148,9 @@
         RequestStatus.Paid => "Paid",
         RequestStatus.Rejected => "Rejected",
         RequestStatus.Cancelled => "Cancelled",
+        RequestStatus.PendingReconciliation => "Pending Reconciliation",
+        RequestStatus.AwaitingRefund => "Awaiting Refund",
+        RequestStatus.Reconciled => "Reconciled",
         _ => s.ToString()
     };
 
@@ -160,6 +163,8 @@
         RequestStatus.Paid => "bg-success",
         RequestStatus.Rejected => "bg-danger",
         RequestStatus.Cancelled => "bg-secondary",
+        RequestStatus.PendingReconciliation or RequestStatus.AwaitingRefund => "bg-warning text-dark",
+        RequestStatus.Reconciled => "bg-success",
         _ => "bg-secondary"
     };
 }

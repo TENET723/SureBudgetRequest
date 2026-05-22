@@ -112,7 +112,11 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
         else if (previousStatus == RequestStatus.PendingFinance
                  && request.Status == RequestStatus.Approved)
         {
-            trigger = NotificationTrigger.FinanceApprovedToRequester;
+            // Advances get a distinct message that names the reconciliation
+            // deadline Finance just set.
+            trigger = request.Type == BudgetRequestType.Advance
+                ? NotificationTrigger.AdvanceApprovedToRequester
+                : NotificationTrigger.FinanceApprovedToRequester;
             recipients = new[] { request.RequesterId };
         }
         // --- Finance marked paid ---
@@ -139,6 +143,57 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             requesterName,
             actorName,
             comment);
+    }
+
+    public async Task DispatchReconciliationSubmittedAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        var financeIds = await GetFinanceApproverIdsAsync(cancellationToken);
+
+        // Always: the requester submitted a reconciliation → ping Finance.
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.ReconciliationSubmittedToFinance,
+                request.Id,
+                financeIds,
+                request.RequesterNameAtSubmission,
+                actorName),
+            cancellationToken);
+
+        // If a refund is now owed, also ping the requester + Finance.
+        if (request.Status == RequestStatus.AwaitingRefund)
+        {
+            var recipients = financeIds
+                .Append(request.RequesterId)
+                .Distinct()
+                .ToArray();
+
+            await _notificationService.SendAsync(
+                new NotificationEvent(
+                    NotificationTrigger.AdvanceAwaitingRefund,
+                    request.Id,
+                    recipients,
+                    request.RequesterNameAtSubmission,
+                    actorName),
+                cancellationToken);
+        }
+    }
+
+    public async Task DispatchRefundRecordedAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.RefundRecordedToRequester,
+                request.Id,
+                new[] { request.RequesterId },
+                request.RequesterNameAtSubmission,
+                actorName),
+            cancellationToken);
     }
 
     private async Task<IReadOnlyList<Guid>> GetUserIdsByRoleAsync(

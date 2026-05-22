@@ -10,10 +10,19 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AddAdvanceUsage
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateAdvanceUsage
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAdvanceUsage
+@using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitReconciliation
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RecordRefund
+@using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
+@using Microsoft.AspNetCore.Components.Forms
 @using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Request Detail</PageTitle>
@@ -371,6 +380,145 @@ else
             </div>
         }
 
+        @* ── Advance reconciliation panel ─────────────────────────────────── *@
+        @if (_request.Type == BudgetRequestType.Advance
+             && _request.Status is RequestStatus.PendingReconciliation
+                 or RequestStatus.AwaitingRefund
+                 or RequestStatus.Reconciled)
+        {
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="card-title small fw-semibold text-uppercase text-muted mb-0">
+                            Advance Reconciliation
+                        </h6>
+                        @if (_request.IsOverdue)
+                        {
+                            <span class="badge bg-danger">OVERDUE</span>
+                        }
+                    </div>
+
+                    @if (_request.ReconciliationDeadline.HasValue)
+                    {
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <div class="small text-muted">Reconciliation deadline</div>
+                                <div class="fw-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
+                                @if (!string.IsNullOrEmpty(CountdownText()))
+                                {
+                                    <div class="small @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
+                                }
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="small text-muted">Recorded usage / Advance</div>
+                                <div class="fw-semibold">
+                                    @_request.TotalUsageRecorded.ToString("N0") /
+                                    @_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode
+                                </div>
+                                <div class="small text-muted">
+                                    Remaining: @_request.RemainingAdvance.ToString("N0") @_request.CurrencyCode
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_request.Status == RequestStatus.AwaitingRefund)
+                    {
+                        <div class="alert alert-warning small py-2">
+                            Awaiting refund of
+                            <strong>@_request.RefundAmount.ToString("N0") @_request.CurrencyCode</strong>
+                            — the unspent balance of this advance.
+                        </div>
+                    }
+                    else if (_request.Status == RequestStatus.Reconciled)
+                    {
+                        <div class="alert alert-success small py-2">
+                            This advance has been fully reconciled.
+                            @if (_request.RefundReceivedAt.HasValue)
+                            {
+                                <span>
+                                    Refund of @_request.RefundAmount.ToString("N0") @_request.CurrencyCode
+                                    received on @_request.RefundReceivedAt.Value.ToLocalTime().ToString("g").
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    @if (_request.AdvanceUsages.Any())
+                    {
+                        <table class="table table-sm align-middle mb-2">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Spent On</th>
+                                    <th class="text-end">Amount (@_request.CurrencyCode)</th>
+                                    <th>Description</th>
+                                    <th>Receipt</th>
+                                    @if (CanEditUsage) { <th></th> }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var u in _request.AdvanceUsages.OrderBy(x => x.SpentOn))
+                                {
+                                    <tr>
+                                        <td class="small">@u.SpentOn.ToString("dd MMM yyyy")</td>
+                                        <td class="text-end">@u.Amount.ToString("N0")</td>
+                                        <td class="small">@u.Description</td>
+                                        <td class="small">
+                                            @if (u.AttachmentId.HasValue)
+                                            {
+                                                <a href="@($"/api/attachments/{u.AttachmentId.Value}")" target="_blank" rel="noopener">View</a>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        @if (CanEditUsage)
+                                        {
+                                            <td class="text-end text-nowrap">
+                                                <button class="btn btn-sm btn-link p-0 me-2" @onclick="() => OpenEditUsageModal(u)">Edit</button>
+                                                <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="small text-muted">No usage recorded yet.</p>
+                    }
+
+                    @* Requester actions — only while reconciliation is pending. *@
+                    @if (CanEditUsage)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenAddUsageModal" disabled="@_actioning">+ Add usage</button>
+                            @if (_request.AdvanceUsages.Any())
+                            {
+                                <button class="btn btn-sm btn-success" @onclick="() => _showSubmitReconModal = true" disabled="@_actioning">Submit reconciliation</button>
+                            }
+                        </div>
+                    }
+
+                    @* Finance actions. *@
+                    @if (IsFinance && _request.Status == RequestStatus.PendingReconciliation)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="OpenExtendModal" disabled="@_actioning">Extend deadline</button>
+                        </div>
+                    }
+                    @if (IsFinance && _request.Status == RequestStatus.AwaitingRefund)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button class="btn btn-sm btn-success" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
     </div>
 }
 
@@ -420,6 +568,19 @@ else
                                 Pre-filled with the previously selected account. You can change it.
                             </div>
                         }
+                    }
+
+                    @* Advance requests also need a reconciliation deadline. *@
+                    @if (_request?.Type == BudgetRequestType.Advance)
+                    {
+                        <div class="mt-3">
+                            <label class="form-label small fw-semibold">Reconciliation deadline</label>
+                            <input class="form-control form-control-sm" type="date" @bind="_reconciliationDeadline" />
+                            <div class="form-text small text-muted">
+                                The requester must report how this advance was spent by this date.
+                                Must be a future date.
+                            </div>
+                        </div>
                     }
                 </div>
                 <div class="modal-footer">
@@ -560,6 +721,171 @@ else
     </div>
 }
 
+@* ── Add / Edit Usage Modal ───────────────────────────────────────────────────── *@
+@if (_showUsageModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingUsageId.HasValue ? "Edit Usage" : "Add Usage")</h6>
+                    <button class="btn-close" @onclick="CloseUsageModal"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_usageError))
+                    {
+                        <div class="alert alert-danger small py-2">@_usageError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Spent On</label>
+                        <input class="form-control form-control-sm" type="date" @bind="_usageSpentOn" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
+                        <input class="form-control form-control-sm" type="number" min="1" step="0.01" @bind="_usageAmount" />
+                        @if (_request is not null)
+                        {
+                            <div class="form-text small">
+                                Remaining on the advance:
+                                @RemainingForUsageEntry().ToString("N0") @_request.CurrencyCode
+                            </div>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Description</label>
+                        <textarea class="form-control form-control-sm" rows="2" @bind="_usageDescription"
+                                  placeholder="What was this spent on?"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Receipt <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        @if (_editingUsageId.HasValue && _usageExistingAttachmentId.HasValue)
+                        {
+                            <div class="small mb-1">
+                                Current:
+                                <a href="@($"/api/attachments/{_usageExistingAttachmentId.Value}")" target="_blank" rel="noopener">view receipt</a>
+                                <span class="text-muted">— choosing a new file replaces it.</span>
+                            </div>
+                        }
+                        <InputFile OnChange="OnUsageReceiptSelected" class="form-control form-control-sm" />
+                        <div class="form-text small">
+                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="DoSaveUsage" disabled="@_usageBusy">
+                        @if (_usageBusy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Submit Reconciliation Confirm ────────────────────────────────────────────── *@
+@if (_showSubmitReconModal && _request is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Submit Reconciliation</h6>
+                    <button class="btn-close" @onclick="() => _showSubmitReconModal = false"></button>
+                </div>
+                <div class="modal-body small">
+                    After submitting, you can't change the rows. Continue?
+                    @if (_request.RemainingAdvance > 0)
+                    {
+                        <div class="alert alert-warning small mt-2 mb-0">
+                            Recorded usage is @_request.TotalUsageRecorded.ToString("N0") of
+                            @_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode.
+                            You will need to refund the unspent
+                            <strong>@_request.RemainingAdvance.ToString("N0") @_request.CurrencyCode</strong>.
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showSubmitReconModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-sm btn-success" @onclick="DoSubmitReconciliation" disabled="@_actioning">Continue</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Record Refund Modal ──────────────────────────────────────────────────────── *@
+@if (_showRefundModal && _request is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Record Refund Received</h6>
+                    <button class="btn-close" @onclick="() => _showRefundModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_refundError))
+                    {
+                        <div class="alert alert-danger small py-2">@_refundError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Refund amount (@_request.CurrencyCode)</label>
+                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_refundAmount" />
+                        <div class="form-text small">
+                            Must match the outstanding refund of
+                            @_request.RefundAmount.ToString("N0") @_request.CurrencyCode exactly.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Date received</label>
+                        <input class="form-control form-control-sm" type="date" @bind="_refundDate" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-sm btn-success" @onclick="DoRecordRefund" disabled="@_actioning">Record Refund</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Extend Deadline Modal ────────────────────────────────────────────────────── *@
+@if (_showExtendModal && _request is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Extend Reconciliation Deadline</h6>
+                    <button class="btn-close" @onclick="() => _showExtendModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_extendError))
+                    {
+                        <div class="alert alert-danger small py-2">@_extendError</div>
+                    }
+                    <p class="small text-muted">
+                        Current deadline:
+                        <strong>@(_request.ReconciliationDeadline?.ToString("dd MMM yyyy") ?? "—")</strong>.
+                        The new deadline must be later than the current one.
+                    </p>
+                    <label class="form-label small fw-semibold">New deadline</label>
+                    <input class="form-control form-control-sm" type="date" @bind="_newDeadline" />
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showExtendModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="DoExtendDeadline" disabled="@_actioning">Extend</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -590,6 +916,35 @@ else
     private bool _coasLoading;
     private string _selectedCoaId = "";   // bound to the <select>; empty = "no selection"
     private string? _approveError;
+    private DateTime _reconciliationDeadline = DateTime.Today.AddDays(30);
+
+    // Advance reconciliation — add/edit usage modal
+    private bool _showUsageModal;
+    private Guid? _editingUsageId;                 // null = adding a new row
+    private DateTime _usageSpentOn = DateTime.Today;
+    private decimal _usageAmount;
+    private string _usageDescription = "";
+    private IBrowserFile? _usageReceiptFile;
+    private Guid? _usageExistingAttachmentId;      // the row's current receipt when editing
+    private string? _usageError;
+    private bool _usageBusy;
+
+    // Advance reconciliation — submit / refund / extend modals
+    private bool _showSubmitReconModal;
+    private bool _showRefundModal;
+    private decimal _refundAmount;
+    private DateTime _refundDate = DateTime.Today;
+    private string? _refundError;
+    private bool _showExtendModal;
+    private DateTime _newDeadline = DateTime.Today;
+    private string? _extendError;
+
+    // Reconciliation visibility helpers
+    private bool IsRequester => _request is not null && _request.RequesterId == CurrentUser.UserId;
+    private bool IsFinance => CurrentUser.Role == UserRole.Finance;
+    private bool CanEditUsage => _request is not null
+        && _request.Status == RequestStatus.PendingReconciliation
+        && IsRequester;
 
     protected override async Task OnInitializedAsync() => await LoadRequest();
 
@@ -672,6 +1027,7 @@ else
     private async Task OpenFinanceApproveModal()
     {
         _approveError = null;
+        _reconciliationDeadline = DateTime.Today.AddDays(30);
         _coasLoading = true;
         _availableCoas = new();
         // Pre-fill with the previously selected COA (e.g. after a send-back) so the
@@ -712,8 +1068,21 @@ else
             return;
         }
 
+        // Advance requests carry a reconciliation deadline; the domain rejects a
+        // past one, but check here too so the user gets the error in the modal.
+        DateTime? deadline = null;
+        if (_request?.Type == BudgetRequestType.Advance)
+        {
+            if (_reconciliationDeadline.Date <= DateTime.UtcNow.Date)
+            {
+                _approveError = "The reconciliation deadline must be a future date.";
+                return;
+            }
+            deadline = _reconciliationDeadline;
+        }
+
         _actioning = true; _actionTarget = "approve";
-        var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId, coaId));
+        var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId, coaId, deadline));
         _actioning = false;
 
         if (result.IsFailure)
@@ -784,6 +1153,199 @@ else
         else { Nav.NavigateTo("requests/mine"); }
     }
 
+    // ── Advance reconciliation ────────────────────────────────────────────────
+
+    private string CountdownText()
+    {
+        if (_request?.ReconciliationDeadline is null
+            || _request.Status != RequestStatus.PendingReconciliation)
+            return "";
+
+        var days = (_request.ReconciliationDeadline.Value.Date - DateTime.UtcNow.Date).Days;
+        if (days < 0) return $"{-days} day(s) overdue";
+        if (days == 0) return "Due today";
+        return $"{days} day(s) remaining";
+    }
+
+    // Max amount allowed for the row currently being entered/edited — the
+    // advance ceiling minus all OTHER recorded usage.
+    private decimal RemainingForUsageEntry()
+    {
+        if (_request is null) return 0m;
+        var otherUsage = _request.TotalUsageRecorded;
+        if (_editingUsageId.HasValue)
+        {
+            var row = _request.AdvanceUsages.FirstOrDefault(u => u.Id == _editingUsageId.Value);
+            if (row is not null) otherUsage -= row.Amount;
+        }
+        return _request.ApprovedAmount - otherUsage;
+    }
+
+    private void OpenAddUsageModal()
+    {
+        _editingUsageId = null;
+        _usageSpentOn = DateTime.Today;
+        _usageAmount = 0m;
+        _usageDescription = "";
+        _usageReceiptFile = null;
+        _usageExistingAttachmentId = null;
+        _usageError = null;
+        _showUsageModal = true;
+    }
+
+    private void OpenEditUsageModal(AdvanceUsageDto u)
+    {
+        _editingUsageId = u.Id;
+        _usageSpentOn = u.SpentOn;
+        _usageAmount = u.Amount;
+        _usageDescription = u.Description;
+        _usageReceiptFile = null;
+        _usageExistingAttachmentId = u.AttachmentId;
+        _usageError = null;
+        _showUsageModal = true;
+    }
+
+    private void CloseUsageModal()
+    {
+        _showUsageModal = false;
+        _usageReceiptFile = null;
+    }
+
+    private void OnUsageReceiptSelected(InputFileChangeEventArgs e)
+    {
+        _usageReceiptFile = e.File;
+        _usageError = null;
+    }
+
+    private async Task DoSaveUsage()
+    {
+        if (_request is null) return;
+        _usageError = null;
+
+        if (_usageAmount <= 0) { _usageError = "Amount must be greater than zero."; return; }
+        if (string.IsNullOrWhiteSpace(_usageDescription)) { _usageError = "Description is required."; return; }
+        if (_usageAmount > RemainingForUsageEntry())
+        {
+            _usageError = $"Amount exceeds the remaining advance " +
+                          $"({RemainingForUsageEntry():N0} {_request.CurrencyCode}).";
+            return;
+        }
+
+        _usageBusy = true;
+        try
+        {
+            // Resolve the receipt attachment: a newly chosen file is uploaded
+            // first; otherwise keep whatever the row already had (null when adding).
+            Guid? attachmentId = _usageExistingAttachmentId;
+            if (_usageReceiptFile is not null)
+            {
+                if (_usageReceiptFile.Size > AttachmentConstraints.MaxBytes)
+                {
+                    _usageError = $"Receipt is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                    return;
+                }
+                if (!AttachmentConstraints.IsAllowedContentType(_usageReceiptFile.ContentType))
+                {
+                    _usageError = $"Receipt file type '{_usageReceiptFile.ContentType}' is not allowed.";
+                    return;
+                }
+
+                await using var stream = _usageReceiptFile.OpenReadStream(AttachmentConstraints.MaxBytes);
+                var upload = await Mediator.Send(new UploadAttachmentCommand(
+                    _request.Id,
+                    CurrentUser.UserId,
+                    _usageReceiptFile.Name,
+                    _usageReceiptFile.ContentType,
+                    _usageReceiptFile.Size,
+                    stream,
+                    AttachmentCategory.UsageReceipt));
+                if (upload.IsFailure) { _usageError = upload.Error; return; }
+                attachmentId = upload.Value;
+            }
+
+            if (_editingUsageId.HasValue)
+            {
+                var res = await Mediator.Send(new UpdateAdvanceUsageCommand(
+                    _request.Id, _editingUsageId.Value, CurrentUser.UserId,
+                    _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
+                if (res.IsFailure) { _usageError = res.Error; return; }
+            }
+            else
+            {
+                var res = await Mediator.Send(new AddAdvanceUsageCommand(
+                    _request.Id, CurrentUser.UserId,
+                    _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
+                if (res.IsFailure) { _usageError = res.Error; return; }
+            }
+
+            _showUsageModal = false;
+            _actionSuccess = "Usage saved.";
+            await LoadRequest();
+        }
+        catch (Exception ex)
+        {
+            _usageError = $"Save failed: {ex.Message}";
+        }
+        finally { _usageBusy = false; }
+    }
+
+    private async Task DoRemoveUsage(Guid usageId)
+    {
+        _actioning = true;
+        var res = await Mediator.Send(new RemoveAdvanceUsageCommand(Id, usageId, CurrentUser.UserId));
+        _actioning = false;
+        if (res.IsFailure) { _actionError = res.Error; }
+        else { _actionSuccess = "Usage removed."; await LoadRequest(); }
+    }
+
+    private async Task DoSubmitReconciliation()
+    {
+        _actioning = true; _showSubmitReconModal = false;
+        var res = await Mediator.Send(new SubmitReconciliationCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (res.IsFailure) { _actionError = res.Error; }
+        else { _actionSuccess = "Reconciliation submitted."; await LoadRequest(); }
+    }
+
+    private void OpenRefundModal()
+    {
+        _refundError = null;
+        _refundAmount = _request?.RefundAmount ?? 0m;
+        _refundDate = DateTime.Today;
+        _showRefundModal = true;
+    }
+
+    private async Task DoRecordRefund()
+    {
+        _refundError = null;
+        _actioning = true;
+        var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount, _refundDate));
+        _actioning = false;
+        if (res.IsFailure) { _refundError = res.Error; return; }
+        _showRefundModal = false;
+        _actionSuccess = "Refund recorded.";
+        await LoadRequest();
+    }
+
+    private void OpenExtendModal()
+    {
+        _extendError = null;
+        _newDeadline = (_request?.ReconciliationDeadline ?? DateTime.Today).AddDays(7);
+        _showExtendModal = true;
+    }
+
+    private async Task DoExtendDeadline()
+    {
+        _extendError = null;
+        _actioning = true;
+        var res = await Mediator.Send(new ExtendReconciliationDeadlineCommand(Id, CurrentUser.UserId, _newDeadline));
+        _actioning = false;
+        if (res.IsFailure) { _extendError = res.Error; return; }
+        _showExtendModal = false;
+        _actionSuccess = "Deadline extended.";
+        await LoadRequest();
+    }
+
     private static string StatusLabel(RequestStatus s) => s switch
     {
         RequestStatus.Draft          => "Draft",
@@ -796,6 +1358,9 @@ else
         RequestStatus.Paid           => "Paid",
         RequestStatus.Rejected       => "Rejected",
         RequestStatus.Cancelled      => "Cancelled",
+        RequestStatus.PendingReconciliation => "Pending Reconciliation",
+        RequestStatus.AwaitingRefund => "Awaiting Refund",
+        RequestStatus.Reconciled     => "Reconciled",
         _ => s.ToString()
     };
 
@@ -804,6 +1369,7 @@ else
         BudgetRequestType.Urgent          => "Urgent",
         BudgetRequestType.Standard        => "Standard",
         BudgetRequestType.ProjectProposal => "Project Proposal",
+        BudgetRequestType.Advance         => "Advance",
         _ => t.ToString()
     };
 
@@ -812,6 +1378,7 @@ else
         BudgetRequestType.Urgent          => "bg-danger",
         BudgetRequestType.Standard        => "bg-secondary",
         BudgetRequestType.ProjectProposal => "bg-info text-dark",
+        BudgetRequestType.Advance         => "bg-dark",
         _ => "bg-secondary"
     };
 
@@ -825,6 +1392,8 @@ else
         RequestStatus.Paid           => "bg-success",
         RequestStatus.Rejected       => "bg-danger",
         RequestStatus.Cancelled      => "bg-secondary",
+        RequestStatus.PendingReconciliation or RequestStatus.AwaitingRefund => "bg-warning text-dark",
+        RequestStatus.Reconciled     => "bg-success",
         _ => "bg-secondary"
     };
 }

@@ -50,7 +50,16 @@
                     <option value="@BudgetRequestType.Standard">Standard</option>
                     <option value="@BudgetRequestType.Urgent">Urgent</option>
                     <option value="@BudgetRequestType.ProjectProposal">Project Proposal</option>
+                    <option value="@BudgetRequestType.Advance">Advance</option>
                 </select>
+                @if (_type == BudgetRequestType.Advance)
+                {
+                    <div class="form-text small text-muted">
+                        An advance is drawn before the spend is known. Finance will set a
+                        reconciliation deadline when they approve; you report how the money
+                        was spent after it is paid out.
+                    </div>
+                }
             </div>
 
             <div class="mb-3">

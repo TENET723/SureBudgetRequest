@@ -51,7 +51,7 @@ public class Department
         if (monthlyLimit.HasValue && monthlyLimit.Value < 0)
             throw new ArgumentException("Monthly limit cannot be negative.", nameof(monthlyLimit));
 
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         Name = name;
         HeadUserId = headUserId;
         BudgetLimit = budgetLimit;

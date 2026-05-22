@@ -46,4 +46,18 @@ public enum NotificationTrigger
     FinanceApprovedToRequester,
     FinancePaidToRequester,
     FinanceSentBackToRequester,
+
+    // === Advance withdrawal — reconciliation phase ===
+
+    /// <summary>Finance approved an advance and set its reconciliation deadline → requester.</summary>
+    AdvanceApprovedToRequester,
+
+    /// <summary>The requester submitted their reconciliation → Finance.</summary>
+    ReconciliationSubmittedToFinance,
+
+    /// <summary>Reconciliation landed in AwaitingRefund (usage &lt; advance) → requester + Finance.</summary>
+    AdvanceAwaitingRefund,
+
+    /// <summary>Finance recorded the refund; the advance is now reconciled → requester.</summary>
+    RefundRecordedToRequester,
 }

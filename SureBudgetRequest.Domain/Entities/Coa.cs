@@ -27,7 +27,7 @@ public class Coa
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name is required.", nameof(name));
 
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         Code = code.Trim();
         Name = name.Trim();
         Description = NormalizeOptional(description);

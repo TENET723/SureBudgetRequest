@@ -29,7 +29,7 @@ public class WithdrawMethod
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Name is required.", nameof(name));
 
-        Id = Guid.NewGuid();
+        //Id = Guid.NewGuid();
         Name = name.Trim();
         IsActive = true;
         CreatedAt = DateTime.UtcNow;

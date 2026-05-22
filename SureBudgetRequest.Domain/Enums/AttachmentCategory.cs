@@ -10,10 +10,14 @@ namespace SureBudgetRequest.Domain.Enums;
 /// <item><b>WithdrawMethod</b> — banking-info evidence (e.g. bank book photo)
 /// required when the requester's chosen <c>WithdrawMethod</c> has
 /// <c>RequiresAttachment = true</c>. Validated at submit time.</item>
+/// <item><b>UsageReceipt</b> — a receipt backing a single advance-usage line
+/// item recorded during the reconciliation phase. Linked from
+/// <c>AdvanceUsage.AttachmentId</c>.</item>
 /// </list>
 /// </summary>
 public enum AttachmentCategory
 {
     General = 0,
-    WithdrawMethod = 1
+    WithdrawMethod = 1,
+    UsageReceipt = 2
 }

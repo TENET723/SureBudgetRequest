@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<ApprovalAction> ApprovalActions => Set<ApprovalAction>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<AdvanceUsage> AdvanceUsages => Set<AdvanceUsage>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Currency> Currencies => Set<Currency>();

@@ -10,7 +10,10 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest;
 public sealed record ApproveRequestCommand(
     Guid BudgetRequestId,
     Guid ApproverId,
-    Guid? CoaId = null) : IRequest<Result>;
+    Guid? CoaId = null,
+    // Finance-stage only. Required for Advance requests, must be null otherwise —
+    // the aggregate enforces the Type-vs-deadline coupling, not this layer.
+    DateTime? ReconciliationDeadline = null) : IRequest<Result>;
 
 public sealed class ApproveRequestCommandHandler
     : IRequestHandler<ApproveRequestCommand, Result>
@@ -78,8 +81,14 @@ public sealed class ApproveRequestCommandHandler
                 return Result.Failure($"Chart of Account '{coa.Code}' has been deactivated and cannot be used.");
         }
 
+        // Normalise the (date-picker-sourced) deadline to UTC kind before it
+        // crosses into the domain — Npgsql requires UTC for timestamptz columns.
+        var reconciliationDeadline = command.ReconciliationDeadline.HasValue
+            ? DateTime.SpecifyKind(command.ReconciliationDeadline.Value, DateTimeKind.Utc)
+            : (DateTime?)null;
+
         var previousStatus = budgetRequest.Status;
-        var result = budgetRequest.ApproveBy(command.ApproverId, command.CoaId);
+        var result = budgetRequest.ApproveBy(command.ApproverId, command.CoaId, reconciliationDeadline);
         if (result.IsFailure) return result;
 
         await _dispatcher.DispatchAsync(
@@ -89,6 +98,11 @@ public sealed class ApproveRequestCommandHandler
             actorName: approver.FullName,
             comment: null,
             cancellationToken);
+
+        // TODO: deadline reminder background job (T-3 / T-1 / overdue) — when an
+        // advance is approved here it gets a ReconciliationDeadline; a hosted
+        // service should later poll for advances approaching/past their deadline
+        // and notify the requester. Out of scope for this task.
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

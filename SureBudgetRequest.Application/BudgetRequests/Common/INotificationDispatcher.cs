@@ -20,4 +20,25 @@ public interface INotificationDispatcher
         string? actorName,
         string? comment,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Fires the advance-reconciliation submission notifications: always pings
+    /// Finance that a reconciliation was submitted, and — when the request landed
+    /// in <see cref="RequestStatus.AwaitingRefund"/> — additionally pings the
+    /// requester and Finance about the refund that is now due. Call AFTER
+    /// <c>BudgetRequest.SubmitReconciliation</c> has succeeded.
+    /// </summary>
+    Task DispatchReconciliationSubmittedAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies the requester that the outstanding refund was recorded and the
+    /// advance is now reconciled. Call AFTER <c>BudgetRequest.RecordRefund</c>.
+    /// </summary>
+    Task DispatchRefundRecordedAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken);
 }

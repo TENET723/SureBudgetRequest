@@ -51,8 +51,29 @@ public sealed record BudgetRequestDto(
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
-    IReadOnlyList<AttachmentDto> Attachments)
+    IReadOnlyList<AttachmentDto> Attachments,
+    // ── Advance withdrawal — reconciliation phase ───────────────────────────
+    IReadOnlyList<AdvanceUsageDto> AdvanceUsages,
+    DateTime? ReconciliationDeadline = null,
+    DateTime? ReconciliationSubmittedAt = null,
+    decimal RefundAmount = 0m,
+    DateTime? RefundReceivedAt = null)
 {
+    /// <summary>Total advance usage self-reported so far.</summary>
+    public decimal TotalUsageRecorded => AdvanceUsages.Sum(u => u.Amount);
+
+    /// <summary>Advance still unaccounted for (= ApprovedAmount − recorded usage).</summary>
+    public decimal RemainingAdvance => ApprovedAmount - TotalUsageRecorded;
+
+    /// <summary>
+    /// True when an advance is still in the reconciliation phase and its
+    /// deadline has already passed. Evaluated against the current UTC time.
+    /// </summary>
+    public bool IsOverdue =>
+        Status == RequestStatus.PendingReconciliation
+        && ReconciliationDeadline.HasValue
+        && ReconciliationDeadline.Value < DateTime.UtcNow;
+
     /// <summary>
     /// Construct from the aggregate, optionally resolving the assigned Coa and
     /// WithdrawMethod for display. Pass each entity when the corresponding
@@ -98,7 +119,24 @@ public sealed record BudgetRequestDto(
         withdrawMethod?.RequiresAttachment ?? false,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
-        e.Attachments.Select(AttachmentDto.FromEntity).ToList());
+        e.Attachments.Select(AttachmentDto.FromEntity).ToList(),
+        e.AdvanceUsages.Select(AdvanceUsageDto.FromEntity).ToList(),
+        e.ReconciliationDeadline,
+        e.ReconciliationSubmittedAt,
+        e.RefundAmount,
+        e.RefundReceivedAt);
+}
+
+public sealed record AdvanceUsageDto(
+    Guid Id,
+    DateTime SpentOn,
+    decimal Amount,
+    string Description,
+    Guid? AttachmentId,
+    DateTime RecordedAt)
+{
+    public static AdvanceUsageDto FromEntity(AdvanceUsage e) => new(
+        e.Id, e.SpentOn, e.Amount, e.Description, e.AttachmentId, e.RecordedAt);
 }
 
 public sealed record ApprovalActionDto(

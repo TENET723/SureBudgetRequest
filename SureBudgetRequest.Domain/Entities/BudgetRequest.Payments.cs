@@ -38,8 +38,19 @@ public partial class BudgetRequest
         // R15: status auto-transition based on totals
         if (newTotal == ApprovedAmount)
         {
-            Status = RequestStatus.Paid;
-            FinalizedAt = DateTime.UtcNow;
+            if (Type == BudgetRequestType.Advance)
+            {
+                // An advance never reaches Paid. Once fully disbursed it moves
+                // straight into the reconciliation phase. FinalizedAt stays null
+                // — the request is not final until usage is reconciled (and any
+                // refund received).
+                Status = RequestStatus.PendingReconciliation;
+            }
+            else
+            {
+                Status = RequestStatus.Paid;
+                FinalizedAt = DateTime.UtcNow;
+            }
         }
         else
         {

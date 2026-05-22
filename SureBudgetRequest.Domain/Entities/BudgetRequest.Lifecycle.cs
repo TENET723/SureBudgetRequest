@@ -246,11 +246,12 @@ public partial class BudgetRequest
     }
 
     /// <summary>
-    /// Adds an attachment to the request. Only allowed while the request is editable
-    /// (Draft or SentBack) and only by the requester. The Application layer must check
-    /// the second condition (we don't take a byUserId here to keep the method symmetric
-    /// with the rest of the lifecycle, but see <see cref="RemoveAttachment"/> which does
-    /// the requester check).
+    /// Adds an attachment to the request. Normally only allowed while the request
+    /// is editable (Draft or SentBack) and only by the requester. The one
+    /// exception is a <see cref="AttachmentCategory.UsageReceipt"/> file, which
+    /// may also be added while the request is in
+    /// <see cref="RequestStatus.PendingReconciliation"/> — that is how the
+    /// requester attaches receipts to advance-usage line items.
     /// </summary>
     public Result AddAttachment(
         string fileName,
@@ -260,7 +261,14 @@ public partial class BudgetRequest
         Guid uploadedByUserId,
         AttachmentCategory category = AttachmentCategory.General)
     {
-        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
+        // Usage receipts are attached during the reconciliation phase; everything
+        // else is restricted to the editable Draft/SentBack window.
+        var isReconciliationReceipt =
+            category == AttachmentCategory.UsageReceipt
+            && Status == RequestStatus.PendingReconciliation;
+
+        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack
+            && !isReconciliationReceipt)
             return Result.Failure($"Attachments can only be added while the request is in Draft or SentBack (current: '{Status}').");
 
         if (uploadedByUserId != RequesterId)
@@ -313,6 +321,7 @@ public partial class BudgetRequest
             BudgetRequestType.Urgent           => "U",
             BudgetRequestType.Standard         => "S",
             BudgetRequestType.ProjectProposal  => "P",
+            BudgetRequestType.Advance          => "A",
             _ => "X"
         };
         var datePart = submittedAtUtc.ToString("yyyyMMdd");

@@ -76,6 +76,17 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.SubmittedAt);
         builder.Property(r => r.FinalizedAt);
 
+        // ── Advance withdrawal — reconciliation phase ─────────────────────────
+        // All nullable except RefundAmount, which defaults to 0 for every
+        // non-advance request (and for advances that reconciled exactly).
+        builder.Property(r => r.ReconciliationDeadline);
+        builder.Property(r => r.ReconciliationSubmittedAt);
+        builder.Property(r => r.RefundAmount)
+               .IsRequired()
+               .HasColumnType("numeric(18,2)");
+        builder.Property(r => r.RefundReceivedAt);
+        builder.Property(r => r.RefundReceivedByUserId);
+
         // ── Chart of Account FK ───────────────────────────────────────────────
         // Nullable — only set when Finance has approved (and stays set through
         // PartiallyPaid / Paid / SentBack). Restrict on delete: a Coa cannot be
@@ -136,6 +147,19 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
 
         builder.Navigation(r => r.Attachments)
                .HasField("_attachments")
+               .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Advance-usage line items. ClientCascade — no DB-level ON DELETE
+        // CASCADE; EF deletes orphans client-side when the aggregate removes a
+        // usage from the collection (RemoveAdvanceUsage). The aggregate owns the
+        // lifecycle, mirroring the task's "aggregate manages it" requirement.
+        builder.HasMany(r => r.AdvanceUsages)
+               .WithOne()
+               .HasForeignKey(u => u.BudgetRequestId)
+               .OnDelete(DeleteBehavior.ClientCascade);
+
+        builder.Navigation(r => r.AdvanceUsages)
+               .HasField("_advanceUsages")
                .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

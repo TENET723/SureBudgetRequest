@@ -2,12 +2,6 @@ using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Domain.Entities;
 
-// FUTURE: Advance withdrawal support (deferred to v2)
-// - Add IsAdvance flag at construction time
-// - Add reconciliation phase methods after Paid status
-// - Add AdvanceExpense child entity (line items)
-// - New statuses: PendingReconciliation, ReconciliationApproved, AwaitingRefund, AwaitingTopUp
-// - See spec §X (to be written when feature is added)
 public partial class BudgetRequest
 {
     // === Identity ===
@@ -97,6 +91,29 @@ public partial class BudgetRequest
     /// </summary>
     public Guid? WithdrawMethodId { get; private set; }
 
+    // === Advance withdrawal — reconciliation phase ===
+    // All five fields below stay at their defaults for non-advance requests.
+
+    /// <summary>
+    /// Deadline by which the requester must reconcile an advance. Set by Finance
+    /// at approval time (required for advances, forbidden otherwise — see
+    /// <see cref="ApproveBy"/>) and extendable while reconciliation is pending.
+    /// </summary>
+    public DateTime? ReconciliationDeadline    { get; private set; }
+
+    /// <summary>When the requester submitted their reconciliation.</summary>
+    public DateTime? ReconciliationSubmittedAt { get; private set; }
+
+    /// <summary>
+    /// Amount the requester must refund — set when reconciliation lands in
+    /// <see cref="RequestStatus.AwaitingRefund"/> (recorded usage &lt; advance).
+    /// Zero in every other case.
+    /// </summary>
+    public decimal   RefundAmount              { get; private set; }
+
+    public DateTime? RefundReceivedAt          { get; private set; }
+    public Guid?     RefundReceivedByUserId    { get; private set; }
+
     // === Child collections (part of the aggregate) ===
     private readonly List<ApprovalAction> _approvalActions = new();
     public IReadOnlyList<ApprovalAction> ApprovalActions => _approvalActions.AsReadOnly();
@@ -107,12 +124,20 @@ public partial class BudgetRequest
     private readonly List<Attachment> _attachments = new();
     public IReadOnlyList<Attachment> Attachments => _attachments.AsReadOnly();
 
+    private readonly List<AdvanceUsage> _advanceUsages = new();
+    public IReadOnlyList<AdvanceUsage> AdvanceUsages => _advanceUsages.AsReadOnly();
+
     // === Computed helpers ===
     public decimal TotalPaid => _payments.Sum(p => p.Amount);
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
+
+    /// <summary>Total usage self-reported so far against an advance.</summary>
+    public decimal TotalUsageRecorded => _advanceUsages.Sum(u => u.Amount);
+
     public bool IsTerminal => Status is RequestStatus.Paid
                                     or RequestStatus.Rejected
-                                    or RequestStatus.Cancelled;
+                                    or RequestStatus.Cancelled
+                                    or RequestStatus.Reconciled;
 
     // For EF Core
     private BudgetRequest() { }
