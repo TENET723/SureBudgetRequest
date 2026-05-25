@@ -112,7 +112,7 @@
         if (result.IsSuccess)
             _requests = result.Value.OrderByDescending(r => r.CreatedAt).ToList();
         else
-            _errorMessage = result.Error;
+            _errorMessage = result.Error.Message;
         _loading = false;
     }
 
@@ -125,7 +125,7 @@
         var result = await Mediator.Send(new CancelRequestCommand(_cancellingRequest.Id, CurrentUser.UserId));
         _saving = false;
         _cancellingRequest = null;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else
         {
             var r = await Mediator.Send(new ListBudgetRequestsQuery(RequesterId: CurrentUser.UserId));

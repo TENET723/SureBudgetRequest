@@ -308,7 +308,7 @@
         }
 
         var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
-        if (deptResult.IsFailure) { _error = deptResult.Error; return; }
+        if (deptResult.IsFailure) { _error = deptResult.Error.Message; return; }
 
         // Department may have no head assigned yet (vacancy / fresh-bootstrap case).
         if (!deptResult.Value.HeadUserId.HasValue)
@@ -319,7 +319,7 @@
         }
 
         var headResult = await Mediator.Send(new GetUserQuery(deptResult.Value.HeadUserId.Value));
-        if (headResult.IsFailure) { _error = headResult.Error; return; }
+        if (headResult.IsFailure) { _error = headResult.Error.Message; return; }
 
         _deptHeadId = headResult.Value.Id;
         _deptHeadName = headResult.Value.FullName;
@@ -430,12 +430,12 @@
                     ? null
                     : _monthlyOverrunJustification));
 
-            if (draftResult.IsFailure) { _error = draftResult.Error; return; }
+            if (draftResult.IsFailure) { _error = draftResult.Error.Message; return; }
 
             if (submit)
             {
                 var submitResult = await Mediator.Send(new SubmitRequestCommand(draftResult.Value, CurrentUser.UserId));
-                if (submitResult.IsFailure) { _error = submitResult.Error; return; }
+                if (submitResult.IsFailure) { _error = submitResult.Error.Message; return; }
 
                 // Submitted → go to read-only Detail page.
                 Nav.NavigateTo($"requests/{draftResult.Value}");

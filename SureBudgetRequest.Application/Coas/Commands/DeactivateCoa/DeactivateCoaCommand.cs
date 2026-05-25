@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Coas.Commands.DeactivateCoa;
 
@@ -22,7 +23,7 @@ public sealed class DeactivateCoaCommandHandler
     public async Task<Result> Handle(DeactivateCoaCommand command, CancellationToken ct)
     {
         var coa = await _repository.GetByIdAsync(command.CoaId, ct);
-        if (coa is null) return Result.Failure("Chart of Account not found.");
+        if (coa is null) return Result.Failure(CoaErrors.NotFound);
 
         // Deactivation does NOT block existing budget_requests that reference this
         // Coa — historical data stays intact. New approvals just won't show it

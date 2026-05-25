@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Coas.Commands.UpdateCoa;
 
@@ -27,14 +28,14 @@ public sealed class UpdateCoaCommandHandler
     public async Task<Result> Handle(UpdateCoaCommand command, CancellationToken ct)
     {
         var coa = await _repository.GetByIdAsync(command.CoaId, ct);
-        if (coa is null) return Result.Failure("Chart of Account not found.");
+        if (coa is null) return Result.Failure(CoaErrors.NotFound);
 
         // If the code is being changed, ensure the new code isn't taken by another row.
         if (!string.Equals(coa.Code, command.Code?.Trim(), StringComparison.Ordinal))
         {
             var existing = await _repository.GetByCodeAsync(command.Code ?? string.Empty, ct);
             if (existing is not null && existing.Id != coa.Id)
-                return Result.Failure($"Chart of Account with code '{existing.Code}' already exists.");
+                return Result.Failure(CoaErrors.AlreadyExists(existing.Code));
         }
 
         try
@@ -46,7 +47,7 @@ public sealed class UpdateCoaCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure(ex.Message);
+            return Result.Failure(CoaErrors.ValidationError(ex.Message));
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

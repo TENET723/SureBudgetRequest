@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Coas.Commands.CreateCoa;
 
@@ -28,7 +29,7 @@ public sealed class CreateCoaCommandHandler
         // Uniqueness check on Code — case-sensitive trim happens in the entity ctor.
         var existing = await _repository.GetByCodeAsync(command.Code, ct);
         if (existing is not null)
-            return Result.Failure<Guid>($"Chart of Account with code '{existing.Code}' already exists.");
+            return Result.Failure<Guid>(CoaErrors.AlreadyExists(existing.Code));
 
         Coa coa;
         try
@@ -37,7 +38,7 @@ public sealed class CreateCoaCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure<Guid>(ex.Message);
+            return Result.Failure<Guid>(CoaErrors.ValidationError(ex.Message));
         }
 
         await _repository.AddAsync(coa, ct);

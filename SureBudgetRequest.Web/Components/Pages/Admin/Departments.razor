@@ -332,13 +332,13 @@
             {
                 var result = await Mediator.Send(new UpdateDepartmentCommand(
                     _editingId.Value, _formName, headId, _formBudgetLimit, monthlyLimit, webhookUrl));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
             }
             else
             {
                 var result = await Mediator.Send(new CreateDepartmentCommand(
                     _formName, headId, _formBudgetLimit, monthlyLimit, webhookUrl));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
             }
 
             _successMessage = _editingId.HasValue ? "Department updated." : "Department created.";
@@ -357,7 +357,7 @@
         var result = await Mediator.Send(new DeactivateDepartmentCommand(_deactivatingDept.Id));
         _saving = false;
         _deactivatingDept = null;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = "Department deactivated."; await LoadData(); }
     }
 }

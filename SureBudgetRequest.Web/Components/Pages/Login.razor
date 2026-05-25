@@ -86,7 +86,7 @@
         var result = await Mediator.Send(new AuthenticateUserCommand(Input.Email, Input.Password));
         if (result.IsFailure)
         {
-            _errorMessage = result.Error;
+            _errorMessage = result.Error.Message;
             return;
         }
 

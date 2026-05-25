@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.RejectRequest;
 
@@ -39,11 +40,11 @@ public sealed class RejectRequestCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var approver = await _userRepository.GetByIdAsync(command.ApproverId, cancellationToken);
         if (approver is null)
-            return Result.Failure("Approver not found.");
+            return Result.Failure(UserErrors.NotFound(command.ApproverId));
 
         var roleCheck = budgetRequest.Status switch
         {
@@ -54,11 +55,11 @@ public sealed class RejectRequestCommandHandler
         };
 
         if (!roleCheck)
-            return Result.Failure($"User with role '{approver.Role}' cannot reject at the current stage '{budgetRequest.Status}'.");
+            return Result.Failure(UserErrors.RoleUnauthorized(approver.Role.ToString(), budgetRequest.Status.ToString()));
 
         // Finance-stage gate: only Finance Approvers (Type 1) may reject.
         if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
-            return Result.Failure("This Finance user is restricted to recording payments and cannot reject requests.");
+            return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
 
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.Reject(command.ApproverId, command.Comment);

@@ -1,6 +1,7 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest;
 
@@ -29,7 +30,7 @@ public sealed class GetBudgetRequestQueryHandler
     {
         var entity = await _repository.GetByIdAsync(request.BudgetRequestId, cancellationToken);
         if (entity is null)
-            return Result.Failure<BudgetRequestDto>("Budget request not found.");
+            return Result.Failure<BudgetRequestDto>(BudgetRequestErrors.NotFound(request.BudgetRequestId));
 
         // Resolve the assigned Coa for display (null when never approved or when
         // the row pre-dates the COA feature).

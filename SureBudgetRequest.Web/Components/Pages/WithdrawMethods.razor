@@ -203,7 +203,7 @@
         if (result.IsSuccess)
             _methods = result.Value.OrderBy(m => m.Name).ToList();
         else
-            _errorMessage = result.Error;
+            _errorMessage = result.Error.Message;
         _loading = false;
     }
 
@@ -246,14 +246,14 @@
             {
                 var result = await Mediator.Send(new UpdateWithdrawMethodCommand(
                     _editingId.Value, _formName, _formIsActive, _formRequiresAttachment));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = "Withdraw method updated.";
             }
             else
             {
                 var result = await Mediator.Send(new CreateWithdrawMethodCommand(
                     _formName, _formRequiresAttachment));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = "Withdraw method created.";
             }
 
@@ -273,7 +273,7 @@
         _saving = false;
         var name = _deactivatingMethod.Name;
         _deactivatingMethod = null;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = $"'{name}' deactivated."; await LoadData(); }
     }
 
@@ -282,7 +282,7 @@
         _saving = true;
         var result = await Mediator.Send(new ReactivateWithdrawMethodCommand(m.Id));
         _saving = false;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = $"'{m.Name}' reactivated."; await LoadData(); }
     }
 }

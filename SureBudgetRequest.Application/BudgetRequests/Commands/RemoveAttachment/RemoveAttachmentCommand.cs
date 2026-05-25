@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment;
 
@@ -49,11 +50,11 @@ public sealed class RemoveAttachmentCommandHandler
     {
         var budgetRequest = await _repository.GetByIdAsync(command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var removeResult = budgetRequest.RemoveAttachment(command.AttachmentId, command.ByUserId);
         if (removeResult.IsFailure)
-            return Result.Failure(removeResult.Error!);
+            return Result.Failure(removeResult.Error);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

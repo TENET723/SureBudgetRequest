@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest;
 
@@ -45,11 +46,11 @@ public sealed class ApproveRequestCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var approver = await _userRepository.GetByIdAsync(command.ApproverId, cancellationToken);
         if (approver is null)
-            return Result.Failure("Approver not found.");
+            return Result.Failure(UserErrors.NotFound(command.ApproverId));
 
         var roleCheck = budgetRequest.Status switch
         {
@@ -60,25 +61,25 @@ public sealed class ApproveRequestCommandHandler
         };
 
         if (!roleCheck)
-            return Result.Failure($"User with role '{approver.Role}' cannot approve at the current stage '{budgetRequest.Status}'.");
+            return Result.Failure(UserErrors.RoleUnauthorized(approver.Role.ToString(), budgetRequest.Status.ToString()));
 
         // Finance-stage gate: only Finance Approvers (Type 1) may approve.
         // Payer-only (Type 2) Finance users can record payments but cannot approve.
         if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
-            return Result.Failure("This Finance user is restricted to recording payments and cannot approve requests.");
+            return Result.Failure(Error.Forbidden("BudgetRequest.FinanceUserRestricted", "This Finance user is restricted to recording payments and cannot approve requests."));
 
         // Finance-stage gate: validate the supplied CoaId exists and is active
         // BEFORE handing off to the domain. The domain only enforces "non-null."
         if (budgetRequest.Status == RequestStatus.PendingFinance)
         {
             if (!command.CoaId.HasValue || command.CoaId.Value == Guid.Empty)
-                return Result.Failure("Chart of Account is required when Finance approves.");
+                return Result.Failure(BudgetRequestErrors.CoaRequiredForFinanceApproval);
 
             var coa = await _coaRepository.GetByIdAsync(command.CoaId.Value, cancellationToken);
             if (coa is null)
-                return Result.Failure("The selected Chart of Account no longer exists.");
+                return Result.Failure(BudgetRequestErrors.CoaNotFound);
             if (!coa.IsActive)
-                return Result.Failure($"Chart of Account '{coa.Code}' has been deactivated and cannot be used.");
+                return Result.Failure(BudgetRequestErrors.CoaDeactivated(coa.Code));
         }
 
         // Normalise the (date-picker-sourced) deadline to UTC kind before it

@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.UpdateDepartment;
 
@@ -33,14 +34,14 @@ public sealed class UpdateDepartmentCommandHandler
     public async Task<Result> Handle(UpdateDepartmentCommand command, CancellationToken ct)
     {
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
-        if (dept is null) return Result.Failure("Department not found.");
+        if (dept is null) return Result.Failure(DepartmentErrors.NotFound);
 
         // Only validate the head user exists when one was provided.
         // Passing null clears the head (e.g. position vacant).
         if (command.HeadUserId.HasValue)
         {
             var head = await _userRepository.GetByIdAsync(command.HeadUserId.Value, ct);
-            if (head is null) return Result.Failure("Department head user not found.");
+            if (head is null) return Result.Failure(DepartmentErrors.HeadNotFound);
         }
 
         try
@@ -54,7 +55,7 @@ public sealed class UpdateDepartmentCommandHandler
         catch (ArgumentException ex)
         {
             // Surface domain validation (e.g. malformed webhook URL) as a user-facing failure.
-            return Result.Failure(ex.Message);
+            return Result.Failure(DepartmentErrors.ValidationError(ex.Message));
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

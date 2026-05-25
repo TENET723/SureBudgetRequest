@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.DeactivateDepartment;
 
@@ -22,7 +23,7 @@ public sealed class DeactivateDepartmentCommandHandler
     public async Task<Result> Handle(DeactivateDepartmentCommand command, CancellationToken ct)
     {
         var dept = await _repository.GetByIdAsync(command.DepartmentId, ct);
-        if (dept is null) return Result.Failure("Department not found.");
+        if (dept is null) return Result.Failure(DepartmentErrors.NotFound);
 
         dept.Deactivate();
         await _unitOfWork.SaveChangesAsync(ct);

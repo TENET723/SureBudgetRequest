@@ -201,7 +201,7 @@
         if (result.IsSuccess)
             _coas = result.Value.OrderBy(c => c.Code).ToList();
         else
-            _errorMessage = result.Error;
+            _errorMessage = result.Error.Message;
         _loading = false;
     }
 
@@ -249,13 +249,13 @@
             {
                 var result = await Mediator.Send(new UpdateCoaCommand(
                     _editingId.Value, _formCode, _formName, desc, _formIsActive));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = "Account updated.";
             }
             else
             {
                 var result = await Mediator.Send(new CreateCoaCommand(_formCode, _formName, desc));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = "Account created.";
             }
 
@@ -274,7 +274,7 @@
         var result = await Mediator.Send(new DeactivateCoaCommand(_deactivatingCoa.Id));
         _saving = false;
         _deactivatingCoa = null;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = "Account deactivated."; await LoadData(); }
     }
 
@@ -283,7 +283,7 @@
         _saving = true;
         var result = await Mediator.Send(new ReactivateCoaCommand(c.Id));
         _saving = false;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = $"Account '{c.Code}' reactivated."; await LoadData(); }
     }
 }

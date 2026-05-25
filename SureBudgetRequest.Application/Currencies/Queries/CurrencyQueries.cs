@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Currencies.Queries;
 
@@ -42,7 +43,7 @@ public sealed class GetCurrencyQueryHandler : IRequestHandler<GetCurrencyQuery, 
     {
         var c = await _repository.GetByCodeAsync(request.Code, ct);
         return c is null
-            ? Result.Failure<CurrencyDto>("Currency not found.")
+            ? Result.Failure<CurrencyDto>(CurrencyErrors.GenericNotFound)
             : Result.Success(CurrencyDto.FromEntity(c));
     }
 }

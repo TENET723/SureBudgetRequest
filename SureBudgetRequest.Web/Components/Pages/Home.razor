@@ -341,7 +341,7 @@
             if (result.IsSuccess)
                 _data = result.Value;
             else
-                _errorMessage = result.Error;
+                _errorMessage = result.Error.Message;
         }
         finally
         {

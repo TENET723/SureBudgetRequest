@@ -5,6 +5,7 @@ using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetDashboard;
 
@@ -74,7 +75,7 @@ public sealed class GetDashboardQueryHandler
         CancellationToken ct)
     {
         if (!_currentUser.IsLoaded)
-            return Result.Failure<DashboardDto>("No user signed in.");
+            return Result.Failure<DashboardDto>(UserErrors.NoUserSignedIn);
 
         var userId = _currentUser.UserId;
         var role = _currentUser.Role;

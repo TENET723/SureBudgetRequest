@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Currencies.Commands.UpdateCurrencyRate;
 
@@ -33,7 +34,7 @@ public sealed class UpdateCurrencyCommandHandler : IRequestHandler<UpdateCurrenc
     {
         var currency = await _repository.GetByCodeAsync(command.Code, ct);
         if (currency is null)
-            return Result.Failure($"Currency '{command.Code}' not found.");
+            return Result.Failure(CurrencyErrors.NotFound(command.Code));
 
         try
         {
@@ -41,7 +42,7 @@ public sealed class UpdateCurrencyCommandHandler : IRequestHandler<UpdateCurrenc
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure(ex.Message);
+            return Result.Failure(CurrencyErrors.ValidationError(ex.Message));
         }
 
         // Rate change — only act if the value actually differs (avoid noisy audit rows)
@@ -54,11 +55,11 @@ public sealed class UpdateCurrencyCommandHandler : IRequestHandler<UpdateCurrenc
             }
             catch (ArgumentException ex)
             {
-                return Result.Failure(ex.Message);
+                return Result.Failure(CurrencyErrors.ValidationError(ex.Message));
             }
             catch (InvalidOperationException ex)
             {
-                return Result.Failure(ex.Message);
+                return Result.Failure(CurrencyErrors.ValidationError(ex.Message));
             }
 
             var audit = new CurrencyRateChange(
@@ -76,7 +77,7 @@ public sealed class UpdateCurrencyCommandHandler : IRequestHandler<UpdateCurrenc
             }
             catch (InvalidOperationException ex)
             {
-                return Result.Failure(ex.Message);
+                return Result.Failure(CurrencyErrors.ValidationError(ex.Message));
             }
         }
 

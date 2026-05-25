@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.CreateDraft;
 
@@ -53,30 +54,29 @@ public sealed class CreateDraftCommandHandler
         // Defense-in-depth: UI already blocks empty selection, but a direct
         // command send should still fail fast before hitting the DB.
         if (command.WithdrawMethodId == Guid.Empty)
-            return Result.Failure<Guid>("Withdraw method is required.");
+            return Result.Failure<Guid>(WithdrawMethodErrors.Required);
 
         var requester = await _userRepository.GetByIdAsync(command.RequesterId, cancellationToken);
         if (requester is null)
-            return Result.Failure<Guid>("Requester not found.");
+            return Result.Failure<Guid>(UserErrors.NotFound(command.RequesterId));
 
         if (!requester.IsActive)
-            return Result.Failure<Guid>("Inactive users cannot create requests.");
+            return Result.Failure<Guid>(UserErrors.Inactive);
 
         // Validate that the chosen currency exists and is active.
         var currency = await _currencyRepository.GetByCodeAsync(command.CurrencyCode, cancellationToken);
         if (currency is null)
-            return Result.Failure<Guid>($"Currency '{command.CurrencyCode}' not found.");
+            return Result.Failure<Guid>(CurrencyErrors.NotFound(command.CurrencyCode));
         if (!currency.IsActive)
-            return Result.Failure<Guid>($"Currency '{currency.Code}' is not active.");
+            return Result.Failure<Guid>(CurrencyErrors.Inactive(currency.Code));
 
         // Validate the chosen withdraw method exists and is still active.
         var withdrawMethod = await _withdrawMethodRepository.GetByIdAsync(
             command.WithdrawMethodId, cancellationToken);
         if (withdrawMethod is null)
-            return Result.Failure<Guid>("Selected withdraw method not found.");
+            return Result.Failure<Guid>(WithdrawMethodErrors.NotFound);
         if (!withdrawMethod.IsActive)
-            return Result.Failure<Guid>(
-                $"Withdraw method '{withdrawMethod.Name}' has been deactivated and cannot be used.");
+            return Result.Failure<Guid>(WithdrawMethodErrors.Inactive(withdrawMethod.Name));
 
         var utcRequestDate = DateTime.SpecifyKind(command.RequestDate, DateTimeKind.Utc);
 
@@ -102,7 +102,7 @@ public sealed class CreateDraftCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure<Guid>(ex.Message);
+            return Result.Failure<Guid>(Error.Validation("BudgetRequest.CreateError", ex.Message));
         }
 
         await _budgetRequestRepository.AddAsync(draft, cancellationToken);

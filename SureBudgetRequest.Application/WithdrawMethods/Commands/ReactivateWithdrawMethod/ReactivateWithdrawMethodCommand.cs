@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.WithdrawMethods.Commands.ReactivateWithdrawMethod;
 
@@ -22,7 +23,7 @@ public sealed class ReactivateWithdrawMethodCommandHandler
     public async Task<Result> Handle(ReactivateWithdrawMethodCommand command, CancellationToken ct)
     {
         var method = await _repository.GetByIdAsync(command.WithdrawMethodId, ct);
-        if (method is null) return Result.Failure("Withdraw method not found.");
+        if (method is null) return Result.Failure(WithdrawMethodErrors.GenericNotFound);
 
         method.Reactivate();
         await _unitOfWork.SaveChangesAsync(ct);

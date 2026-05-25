@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest;
 
@@ -39,15 +40,15 @@ public sealed class SendBackRequestCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var financeUser = await _userRepository.GetByIdAsync(command.FinanceUserId, cancellationToken);
         if (financeUser is null || financeUser.Role != UserRole.Finance)
-            return Result.Failure("Only a Finance user can send back a request.");
+            return Result.Failure(Error.Forbidden("BudgetRequest.OnlyFinanceCanSendBack", "Only a Finance user can send back a request."));
 
         // Send-back is an approver action; payer-only (Type 2) Finance users cannot do it.
         if (!financeUser.IsFinanceApprover)
-            return Result.Failure("This Finance user is restricted to recording payments and cannot send requests back.");
+            return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
 
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.SendBack(command.FinanceUserId, command.Comment);

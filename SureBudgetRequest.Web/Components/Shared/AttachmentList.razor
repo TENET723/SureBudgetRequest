@@ -219,7 +219,7 @@
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure)
                 {
-                    _error = result.Error;
+                    _error = result.Error.Message;
                 }
                 else
                 {
@@ -248,7 +248,7 @@
             var result = await Mediator.Send(cmd);
             if (result.IsFailure)
             {
-                _error = result.Error;
+                _error = result.Error.Message;
             }
             else
             {

@@ -5,6 +5,7 @@ using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Users.Commands.CreateUser;
 
@@ -42,23 +43,23 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
     public async Task<Result<Guid>> Handle(CreateUserCommand command, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(command.Email))
-            return Result.Failure<Guid>("Email is required.");
+            return Result.Failure<Guid>(UserErrors.EmailRequired);
 
         if (string.IsNullOrEmpty(command.InitialPassword)
             || command.InitialPassword.Length < MinimumPasswordLength)
-            return Result.Failure<Guid>($"Initial password must be at least {MinimumPasswordLength} characters.");
+            return Result.Failure<Guid>(UserErrors.PasswordTooShort(MinimumPasswordLength));
 
         // The Finance-approver flag only makes sense for Finance users.
         // Reject up front rather than silently dropping the flag.
         if (command.IsFinanceApprover && command.Role != UserRole.Finance)
-            return Result.Failure<Guid>("Only a user with the Finance role can be marked as a Finance Approver.");
+            return Result.Failure<Guid>(UserErrors.OnlyFinanceCanBeApprover);
 
         if (await _userRepository.EmailExistsAsync(command.Email, ct))
-            return Result.Failure<Guid>("A user with this email already exists.");
+            return Result.Failure<Guid>(UserErrors.EmailAlreadyExists);
 
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
         if (dept is null)
-            return Result.Failure<Guid>("Department not found.");
+            return Result.Failure<Guid>(DepartmentErrors.NotFound);
 
         User user;
         try
@@ -67,7 +68,7 @@ public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure<Guid>(ex.Message);
+            return Result.Failure<Guid>(UserErrors.ValidationError(ex.Message));
         }
 
         // MustChangePassword defaults to true in the User constructor.

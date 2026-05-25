@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Users.Commands.ResetUserPassword;
 
@@ -38,10 +39,10 @@ public sealed class ResetUserPasswordCommandHandler
     {
         if (string.IsNullOrEmpty(command.NewInitialPassword)
             || command.NewInitialPassword.Length < MinimumPasswordLength)
-            return Result.Failure($"Password must be at least {MinimumPasswordLength} characters.");
+            return Result.Failure(UserErrors.PasswordTooShort(MinimumPasswordLength));
 
         var user = await _userRepository.GetByIdAsync(command.UserId, ct);
-        if (user is null) return Result.Failure("User not found.");
+        if (user is null) return Result.Failure(UserErrors.GenericNotFound);
 
         user.SetPasswordHash(_passwordHasher.Hash(command.NewInitialPassword), mustChangeOnNextLogin: true);
         await _unitOfWork.SaveChangesAsync(ct);

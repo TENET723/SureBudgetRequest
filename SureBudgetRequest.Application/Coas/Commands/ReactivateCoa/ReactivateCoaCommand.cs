@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Coas.Commands.ReactivateCoa;
 
@@ -22,7 +23,7 @@ public sealed class ReactivateCoaCommandHandler
     public async Task<Result> Handle(ReactivateCoaCommand command, CancellationToken ct)
     {
         var coa = await _repository.GetByIdAsync(command.CoaId, ct);
-        if (coa is null) return Result.Failure("Chart of Account not found.");
+        if (coa is null) return Result.Failure(CoaErrors.NotFound);
 
         coa.Reactivate();
         await _unitOfWork.SaveChangesAsync(ct);

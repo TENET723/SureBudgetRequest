@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest;
 
@@ -30,7 +31,7 @@ public sealed class CancelRequestCommandHandler
         var budgetRequest = await _repository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var result = budgetRequest.Cancel(command.RequesterId);
         if (result.IsFailure) return result;

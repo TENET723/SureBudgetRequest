@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.CreateDepartment;
 
@@ -37,7 +38,7 @@ public sealed class CreateDepartmentCommandHandler
         if (command.HeadUserId.HasValue)
         {
             var head = await _userRepository.GetByIdAsync(command.HeadUserId.Value, ct);
-            if (head is null) return Result.Failure<Guid>("Department head user not found.");
+            if (head is null) return Result.Failure<Guid>(DepartmentErrors.HeadNotFound);
         }
 
         Department dept;
@@ -52,7 +53,7 @@ public sealed class CreateDepartmentCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure<Guid>(ex.Message);
+            return Result.Failure<Guid>(DepartmentErrors.ValidationError(ex.Message));
         }
 
         await _departmentRepository.AddAsync(dept, ct);

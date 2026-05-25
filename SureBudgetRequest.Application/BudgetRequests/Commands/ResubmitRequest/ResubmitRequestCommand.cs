@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest;
 
@@ -46,33 +47,33 @@ public sealed class ResubmitRequestCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         if (budgetRequest.RequesterId != command.RequesterId)
-            return Result.Failure("Only the requester can resubmit their request.");
+            return Result.Failure(BudgetRequestErrors.OnlyRequesterCanResubmit);
 
         var requester = await _userRepository.GetByIdAsync(command.RequesterId, cancellationToken);
         if (requester is null)
-            return Result.Failure("Requester not found.");
+            return Result.Failure(UserErrors.NotFound(command.RequesterId));
 
         var department = await _departmentRepository.GetByIdAsync(
             requester.DepartmentId, cancellationToken);
         if (department is null)
-            return Result.Failure("Requester's department not found.");
+            return Result.Failure(BudgetRequestErrors.DepartmentNotFound);
 
         if (department.HeadUserId is null)
-            return Result.Failure("Your department has no head assigned. Contact admin before resubmitting.");
+            return Result.Failure(BudgetRequestErrors.DepartmentHeadNotAssigned);
 
         var deptHead = await _userRepository.GetByIdAsync(department.HeadUserId.Value, cancellationToken);
         if (deptHead is null)
-            return Result.Failure("Department head not found.");
+            return Result.Failure(BudgetRequestErrors.DepartmentHeadNotFound);
 
         var currency = await _currencyRepository.GetByCodeAsync(
             budgetRequest.CurrencyCode, cancellationToken);
         if (currency is null)
-            return Result.Failure($"Currency '{budgetRequest.CurrencyCode}' not found.");
+            return Result.Failure(CurrencyErrors.NotFound(budgetRequest.CurrencyCode));
         if (!currency.IsActive)
-            return Result.Failure($"Currency '{currency.Code}' is not active.");
+            return Result.Failure(CurrencyErrors.Inactive(currency.Code));
 
         // Re-check monthly position at resubmission time — the dept's spend may have
         // changed since the original submission (other requests approved/paid in the
@@ -95,11 +96,9 @@ public sealed class ResubmitRequestCommandHandler
             var method = await _withdrawMethodRepository.GetByIdAsync(
                 budgetRequest.WithdrawMethodId.Value, cancellationToken);
             if (method is null)
-                return Result.Failure("Selected withdraw method no longer exists.");
+                return Result.Failure(WithdrawMethodErrors.NotFound);
             if (!method.IsActive)
-                return Result.Failure(
-                    $"Withdraw method '{method.Name}' has been deactivated. " +
-                    "Edit the draft and pick a different method before resubmitting.");
+                return Result.Failure(WithdrawMethodErrors.Inactive(method.Name));
             methodRequiresAttachment = method.RequiresAttachment;
         }
 

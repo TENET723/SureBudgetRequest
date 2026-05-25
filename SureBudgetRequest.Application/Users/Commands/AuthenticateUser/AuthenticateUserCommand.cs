@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Users.Commands.AuthenticateUser;
 
@@ -46,19 +47,15 @@ public sealed class AuthenticateUserCommandHandler
         AuthenticateUserCommand command,
         CancellationToken ct)
     {
-        // Generic message for every failure mode — never reveal whether the email
-        // exists or whether the password was wrong. Also covers inactive accounts.
-        const string genericFailure = "Invalid email or password.";
-
         if (string.IsNullOrWhiteSpace(command.Email) || string.IsNullOrWhiteSpace(command.Password))
-            return Result.Failure<AuthenticatedUserDto>(genericFailure);
+            return Result.Failure<AuthenticatedUserDto>(UserErrors.InvalidCredentials);
 
         var user = await _userRepository.GetByEmailAsync(command.Email, ct);
         if (user is null || !user.IsActive)
-            return Result.Failure<AuthenticatedUserDto>(genericFailure);
+            return Result.Failure<AuthenticatedUserDto>(UserErrors.InvalidCredentials);
 
         if (!_passwordHasher.Verify(user.PasswordHash, command.Password))
-            return Result.Failure<AuthenticatedUserDto>(genericFailure);
+            return Result.Failure<AuthenticatedUserDto>(UserErrors.InvalidCredentials);
 
         user.RecordLogin();
         await _unitOfWork.SaveChangesAsync(ct);

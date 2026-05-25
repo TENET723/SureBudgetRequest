@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.AssignDepartmentHead;
 
@@ -29,11 +30,11 @@ public sealed class AssignDepartmentHeadCommandHandler
     public async Task<Result> Handle(AssignDepartmentHeadCommand command, CancellationToken ct)
     {
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
-        if (dept is null) return Result.Failure("Department not found.");
+        if (dept is null) return Result.Failure(DepartmentErrors.NotFound);
 
         var head = await _userRepository.GetByIdAsync(command.HeadUserId, ct);
         if (head is null || !head.IsActive)
-            return Result.Failure("User not found or is inactive.");
+            return Result.Failure(UserErrors.NotFoundOrInactive);
 
         dept.ChangeHead(command.HeadUserId);
 

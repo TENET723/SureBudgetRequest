@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.WithdrawMethods.Commands.UpdateWithdrawMethod;
 
@@ -26,14 +27,14 @@ public sealed class UpdateWithdrawMethodCommandHandler
     public async Task<Result> Handle(UpdateWithdrawMethodCommand command, CancellationToken ct)
     {
         var method = await _repository.GetByIdAsync(command.WithdrawMethodId, ct);
-        if (method is null) return Result.Failure("Withdraw method not found.");
+        if (method is null) return Result.Failure(WithdrawMethodErrors.GenericNotFound);
 
         // If the name is being changed, ensure the new name isn't taken by another row.
         if (!string.Equals(method.Name, command.Name?.Trim(), StringComparison.OrdinalIgnoreCase))
         {
             var existing = await _repository.GetByNameAsync(command.Name ?? string.Empty, ct);
             if (existing is not null && existing.Id != method.Id)
-                return Result.Failure($"Withdraw method '{existing.Name}' already exists.");
+                return Result.Failure(WithdrawMethodErrors.AlreadyExists(existing.Name));
         }
 
         try
@@ -44,7 +45,7 @@ public sealed class UpdateWithdrawMethodCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure(ex.Message);
+            return Result.Failure(WithdrawMethodErrors.ValidationError(ex.Message));
         }
 
         await _unitOfWork.SaveChangesAsync(ct);

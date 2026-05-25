@@ -1055,7 +1055,7 @@ else
         _actioning = true; _actionTarget = "submit";
         var result = await Mediator.Send(new SubmitRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { _actionSuccess = "Request submitted."; await LoadRequest(); }
     }
 
@@ -1064,7 +1064,7 @@ else
         _actioning = true; _actionTarget = "approve";
         var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { _actionSuccess = "Request approved."; await LoadRequest(); }
     }
 
@@ -1133,7 +1133,7 @@ else
         {
             // Keep the modal open so the user can correct (e.g. pick another COA
             // if theirs got deactivated in the meantime).
-            _approveError = result.Error;
+            _approveError = result.Error.Message;
             return;
         }
 
@@ -1148,7 +1148,7 @@ else
         _actioning = true; _actionTarget = "reject"; _showRejectModal = false;
         var result = await Mediator.Send(new RejectRequestCommand(Id, CurrentUser.UserId, _rejectComment));
         _actioning = false; _rejectComment = "";
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { _actionSuccess = "Request rejected."; await LoadRequest(); }
     }
 
@@ -1158,7 +1158,7 @@ else
         _actioning = true; _showSendBackModal = false;
         var result = await Mediator.Send(new SendBackRequestCommand(Id, CurrentUser.UserId, _sendBackComment));
         _actioning = false; _sendBackComment = "";
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { _actionSuccess = "Request sent back to requester."; await LoadRequest(); }
     }
 
@@ -1184,7 +1184,7 @@ else
         _actioning = true; _showPaymentModal = false;
         var result = await Mediator.Send(new RecordPaymentCommand(Id, CurrentUser.UserId, _paymentAmount, _paymentDate, _paymentRef, _paymentNote));
         _actioning = false; _paymentAmount = 0; _paymentRef = null; _paymentNote = null;
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { _actionSuccess = "Payment recorded."; await LoadRequest(); }
     }
 
@@ -1193,7 +1193,7 @@ else
         _actioning = true; _showCancelModal = false;
         var result = await Mediator.Send(new CancelRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
-        if (result.IsFailure) { _actionError = result.Error; }
+        if (result.IsFailure) { _actionError = result.Error.Message; }
         else { Nav.NavigateTo("requests/mine"); }
     }
 
@@ -1303,7 +1303,7 @@ else
                     _usageReceiptFile.Size,
                     stream,
                     AttachmentCategory.UsageReceipt));
-                if (upload.IsFailure) { _usageError = upload.Error; return; }
+                if (upload.IsFailure) { _usageError = upload.Error.Message; return; }
                 attachmentId = upload.Value;
             }
 
@@ -1312,14 +1312,14 @@ else
                 var res = await Mediator.Send(new UpdateAdvanceUsageCommand(
                     _request.Id, _editingUsageId.Value, CurrentUser.UserId,
                     _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
-                if (res.IsFailure) { _usageError = res.Error; return; }
+                if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
             else
             {
                 var res = await Mediator.Send(new AddAdvanceUsageCommand(
                     _request.Id, CurrentUser.UserId,
                     _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
-                if (res.IsFailure) { _usageError = res.Error; return; }
+                if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
 
             _showUsageModal = false;
@@ -1338,7 +1338,7 @@ else
         _actioning = true;
         var res = await Mediator.Send(new RemoveAdvanceUsageCommand(Id, usageId, CurrentUser.UserId));
         _actioning = false;
-        if (res.IsFailure) { _actionError = res.Error; }
+        if (res.IsFailure) { _actionError = res.Error.Message; }
         else { _actionSuccess = "Usage removed."; await LoadRequest(); }
     }
 
@@ -1347,7 +1347,7 @@ else
         _actioning = true; _showSubmitReconModal = false;
         var res = await Mediator.Send(new SubmitReconciliationCommand(Id, CurrentUser.UserId));
         _actioning = false;
-        if (res.IsFailure) { _actionError = res.Error; }
+        if (res.IsFailure) { _actionError = res.Error.Message; }
         else { _actionSuccess = "Reconciliation submitted."; await LoadRequest(); }
     }
 
@@ -1365,7 +1365,7 @@ else
         _actioning = true;
         var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount, _refundDate));
         _actioning = false;
-        if (res.IsFailure) { _refundError = res.Error; return; }
+        if (res.IsFailure) { _refundError = res.Error.Message; return; }
         _showRefundModal = false;
         _actionSuccess = "Refund recorded.";
         await LoadRequest();
@@ -1384,7 +1384,7 @@ else
         _actioning = true;
         var res = await Mediator.Send(new ExtendReconciliationDeadlineCommand(Id, CurrentUser.UserId, _newDeadline));
         _actioning = false;
-        if (res.IsFailure) { _extendError = res.Error; return; }
+        if (res.IsFailure) { _extendError = res.Error.Message; return; }
         _showExtendModal = false;
         _actionSuccess = "Deadline extended.";
         await LoadRequest();

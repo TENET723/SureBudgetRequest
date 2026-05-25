@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.Abstractions.Security;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Users.Commands.ChangePassword;
 
@@ -38,17 +39,17 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
     {
         if (string.IsNullOrEmpty(command.NewPassword)
             || command.NewPassword.Length < MinimumPasswordLength)
-            return Result.Failure($"New password must be at least {MinimumPasswordLength} characters.");
+            return Result.Failure(UserErrors.PasswordTooShort(MinimumPasswordLength));
 
         if (command.CurrentPassword == command.NewPassword)
-            return Result.Failure("New password must be different from the current password.");
+            return Result.Failure(UserErrors.PasswordsMustBeDifferent);
 
         var user = await _userRepository.GetByIdAsync(command.UserId, ct);
         if (user is null || !user.IsActive)
-            return Result.Failure("User not found.");
+            return Result.Failure(UserErrors.GenericNotFound);
 
         if (!_passwordHasher.Verify(user.PasswordHash, command.CurrentPassword))
-            return Result.Failure("Current password is incorrect.");
+            return Result.Failure(UserErrors.CurrentPasswordIncorrect);
 
         user.SetPasswordHash(_passwordHasher.Hash(command.NewPassword), mustChangeOnNextLogin: false);
         await _unitOfWork.SaveChangesAsync(ct);

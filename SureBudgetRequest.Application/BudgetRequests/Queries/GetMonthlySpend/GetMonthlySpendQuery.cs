@@ -1,6 +1,7 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend;
 
@@ -52,7 +53,7 @@ public sealed class GetMonthlySpendQueryHandler
         var department = await _departmentRepository.GetByIdAsync(
             request.DepartmentId, cancellationToken);
         if (department is null)
-            return Result.Failure<MonthlySpendDto>("Department not found.");
+            return Result.Failure<MonthlySpendDto>(BudgetRequestErrors.DepartmentNotFound);
 
         var nowUtc = DateTime.UtcNow;
         var spent = await _budgetRequestRepository.GetMonthlyApprovedSpendInMmkAsync(

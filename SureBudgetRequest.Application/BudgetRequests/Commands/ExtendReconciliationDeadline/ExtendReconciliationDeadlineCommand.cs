@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline;
 
@@ -39,11 +40,11 @@ public sealed class ExtendReconciliationDeadlineCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var financeUser = await _userRepository.GetByIdAsync(command.FinanceUserId, cancellationToken);
         if (financeUser is null || financeUser.Role != UserRole.Finance)
-            return Result.Failure("Only a Finance user can extend a reconciliation deadline.");
+            return Result.Failure(BudgetRequestErrors.OnlyFinanceCanExtend);
 
         var result = budgetRequest.ExtendReconciliationDeadline(
             DateTime.SpecifyKind(command.NewDeadline, DateTimeKind.Utc));

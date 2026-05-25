@@ -27,7 +27,7 @@ public static class AttachmentEndpoints
                 var result = await mediator.Send(new DownloadAttachmentQuery(attachmentId), ct);
                 if (result.IsFailure || result.Value is null)
                 {
-                    return Results.NotFound(new { error = result.Error ?? "Attachment not found." });
+                    return Results.NotFound(new { error = result.Error.Message ?? "Attachment not found." });
                 }
 
                 var content = result.Value;

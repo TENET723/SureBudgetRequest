@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Users.Commands.UpdateUser;
 
@@ -34,25 +35,25 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
     public async Task<Result> Handle(UpdateUserCommand command, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(command.Email))
-            return Result.Failure("Email is required.");
+            return Result.Failure(UserErrors.EmailRequired);
 
         var user = await _userRepository.GetByIdAsync(command.UserId, ct);
-        if (user is null) return Result.Failure("User not found.");
+        if (user is null) return Result.Failure(UserErrors.GenericNotFound);
 
         var dept = await _departmentRepository.GetByIdAsync(command.DepartmentId, ct);
-        if (dept is null) return Result.Failure("Department not found.");
+        if (dept is null) return Result.Failure(DepartmentErrors.NotFound);
 
         // If the email is changing, ensure the new one isn't already taken.
         var normalizedNew = command.Email.Trim().ToLowerInvariant();
         if (!string.Equals(user.Email, normalizedNew, StringComparison.Ordinal)
             && await _userRepository.EmailExistsAsync(normalizedNew, ct))
         {
-            return Result.Failure("A user with this email already exists.");
+            return Result.Failure(UserErrors.EmailAlreadyExists);
         }
 
         // The Finance-approver flag only makes sense for Finance users.
         if (command.IsFinanceApprover && command.Role != UserRole.Finance)
-            return Result.Failure("Only a user with the Finance role can be marked as a Finance Approver.");
+            return Result.Failure(UserErrors.OnlyFinanceCanBeApprover);
 
         // ── Bus-factor safeguard ───────────────────────────────────────────────
         // If this user is currently the LAST active Finance approver and the
@@ -67,9 +68,7 @@ public sealed class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand
             var approverCount = await _userRepository.CountActiveFinanceApproversAsync(ct);
             if (approverCount <= 1)
             {
-                return Result.Failure(
-                    "Cannot remove the last active Finance Approver — Finance-stage requests " +
-                    "would have no one to approve them. Promote another Finance user first.");
+                return Result.Failure(UserErrors.LastActiveFinanceApprover);
             }
         }
         // ───────────────────────────────────────────────────────────────────────

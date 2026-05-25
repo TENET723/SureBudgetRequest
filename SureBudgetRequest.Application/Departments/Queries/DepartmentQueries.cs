@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Queries;
 
@@ -32,7 +33,7 @@ public sealed class GetDepartmentQueryHandler : IRequestHandler<GetDepartmentQue
     {
         var dept = await _repository.GetByIdAsync(request.DepartmentId, ct);
         return dept is null
-            ? Result.Failure<DepartmentDto>("Department not found.")
+            ? Result.Failure<DepartmentDto>(DepartmentErrors.NotFound)
             : Result.Success(DepartmentDto.FromEntity(dept));
     }
 }

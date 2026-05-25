@@ -205,7 +205,7 @@
             var result = await Mediator.Send(new AssignDepartmentHeadCommand(_assigningDept.Id, headId));
             if (result.IsFailure)
             {
-                _formError = result.Error;
+                _formError = result.Error.Message;
                 return;
             }
             _successMessage = $"Head of {_assigningDept.Name} updated.";

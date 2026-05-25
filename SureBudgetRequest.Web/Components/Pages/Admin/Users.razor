@@ -439,7 +439,7 @@
                     _formSlackId,
                     isFinanceApprover);
                 var result = await Mediator.Send(cmd);
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
             }
             else
             {
@@ -453,7 +453,7 @@
                     _formSlackId,
                     isFinanceApprover);
                 var result = await Mediator.Send(cmd);
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
             }
 
             _successMessage = _editingId.HasValue ? "User updated." : "User created.";
@@ -472,7 +472,7 @@
         var result = await Mediator.Send(new DeactivateUserCommand(_deactivatingUser.Id));
         _saving = false;
         _deactivatingUser = null;
-        if (result.IsFailure) { _errorMessage = result.Error; }
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = "User deactivated."; await LoadUsers(); }
     }
 
@@ -505,7 +505,7 @@
         try
         {
             var result = await Mediator.Send(new ResetUserPasswordCommand(_resettingUser.Id, _resetPassword));
-            if (result.IsFailure) { _resetError = result.Error; return; }
+            if (result.IsFailure) { _resetError = result.Error.Message; return; }
 
             _successMessage = $"Password reset for {_resettingUser.FullName}. They must change it on next login.";
             _resettingUser = null;

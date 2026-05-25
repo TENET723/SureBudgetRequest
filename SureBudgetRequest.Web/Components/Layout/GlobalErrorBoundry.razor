@@ -1,0 +1,38 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.Logging
+@inherits ErrorBoundary
+@* @inject ILogger<GlobalErrorBoundary> Logger *@
+
+@* This custom ErrorBoundary inherits from the built-in Blazor ErrorBoundary.
+    We do this so we can override OnErrorAsync and log the exception to the server console/file,
+    while showing a friendly UI to the user instead of crashing the SignalR circuit.
+*@
+
+@if (CurrentException is null)
+{
+    @ChildContent
+}
+else if (ErrorContent is not null)
+{
+    @ErrorContent(CurrentException)
+}
+else
+{
+    <div class="alert alert-danger m-4 shadow-sm" role="alert">
+        <h4 class="alert-heading fw-bold">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> An unexpected error occurred.
+        </h4>
+        <p>Our engineering team has been notified and the error has been logged. Please try resetting the view.</p>
+        <hr>
+        <button class="btn btn-outline-danger" @onclick="Recover">Clear Error & Try Again</button>
+    </div>
+}
+
+@code {
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        // This ensures unexpected exceptions in Blazor Server components are actually logged
+        //Logger.LogError(exception, "An unhandled exception was caught by the Global Error Boundary.");
+        return base.OnErrorAsync(exception);
+    }
+}

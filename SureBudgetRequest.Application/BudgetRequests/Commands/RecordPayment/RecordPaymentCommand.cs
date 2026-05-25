@@ -4,6 +4,7 @@ using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment;
 
@@ -42,11 +43,11 @@ public sealed class RecordPaymentCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         var financeUser = await _userRepository.GetByIdAsync(command.FinanceUserId, cancellationToken);
         if (financeUser is null || financeUser.Role != UserRole.Finance)
-            return Result.Failure("Only a Finance user can record payments.");
+            return Result.Failure(BudgetRequestErrors.OnlyFinanceCanRecordPayment);
 
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.RecordPayment(

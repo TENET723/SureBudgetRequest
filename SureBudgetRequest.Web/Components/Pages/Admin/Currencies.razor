@@ -281,14 +281,14 @@
             if (_editingCode is null)
             {
                 var result = await Mediator.Send(new CreateCurrencyCommand(_formCode, _formName, _formRate));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = $"Currency '{result.Value}' created.";
             }
             else
             {
                 var result = await Mediator.Send(new UpdateCurrencyCommand(
                     _editingCode, _formName, _formRate, _formIsActive, CurrentUser.UserId));
-                if (result.IsFailure) { _formError = result.Error; return; }
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
                 _successMessage = $"Currency '{_editingCode}' updated.";
             }
 

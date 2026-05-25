@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAdvanceUsage;
 
@@ -35,10 +36,10 @@ public sealed class RemoveAdvanceUsageCommandHandler
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
-            return Result.Failure("Budget request not found.");
+            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
         if (command.UserId != budgetRequest.RequesterId)
-            return Result.Failure("Only the requester can remove usage from their own advance.");
+            return Result.Failure(BudgetRequestErrors.OnlyRequesterCanRemoveUsage);
 
         var result = budgetRequest.RemoveAdvanceUsage(command.UsageId);
         if (result.IsFailure) return result;

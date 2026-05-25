@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Currencies.Commands.CreateCurrency;
 
@@ -27,7 +28,7 @@ public sealed class CreateCurrencyCommandHandler
     {
         var existing = await _repository.GetByCodeAsync(command.Code, ct);
         if (existing is not null)
-            return Result.Failure<string>($"Currency '{existing.Code}' already exists.");
+            return Result.Failure<string>(CurrencyErrors.AlreadyExists(command.Code));
 
         Currency currency;
         try
@@ -36,7 +37,7 @@ public sealed class CreateCurrencyCommandHandler
         }
         catch (ArgumentException ex)
         {
-            return Result.Failure<string>(ex.Message);
+            return Result.Failure<string>(CurrencyErrors.ValidationError(ex.Message));
         }
 
         await _repository.AddAsync(currency, ct);
