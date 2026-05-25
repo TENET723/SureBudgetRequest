@@ -466,7 +466,22 @@ else
                                         <td class="small">
                                             @if (u.AttachmentId.HasValue)
                                             {
-                                                <a href="@($"/api/attachments/{u.AttachmentId.Value}")" target="_blank" rel="noopener">View</a>
+                                               
+                                                    var receipt = FindAttachment(u.AttachmentId);
+                                                    var receiptUrl = $"/api/attachments/{u.AttachmentId.Value}";
+                                                
+                                                @if (receipt is not null && IsImage(receipt.ContentType))
+                                                {
+                                                    <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                        <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy"
+                                                             style="max-width:64px;max-height:64px;object-fit:contain;display:block;
+                                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <a href="@receiptUrl" target="_blank" rel="noopener">View</a>
+                                                }
                                             }
                                             else
                                             {
@@ -762,10 +777,27 @@ else
                         </label>
                         @if (_editingUsageId.HasValue && _usageExistingAttachmentId.HasValue)
                         {
+                            
+                                var currentReceipt = FindAttachment(_usageExistingAttachmentId);
+                                var currentReceiptUrl = $"/api/attachments/{_usageExistingAttachmentId.Value}";
+                            
                             <div class="small mb-1">
-                                Current:
-                                <a href="@($"/api/attachments/{_usageExistingAttachmentId.Value}")" target="_blank" rel="noopener">view receipt</a>
-                                <span class="text-muted">— choosing a new file replaces it.</span>
+                                @if (currentReceipt is not null && IsImage(currentReceipt.ContentType))
+                                {
+                                    <div class="mb-1">Current receipt:</div>
+                                    <a href="@currentReceiptUrl" target="_blank" rel="noopener" title="@currentReceipt.FileName">
+                                        <img src="@currentReceiptUrl" alt="@currentReceipt.FileName" loading="lazy"
+                                             style="max-width:200px;max-height:200px;object-fit:contain;display:block;
+                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                                    </a>
+                                    <div class="text-muted mt-1">Choosing a new file replaces it.</div>
+                                }
+                                else
+                                {
+                                    <span>Current: </span>
+                                    <a href="@currentReceiptUrl" target="_blank" rel="noopener">view receipt</a>
+                                    <span class="text-muted"> — choosing a new file replaces it.</span>
+                                }
                             </div>
                         }
                         <InputFile OnChange="OnUsageReceiptSelected" class="form-control form-control-sm" />
@@ -945,6 +977,18 @@ else
     private bool CanEditUsage => _request is not null
         && _request.Status == RequestStatus.PendingReconciliation
         && IsRequester;
+
+    // Resolves a usage row's receipt (an UsageReceipt-category attachment) from
+    // the already-loaded request attachments, so receipts can be previewed
+    // inline without an extra query.
+    private AttachmentDto? FindAttachment(Guid? attachmentId) =>
+        attachmentId.HasValue && _request is not null
+            ? _request.Attachments.FirstOrDefault(a => a.Id == attachmentId.Value)
+            : null;
+
+    private static bool IsImage(string? contentType) =>
+        !string.IsNullOrEmpty(contentType) &&
+        contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync() => await LoadRequest();
 
