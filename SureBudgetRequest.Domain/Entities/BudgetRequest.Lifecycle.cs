@@ -261,18 +261,26 @@ public partial class BudgetRequest
         Guid uploadedByUserId,
         AttachmentCategory category = AttachmentCategory.General)
     {
-        // Usage receipts are attached during the reconciliation phase; everything
-        // else is restricted to the editable Draft/SentBack window.
         var isReconciliationReceipt =
-            category == AttachmentCategory.UsageReceipt
-            && Status == RequestStatus.PendingReconciliation;
+              category == AttachmentCategory.UsageReceipt
+              && Status == RequestStatus.PendingReconciliation;
+
+        // NEW: Bypass lane for Finance uploading payment receipts
+        var isPaymentReceipt =
+            category == AttachmentCategory.PaymentReceipt
+            && Status is RequestStatus.Approved or RequestStatus.PartiallyPaid;
 
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack
-            && !isReconciliationReceipt)
-            return Result.Failure($"Attachments can only be added while the request is in Draft or SentBack (current: '{Status}').");
+            && !isReconciliationReceipt
+            && !isPaymentReceipt)
+        {
+            return Result.Failure($"Cannot add attachment for category '{category}' while status is '{Status}'.");
+        }
 
-        if (uploadedByUserId != RequesterId)
-            return Result.Failure("Only the requester can add attachments to their request.");
+        // The requester owns Draft, SentBack, and Reconciliation files.
+        // Finance owns Payment files. We just ensure non-Finance uploads are restricted to the Requester.
+        if (!isPaymentReceipt && uploadedByUserId != RequesterId)
+            return Result.Failure("Only the requester can add this type of attachment.");
 
         if (string.IsNullOrWhiteSpace(fileName))
             return Result.Failure("File name is required.");

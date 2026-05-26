@@ -349,6 +349,7 @@ else
                                     <th>Date</th>
                                     <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                     <th>Reference</th>
+                                    <th>Receipt</th>
                                     <th>Recorded by</th>
                                 </tr>
                             </thead>
@@ -359,6 +360,30 @@ else
                                         <td class="small">@p.PaidAt.ToLocalTime().ToString("g")</td>
                                         <td class="text-end">@p.Amount.ToString("N0")</td>
                                         <td class="small text-muted">@(p.Reference ?? "—")</td>
+                                        <td class="small">
+                                            @if (p.AttachmentId.HasValue)
+                                            {
+                                                var receipt = FindAttachment(p.AttachmentId);
+                                                var receiptUrl = $"/api/attachments/{p.AttachmentId.Value}";
+                                                
+                                                @if (receipt is not null && IsImage(receipt.ContentType))
+                                                {
+                                                    <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                        <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy"
+                                                             style="max-width:64px;max-height:64px;object-fit:contain;display:block;
+                                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                                                    </a>
+                                                }
+                                                else
+                                                {
+                                                    <a href="@receiptUrl" target="_blank" rel="noopener">View</a>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
                                         <td class="small">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
                                     </tr>
                                 }
@@ -706,6 +731,15 @@ else
                         <label class="form-label small fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
                         <input class="form-control form-control-sm" @bind="_paymentNote" />
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Receipt <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <InputFile OnChange="@(e => _paymentReceiptFile = e.File)" class="form-control form-control-sm" />
+                        <div class="form-text small">
+                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="() => _showPaymentModal = false">Cancel</button>
@@ -939,6 +973,8 @@ else
     private DateTime _paymentDate = DateTime.Today;
     private string? _paymentRef;
     private string? _paymentNote;
+    private IBrowserFile? _paymentReceiptFile;
+    private string? _paymentPreviewUrl;
     private string? _paymentError;
     private bool _showCancelModal;
 
@@ -957,6 +993,7 @@ else
     private decimal _usageAmount;
     private string _usageDescription = "";
     private IBrowserFile? _usageReceiptFile;
+    private string? _usagePreviewUrl;
     private Guid? _usageExistingAttachmentId;      // the row's current receipt when editing
     private string? _usageError;
     private bool _usageBusy;
@@ -1165,6 +1202,7 @@ else
     private void OpenPaymentModal()
     {
         _paymentError = null;
+        _paymentReceiptFile = null;
         // When partial isn't allowed, force the amount to the full remaining balance.
         _paymentAmount = (_request is not null && !_request.AllowsPartialPayment)
             ? _request.RemainingBalance
@@ -1181,11 +1219,77 @@ else
             _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N0} {_request.CurrencyCode}).";
             return;
         }
-        _actioning = true; _showPaymentModal = false;
-        var result = await Mediator.Send(new RecordPaymentCommand(Id, CurrentUser.UserId, _paymentAmount, _paymentDate, _paymentRef, _paymentNote));
-        _actioning = false; _paymentAmount = 0; _paymentRef = null; _paymentNote = null;
-        if (result.IsFailure) { _actionError = result.Error.Message; }
-        else { _actionSuccess = "Payment recorded."; await LoadRequest(); }
+
+        _actioning = true;
+        try
+        {
+            Guid? attachmentId = null;
+            if (_paymentReceiptFile is not null)
+            {
+                if (_paymentReceiptFile.Size > AttachmentConstraints.MaxBytes)
+                {
+                    _paymentError = $"Receipt is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                    _actioning = false;
+                    return;
+                }
+                if (!AttachmentConstraints.IsAllowedContentType(_paymentReceiptFile.ContentType))
+                {
+                    _paymentError = $"Receipt file type '{_paymentReceiptFile.ContentType}' is not allowed.";
+                    _actioning = false;
+                    return;
+                }
+
+                await using var stream = _paymentReceiptFile.OpenReadStream(AttachmentConstraints.MaxBytes);
+                var upload = await Mediator.Send(new UploadAttachmentCommand(
+                    Id,
+                    CurrentUser.UserId,
+                    _paymentReceiptFile.Name,
+                    _paymentReceiptFile.ContentType,
+                    _paymentReceiptFile.Size,
+                    stream,
+                    AttachmentCategory.PaymentReceipt));
+
+                if (upload.IsFailure)
+                {
+                    _paymentError = upload.Error.Message;
+                    _actioning = false;
+                    return;
+                }
+                attachmentId = upload.Value;
+            }
+
+            var result = await Mediator.Send(new RecordPaymentCommand(
+                Id,
+                CurrentUser.UserId,
+                _paymentAmount,
+                _paymentDate,
+                _paymentRef,
+                _paymentNote,
+                attachmentId));
+
+            if (result.IsFailure)
+            {
+                _paymentError = result.Error.Message;
+                _actioning = false;
+                return;
+            }
+
+            _showPaymentModal = false;
+            _paymentAmount = 0;
+            _paymentRef = null;
+            _paymentNote = null;
+            _paymentReceiptFile = null;
+            _actionSuccess = "Payment recorded.";
+            await LoadRequest();
+        }
+        catch (Exception ex)
+        {
+            _paymentError = $"Failed to record payment: {ex.Message}";
+        }
+        finally
+        {
+            _actioning = false;
+        }
     }
 
     private async Task DoCancel()
@@ -1232,6 +1336,7 @@ else
         _usageAmount = 0m;
         _usageDescription = "";
         _usageReceiptFile = null;
+        _usagePreviewUrl = null;
         _usageExistingAttachmentId = null;
         _usageError = null;
         _showUsageModal = true;
@@ -1244,6 +1349,7 @@ else
         _usageAmount = u.Amount;
         _usageDescription = u.Description;
         _usageReceiptFile = null;
+        _usagePreviewUrl = null;
         _usageExistingAttachmentId = u.AttachmentId;
         _usageError = null;
         _showUsageModal = true;
@@ -1253,12 +1359,53 @@ else
     {
         _showUsageModal = false;
         _usageReceiptFile = null;
+        _usagePreviewUrl = null;
+    }
+
+    private async Task OnPaymentReceiptSelected(InputFileChangeEventArgs e)
+    {
+        _paymentReceiptFile = e.File;
+        _paymentError = null;
+        _paymentPreviewUrl = null;
+
+        if (_paymentReceiptFile.ContentType.StartsWith("image/"))
+        {
+            try
+            {
+                var resizedFile = await _paymentReceiptFile.RequestImageFileAsync(_paymentReceiptFile.ContentType, 400, 400);
+                await using var stream = resizedFile.OpenReadStream();
+                var buffer = new byte[resizedFile.Size];
+                await stream.ReadExactlyAsync(buffer);
+                _paymentPreviewUrl = $"data:{_paymentReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            }
+            catch { /* ignore preview failures */ }
+        }
     }
 
     private void OnUsageReceiptSelected(InputFileChangeEventArgs e)
     {
         _usageReceiptFile = e.File;
         _usageError = null;
+        _usagePreviewUrl = null;
+
+        if (_usageReceiptFile.ContentType.StartsWith("image/"))
+        {
+            // We can't use await here because the existing method is void.
+            // Let's change it to async Task.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var resizedFile = await _usageReceiptFile.RequestImageFileAsync(_usageReceiptFile.ContentType, 400, 400);
+                    await using var stream = resizedFile.OpenReadStream();
+                    var buffer = new byte[resizedFile.Size];
+                    await stream.ReadExactlyAsync(buffer);
+                    _usagePreviewUrl = $"data:{_usageReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch { /* ignore preview failures */ }
+            });
+        }
     }
 
     private async Task DoSaveUsage()

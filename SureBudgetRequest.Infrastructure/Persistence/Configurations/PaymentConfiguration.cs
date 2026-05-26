@@ -18,6 +18,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.RecordedByUserId).IsRequired();
         builder.Property(p => p.Reference).HasMaxLength(200);
         builder.Property(p => p.Note).HasMaxLength(1000);
+        builder.Property(p => p.AttachmentId).IsRequired(false);
 
         builder.HasIndex(p => p.BudgetRequestId);
     }

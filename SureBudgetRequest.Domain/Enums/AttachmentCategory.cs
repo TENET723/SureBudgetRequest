@@ -19,5 +19,6 @@ public enum AttachmentCategory
 {
     General = 0,
     WithdrawMethod = 1,
-    UsageReceipt = 2
+    UsageReceipt = 2,
+    PaymentReceipt = 3
 }

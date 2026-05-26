@@ -157,10 +157,11 @@ public sealed record PaymentDto(
     DateTime PaidAt,
     Guid RecordedByUserId,
     string? Reference,
-    string? Note)
+    string? Note,
+    Guid? AttachmentId)
 {
     public static PaymentDto FromEntity(Payment e) => new(
-        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note);
+        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, e.AttachmentId);
 }
 
 public sealed record AttachmentDto(

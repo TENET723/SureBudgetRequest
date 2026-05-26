@@ -14,7 +14,8 @@ public sealed record RecordPaymentCommand(
     decimal Amount,
     DateTime PaidAt,
     string? Reference,
-    string? Note) : IRequest<Result>;
+    string? Note,
+    Guid? AttachmentId = null) : IRequest<Result>;
 
 public sealed class RecordPaymentCommandHandler
     : IRequestHandler<RecordPaymentCommand, Result>
@@ -55,7 +56,8 @@ public sealed class RecordPaymentCommandHandler
             command.FinanceUserId,
             DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.Reference,
-            command.Note);
+            command.Note,
+            command.AttachmentId);
 
         if (result.IsFailure) return result;
 

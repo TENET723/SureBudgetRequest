@@ -9,6 +9,7 @@ public class Payment
     public Guid RecordedByUserId { get; private set; }
     public string? Reference { get; private set; }
     public string? Note { get; private set; }
+    public Guid? AttachmentId { get; private set; }
 
     // For EF Core
     private Payment() { }
@@ -20,7 +21,8 @@ public class Payment
         DateTime paidAt,
         Guid recordedByUserId,
         string? reference,
-        string? note)
+        string? note,
+        Guid? attachmentId)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -29,5 +31,6 @@ public class Payment
         RecordedByUserId = recordedByUserId;
         Reference = reference;
         Note = note;
+        AttachmentId = attachmentId;
     }
 }
