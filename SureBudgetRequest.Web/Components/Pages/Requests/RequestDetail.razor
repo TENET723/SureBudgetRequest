@@ -735,10 +735,18 @@ else
                         <label class="form-label small fw-semibold">
                             Receipt <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <InputFile OnChange="@(e => _paymentReceiptFile = e.File)" class="form-control form-control-sm" />
+                        <InputFile OnChange="OnPaymentReceiptSelected" class="form-control form-control-sm" />
                         <div class="form-text small">
                             Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
                         </div>
+                        @if (!string.IsNullOrEmpty(_paymentPreviewUrl))
+                        {
+                            <div class="mt-2">
+                                <span class="small d-block mb-1 text-muted">Preview:</span>
+                                <img src="@_paymentPreviewUrl" alt="Payment Receipt Preview"
+                                     style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -838,6 +846,14 @@ else
                         <div class="form-text small">
                             Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
                         </div>
+                        @if (!string.IsNullOrEmpty(_usagePreviewUrl))
+                        {
+                            <div class="mt-2">
+                                <span class="small d-block mb-1 text-muted">Preview:</span>
+                                <img src="@(_usagePreviewUrl)" alt="Usage Receipt Preview"
+                                     style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1203,6 +1219,7 @@ else
     {
         _paymentError = null;
         _paymentReceiptFile = null;
+        _paymentPreviewUrl = null;
         // When partial isn't allowed, force the amount to the full remaining balance.
         _paymentAmount = (_request is not null && !_request.AllowsPartialPayment)
             ? _request.RemainingBalance
@@ -1279,6 +1296,7 @@ else
             _paymentRef = null;
             _paymentNote = null;
             _paymentReceiptFile = null;
+            _paymentPreviewUrl = null;
             _actionSuccess = "Payment recorded.";
             await LoadRequest();
         }
@@ -1382,7 +1400,7 @@ else
         }
     }
 
-    private void OnUsageReceiptSelected(InputFileChangeEventArgs e)
+    private async Task OnUsageReceiptSelected(InputFileChangeEventArgs e)
     {
         _usageReceiptFile = e.File;
         _usageError = null;
@@ -1390,23 +1408,18 @@ else
 
         if (_usageReceiptFile.ContentType.StartsWith("image/"))
         {
-            // We can't use await here because the existing method is void.
-            // Let's change it to async Task.
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    var resizedFile = await _usageReceiptFile.RequestImageFileAsync(_usageReceiptFile.ContentType, 400, 400);
-                    await using var stream = resizedFile.OpenReadStream();
-                    var buffer = new byte[resizedFile.Size];
-                    await stream.ReadExactlyAsync(buffer);
-                    _usagePreviewUrl = $"data:{_usageReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
-                    await InvokeAsync(StateHasChanged);
-                }
-                catch { /* ignore preview failures */ }
-            });
+                var resizedFile = await _usageReceiptFile.RequestImageFileAsync(_usageReceiptFile.ContentType, 400, 400);
+                await using var stream = resizedFile.OpenReadStream();
+                var buffer = new byte[resizedFile.Size];
+                await stream.ReadExactlyAsync(buffer);
+                _usagePreviewUrl = $"data:{_usageReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+            }
+            catch { /* ignore preview failures */ }
         }
     }
+
 
     private async Task DoSaveUsage()
     {
