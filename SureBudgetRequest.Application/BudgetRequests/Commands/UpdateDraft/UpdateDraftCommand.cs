@@ -20,7 +20,8 @@ public sealed record UpdateDraftCommand(
     Guid WithdrawMethodId,
     bool AllowsPartialPayment,
     string? PartialPaymentDetail,
-    string? MonthlyOverrunJustification = null) : IRequest<Result>;
+    string? MonthlyOverrunJustification = null,
+    decimal? ManualExchangeRate = null) : IRequest<Result>;
 
 public sealed class UpdateDraftCommandHandler
     : IRequestHandler<UpdateDraftCommand, Result>
@@ -82,7 +83,8 @@ public sealed class UpdateDraftCommandHandler
             command.WithdrawMethodId,
             command.AllowsPartialPayment,
             command.PartialPaymentDetail,
-            command.MonthlyOverrunJustification);
+            command.MonthlyOverrunJustification,
+            command.ManualExchangeRate);
 
         if (result.IsFailure) return result;
 

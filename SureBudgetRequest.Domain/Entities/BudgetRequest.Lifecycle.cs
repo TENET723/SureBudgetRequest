@@ -27,7 +27,8 @@ public partial class BudgetRequest
         Guid withdrawMethodId,
         bool allowsPartialPayment,
         string? partialPaymentDetail,
-        string? monthlyOverrunJustification = null)
+        string? monthlyOverrunJustification = null,
+        decimal? manualExchangeRate = null)
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
@@ -44,6 +45,12 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(deptHeadName))
             throw new ArgumentException("Dept head name is required.", nameof(deptHeadName));
 
+        if (type == BudgetRequestType.Advance && manualExchangeRate.HasValue)
+            throw new ArgumentException("Manual exchange rate is not allowed for Advance requests.", nameof(manualExchangeRate));
+
+        if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
+            throw new ArgumentException("Manual exchange rate must be greater than zero.", nameof(manualExchangeRate));
+
         return new BudgetRequest
         {
             //Id = Guid.NewGuid(),
@@ -55,6 +62,7 @@ public partial class BudgetRequest
             RequestDate = requestDate,
             RequestedAmount = requestedAmount,
             CurrencyCode = currencyCode.Trim().ToUpperInvariant(),
+            ManualExchangeRate = manualExchangeRate,
             Reasons = reasons,
             WithdrawerName = withdrawerName,
             WithdrawerJobTitle = withdrawerJobTitle,
@@ -80,7 +88,8 @@ public partial class BudgetRequest
         Guid withdrawMethodId,
         bool allowsPartialPayment,
         string? partialPaymentDetail,
-        string? monthlyOverrunJustification = null)
+        string? monthlyOverrunJustification = null,
+        decimal? manualExchangeRate = null)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
@@ -98,10 +107,17 @@ public partial class BudgetRequest
         if (withdrawMethodId == Guid.Empty)
             return Result.Failure("Withdraw method is required.");
 
+        if (type == BudgetRequestType.Advance && manualExchangeRate.HasValue)
+            return Result.Failure("Manual exchange rate is not allowed for Advance requests.");
+
+        if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
+            return Result.Failure("Manual exchange rate must be greater than zero.");
+
         RequestDate = requestDate;
         RequestedAmount = requestedAmount;
         CurrencyCode = currencyCode.Trim().ToUpperInvariant();
         Type = type;
+        ManualExchangeRate = manualExchangeRate;
         Reasons = reasons;
         WithdrawerName = withdrawerName;
         WithdrawerJobTitle = withdrawerJobTitle;
@@ -130,7 +146,7 @@ public partial class BudgetRequest
         decimal departmentLimit,             // in MMK
         decimal? monthlyLimit,               // in MMK; null = monthly enforcement disabled for this dept
         decimal? monthlySpendBeforeInMmk,    // in MMK; pass null when monthlyLimit is null
-        decimal exchangeRateToMmk,           // current rate for this.CurrencyCode
+        decimal exchangeRateToMmk,           // current system rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
         string requesterName,
@@ -139,7 +155,10 @@ public partial class BudgetRequest
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
 
-        if (exchangeRateToMmk <= 0)
+        // Priority: Manual rate override (locked at draft time) > passed-in system rate.
+        var effectiveRate = ManualExchangeRate ?? exchangeRateToMmk;
+
+        if (effectiveRate <= 0)
             return Result.Failure("Exchange rate must be greater than zero.");
         if (string.IsNullOrWhiteSpace(deptHeadName))
             return Result.Failure("Dept head name is required.");
@@ -165,7 +184,7 @@ public partial class BudgetRequest
                 "Monthly limit and monthly spend snapshot must both be supplied, or both be null.");
 
         // Convert to MMK for the limit comparisons
-        var amountInMmk = RequestedAmount * exchangeRateToMmk;
+        var amountInMmk = RequestedAmount * effectiveRate;
         var isOverPerRequestLimit = amountInMmk > departmentLimit;
 
         // Monthly check — only when the department has a monthly limit configured.
@@ -182,7 +201,7 @@ public partial class BudgetRequest
         DepartmentLimitAtSubmission = departmentLimit;
         MonthlyLimitAtSubmission = monthlyLimit;
         MonthlySpendBeforeAtSubmission = monthlySpendBeforeInMmk;
-        ExchangeRateAtSubmission = exchangeRateToMmk;
+        ExchangeRateAtSubmission = effectiveRate;
         RequestedAmountInMmkAtSubmission = amountInMmk;
         DeptHeadIdAtSubmission = deptHeadId;
         DeptHeadNameAtSubmission = deptHeadName;

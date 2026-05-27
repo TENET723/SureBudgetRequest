@@ -111,7 +111,7 @@ Pending<Stage> → Rejected
 - **R3** — Each department has exactly **one** Department Head.
 - **R4** — Each user belongs to exactly **one** department.
 - **R6** — The department **per-request limit** (in MMK) is a per-single-request threshold for routing. A request whose MMK-equivalent exceeds it triggers Management approval.
-- **R7** — The per-request limit comparison uses the department's **current** per-request limit AND the **current exchange rate** at submission time. Both are snapshotted onto the request.
+- **R7** — The per-request limit comparison uses the department's **current** per-request limit AND the **effective exchange rate** at submission time. The effective rate is either a **manual override** provided by the requester (R28) or the **current system exchange rate** at the moment of submission. Both are snapshotted onto the request.
 - **R7a** — Exchange rate snapshot fields on `BudgetRequest`: `CurrencyCode`, `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`. Immutable once set.
 - **R8** — Approval is **strictly sequential**: Dept Head → Management (if applicable) → Finance.
 - **R9** — **Auto-approval rule**: any Dept Head stage where the assigned approver is the requester is auto-approved by the system at submission time.
@@ -140,6 +140,12 @@ Pending<Stage> → Rejected
 - **R26** — Pre-existing approved requests (created before this feature shipped) have `CoaId = null` indefinitely. No backfill is performed.
 - **R27** — A `Coa` cannot be deleted while any `BudgetRequest` references it (FK `OnDelete: Restrict`). Admins **deactivate** unused accounts instead of deleting them. Deactivated accounts don't appear in the approval picker, but historical references remain intact.
 
+### Manual Exchange Rate rules
+
+- **R28** — For non-**Advance** requests, the requester may manually override the system exchange rate during the Draft or SentBack stages. If a manual rate is set, it is used for limit comparisons and MMK-equivalent snapshots at submission time.
+- **R29** — **Advance** requests always use the system exchange rate at submission time. Manual overrides are forbidden for this request type.
+- **R30** — Manual exchange rates must be greater than zero.
+
 ---
 
 ## 7. Resolved Decisions
@@ -155,6 +161,7 @@ Pending<Stage> → Rejected
 | F20 — Chart of Account | Added in v4. Required at Finance approval. Global pool. Finance role manages, Admin has access too. |
 | F21 — COA history | Not tracked per-action in v1 — `BudgetRequest.CoaId` is overwritten on re-approval. |
 | F22 — COA backfill | Existing approved requests stay null. No backfill. |
+| F25 — Manual Exchange Rate | Added in v5. Allowed for non-Advance requests; locked at submission. |
 
 ---
 

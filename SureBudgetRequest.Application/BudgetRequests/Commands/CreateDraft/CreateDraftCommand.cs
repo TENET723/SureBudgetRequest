@@ -22,7 +22,8 @@ public sealed record CreateDraftCommand(
     Guid WithdrawMethodId,
     bool AllowsPartialPayment,
     string? PartialPaymentDetail,
-    string? MonthlyOverrunJustification = null) : IRequest<Result<Guid>>;
+    string? MonthlyOverrunJustification = null,
+    decimal? ManualExchangeRate = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateDraftCommandHandler
     : IRequestHandler<CreateDraftCommand, Result<Guid>>
@@ -98,7 +99,8 @@ public sealed class CreateDraftCommandHandler
                 command.WithdrawMethodId,
                 command.AllowsPartialPayment,
                 command.PartialPaymentDetail,
-                command.MonthlyOverrunJustification);
+                command.MonthlyOverrunJustification,
+                command.ManualExchangeRate);
         }
         catch (ArgumentException ex)
         {

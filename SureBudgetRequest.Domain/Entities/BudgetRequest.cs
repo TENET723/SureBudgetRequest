@@ -38,6 +38,12 @@ public partial class BudgetRequest
     // are all in this currency. Only the limit comparison converts to MMK.
     public string CurrencyCode { get; private set; } = null!;
 
+    /// <summary>
+    /// Optional manual exchange rate override. If set, this rate is used during
+    /// submission instead of the system rate. Only allowed for non-Advance requests.
+    /// </summary>
+    public decimal? ManualExchangeRate { get; private set; }
+
     // === Submission snapshots (for stable audit/routing) ===
     public Guid DepartmentIdAtSubmission { get; private set; }
     public decimal DepartmentLimitAtSubmission { get; private set; }                // MMK
