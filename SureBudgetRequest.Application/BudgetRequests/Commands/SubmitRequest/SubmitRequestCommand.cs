@@ -19,6 +19,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IAppSettingRepository _appSettingRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -28,6 +29,7 @@ public sealed class SubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
+        IAppSettingRepository appSettingRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -36,6 +38,7 @@ public sealed class SubmitRequestCommandHandler
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _appSettingRepository = appSettingRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -51,6 +54,25 @@ public sealed class SubmitRequestCommandHandler
 
         if (budgetRequest.RequesterId != command.RequesterId)
             return Result.Failure(BudgetRequestErrors.OnlyRequesterCanSubmit);
+
+        // Advance blackout window check (Singapore Time UTC+8)
+        if (budgetRequest.Type == SureBudgetRequest.Domain.Enums.BudgetRequestType.Advance)
+        {
+            var blackoutSetting = await _appSettingRepository.GetByKeyAsync("AdvanceBlackoutDays", cancellationToken);
+            if (!int.TryParse(blackoutSetting?.Value, out var blackoutDays))
+            {
+                blackoutDays = 3; // default
+            }
+
+            var singaporeTime = DateTime.UtcNow.AddHours(8);
+            int daysInMonth = DateTime.DaysInMonth(singaporeTime.Year, singaporeTime.Month);
+            int thresholdDay = daysInMonth - blackoutDays + 1;
+
+            if (singaporeTime.Day >= thresholdDay)
+            {
+                return Result.Failure(BudgetRequestErrors.AdvanceSubmissionBlockedMonthEnd);
+            }
+        }
 
         var requester = await _userRepository.GetByIdAsync(command.RequesterId, cancellationToken);
         if (requester is null)

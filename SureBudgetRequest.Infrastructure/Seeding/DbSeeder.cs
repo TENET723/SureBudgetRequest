@@ -35,10 +35,30 @@ public sealed class DbSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
+        await SeedAppSettingsAsync(cancellationToken);
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCoasAsync(cancellationToken);
         await SeedWithdrawMethodsAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
+    }
+
+    // ── App Settings ──────────────────────────────────────────────────────────
+    private async Task SeedAppSettingsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.AppSettings.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("App settings already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding app settings...");
+
+        _db.AppSettings.Add(new AppSetting(
+            "AdvanceBlackoutDays", 
+            "3", 
+            "Days before month-end when advance requests are blocked."));
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     // ── Currencies ────────────────────────────────────────────────────────────

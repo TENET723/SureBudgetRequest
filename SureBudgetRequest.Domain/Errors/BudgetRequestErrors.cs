@@ -54,4 +54,7 @@ public static class BudgetRequestErrors
 
     public static readonly Error OnlyRequesterCanEditDraft = 
         Error.Forbidden("BudgetRequest.OnlyRequesterCanEditDraft", "Only the requester can edit their draft.");
+
+    public static readonly Error AdvanceSubmissionBlockedMonthEnd = 
+        Error.Validation("BudgetRequest.AdvanceSubmissionBlockedMonthEnd", "Advance requests cannot be submitted during the month-end blackout window.");
 }

@@ -1,0 +1,211 @@
+@page "/app-settings"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.AppSettings.Queries
+@using SureBudgetRequest.Application.AppSettings.Commands.CreateAppSetting
+@using SureBudgetRequest.Application.AppSettings.Commands.UpdateAppSetting
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Application Settings</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Application Settings</h5>
+        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Setting</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                        <th>Description</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in _settings)
+                    {
+                        <tr>
+                            <td><strong>@s.Key</strong></td>
+                            <td class="text-break">@s.Value</td>
+                            <td class="small text-muted">
+                                @(string.IsNullOrWhiteSpace(s.Description) ? "—" : s.Description)
+                            </td>
+                            <td class="text-end text-nowrap">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(s)">Edit</button>
+                            </td>
+                        </tr>
+                    }
+                    @if (!_settings.Any())
+                    {
+                        <tr><td colspan="4" class="text-center text-muted py-3">No settings found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_isEditing ? "Edit Setting" : "New Setting")</h6>
+                    <button class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-danger small py-2">@_formError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Key</label>
+                        <input class="form-control form-control-sm @(_isEditing ? "bg-light" : "")" @bind="_formKey"
+                               placeholder="e.g. AdvanceBlackoutDays" maxlength="100" readonly="@_isEditing" />
+                        @if (!_isEditing)
+                        {
+                            <div class="form-text small">Must be unique. Used by the system to identify the setting.</div>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Value</label>
+                        <input class="form-control form-control-sm" @bind="_formValue"
+                               placeholder="Value" maxlength="500" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Description <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <textarea class="form-control form-control-sm" rows="2" maxlength="1000"
+                                  @bind="_formDescription"
+                                  placeholder="What is this setting used for?"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AppSettingDto> _settings = new();
+    private bool _loading = true;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Form state
+    private bool _showForm;
+    private bool _saving;
+    private string? _formError;
+    private bool _isEditing;
+    private string _formKey = "";
+    private string _formValue = "";
+    private string _formDescription = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role is not UserRole.Finance and not UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new ListAppSettingsQuery());
+        if (result.IsSuccess && result.Value is not null)
+            _settings = result.Value.OrderBy(s => s.Key).ToList();
+        else if (result.IsFailure)
+            _errorMessage = result.Error.Message;
+        _loading = false;
+    }
+
+    private void OpenCreate()
+    {
+        _isEditing = false;
+        _formKey = "";
+        _formValue = "";
+        _formDescription = "";
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(AppSettingDto s)
+    {
+        _isEditing = true;
+        _formKey = s.Key;
+        _formValue = s.Value;
+        _formDescription = s.Description ?? "";
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private async Task SaveForm()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formKey)) { _formError = "Key is required."; return; }
+        if (string.IsNullOrWhiteSpace(_formValue)) { _formError = "Value is required."; return; }
+
+        var desc = string.IsNullOrWhiteSpace(_formDescription) ? null : _formDescription;
+
+        _saving = true;
+        try
+        {
+            if (_isEditing)
+            {
+                var result = await Mediator.Send(new UpdateAppSettingCommand(
+                    _formKey, _formValue, desc));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Setting updated.";
+            }
+            else
+            {
+                var result = await Mediator.Send(new CreateAppSettingCommand(_formKey, _formValue, desc));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Setting created.";
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        finally { _saving = false; }
+    }
+}
