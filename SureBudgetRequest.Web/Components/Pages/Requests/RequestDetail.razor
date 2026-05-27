@@ -1082,8 +1082,12 @@ else
         if (r.Status is RequestStatus.Draft or RequestStatus.SentBack && r.RequesterId == uid)
             list.Add("edit");
 
-        if (r.Status == RequestStatus.PendingDeptHead && role == UserRole.DepartmentHead)
-        { list.Add("approve"); list.Add("reject"); }
+        if (r.Status == RequestStatus.PendingDeptHead && role == UserRole.DepartmentHead && r.DeptHeadIdAtSubmission == uid)
+        {
+            list.Add("approve");
+            list.Add("reject");
+            list.Add("edit");
+        }
 
         if (r.Status == RequestStatus.PendingManagement && role == UserRole.Management)
         { list.Add("approve"); list.Add("reject"); }

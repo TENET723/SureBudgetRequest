@@ -5,7 +5,6 @@
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
-@using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateDraft
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
 @using SureBudgetRequest.Application.Currencies.Queries
@@ -28,12 +27,13 @@
         <div class="alert alert-warning">Request not found.</div>
         <a href="requests/mine" class="btn btn-sm btn-link">← Back to My Requests</a>
     }
-    else if (_request.RequesterId != CurrentUser.UserId)
+    else if (!(_request.RequesterId == CurrentUser.UserId || 
+              (_request.Status == RequestStatus.PendingDeptHead && CurrentUser.Role == UserRole.DepartmentHead)))
     {
-        <div class="alert alert-danger">You can only edit your own requests.</div>
+        <div class="alert alert-danger">You are not authorized to edit this request.</div>
         <a href="requests/@Id" class="btn btn-sm btn-link">← Back to request</a>
     }
-    else if (_request.Status is not RequestStatus.Draft and not RequestStatus.SentBack)
+    else if (_request.Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
     {
         <div class="alert alert-warning">
             This request is no longer editable (status: <strong>@_request.Status</strong>).
@@ -44,7 +44,9 @@
     {
         <div class="d-flex align-items-center justify-content-between mb-3">
             <a href="requests/@Id" class="text-muted small">← Back to detail</a>
-            <h5 class="mb-0">Edit Budget Request</h5>
+            <h5 class="mb-0">
+                @(_request.Status == RequestStatus.PendingDeptHead ? "Modify Budget Request" : "Edit Budget Request")
+            </h5>
             <span class="text-muted small font-monospace">@_request.Reference</span>
         </div>
 
@@ -362,8 +364,14 @@
 
         // Only populate the form if the request is editable by this user; otherwise
         // the guard branches above handle it.
-        if (_request.RequesterId == CurrentUser.UserId
-            && _request.Status is RequestStatus.Draft or RequestStatus.SentBack)
+        bool isRequesterEditing = _request.RequesterId == CurrentUser.UserId
+            && _request.Status is RequestStatus.Draft or RequestStatus.SentBack;
+
+        bool isDeptHeadModifying = _request.Status == RequestStatus.PendingDeptHead
+            && CurrentUser.Role == UserRole.DepartmentHead
+            && _request.DeptHeadIdAtSubmission == CurrentUser.UserId;
+
+        if (isRequesterEditing || isDeptHeadModifying)
         {
             _requestDate = _request.RequestDate;
             _type = _request.Type;
@@ -388,7 +396,7 @@
                     .OrderBy(c => c.Code == "MMK" ? 0 : 1)
                     .ThenBy(c => c.Code)
                     .ToList();
-                
+
                 var match = _currencies.FirstOrDefault(c => c.Code == _currencyCode);
                 _systemRate = match?.RateToMmk ?? 0m;
                 _selectedRate = _request.ManualExchangeRate ?? _systemRate;
@@ -524,9 +532,9 @@
                 ? _selectedRate 
                 : null;
 
-            var updateResult = await Mediator.Send(new UpdateDraftCommand(
+            var updateResult = await Mediator.Send(new Application.BudgetRequests.Commands.UpdateBudgetRequest.UpdateBudgetRequestCommand(
                 BudgetRequestId: Id,
-                RequesterId: CurrentUser.UserId,
+                ActorId: CurrentUser.UserId,
                 Type: _type,
                 RequestDate: _requestDate,
                 RequestedAmount: _amount,

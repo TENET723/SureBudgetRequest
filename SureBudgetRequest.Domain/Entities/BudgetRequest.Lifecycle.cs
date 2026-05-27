@@ -76,7 +76,7 @@ public partial class BudgetRequest
         };
     }
 
-    // Allow editing fields while in Draft or SentBack.
+    // Allow editing fields while in Draft, SentBack, or PendingDeptHead (for DH modification).
     public Result UpdateDetails(
         DateTime requestDate,
         BudgetRequestType type,
@@ -91,7 +91,7 @@ public partial class BudgetRequest
         string? monthlyOverrunJustification = null,
         decimal? manualExchangeRate = null)
     {
-        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
+        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
 
         if (requestedAmount <= 0)
@@ -125,6 +125,15 @@ public partial class BudgetRequest
         AllowsPartialPayment = allowsPartialPayment;
         PartialPaymentDetail = partialPaymentDetail;
         MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
+
+        // If the request was already submitted (PendingDeptHead or SentBack), we must
+        // update the MMK snapshot to reflect the new amount, using the exchange rate
+        // that was locked in at submission time.
+        if (SubmittedAt.HasValue)
+        {
+            RequestedAmountInMmkAtSubmission = RequestedAmount * ExchangeRateAtSubmission;
+        }
+
         return Result.Success();
     }
 

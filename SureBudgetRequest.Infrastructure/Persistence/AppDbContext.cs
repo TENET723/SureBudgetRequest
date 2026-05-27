@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<Coa> Coas => Set<Coa>();
     public DbSet<WithdrawMethod> WithdrawMethods => Set<WithdrawMethod>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+    public DbSet<BudgetRequestModification> BudgetRequestModifications => Set<BudgetRequestModification>();
 
     // Infrastructure-only (outbox)
     public DbSet<NotificationOutboxEntry> NotificationOutbox => Set<NotificationOutboxEntry>();

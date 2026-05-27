@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest;
@@ -20,6 +21,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IAppSettingRepository _appSettingRepository;
+    private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -30,6 +32,7 @@ public sealed class SubmitRequestCommandHandler
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
         IAppSettingRepository appSettingRepository,
+        IBudgetRequestModificationRepository modificationRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -39,6 +42,7 @@ public sealed class SubmitRequestCommandHandler
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _appSettingRepository = appSettingRepository;
+        _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -139,6 +143,11 @@ public sealed class SubmitRequestCommandHandler
             methodRequiresAttachment);
 
         if (result.IsFailure) return result;
+
+        // Record the submission in the audit trail.
+        await _modificationRepository.AddAsync(
+            new BudgetRequestModification(budgetRequest.Id, command.RequesterId),
+            cancellationToken);
 
         // Dispatch FIRST so the outbox entry joins the same transaction.
         // On submissions the actor is the requester — actorName left null
