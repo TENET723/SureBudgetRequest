@@ -17,6 +17,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordRefund
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Users.Queries
@@ -43,7 +44,10 @@ else
         <div class="d-flex align-items-start justify-content-between mb-3">
             <div>
                 <a href="requests/mine" class="text-muted small">← Back</a>
-                <h5 class="mb-1 mt-1">Budget Request</h5>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <h5 class="mb-0">Budget Request</h5>
+                    <button class="btn btn-xs btn-outline-secondary p-1 py-0 small" style="font-size:0.7rem" @onclick="OpenHistory">History</button>
+                </div>
                 <span class="text-muted small font-monospace">@_request.Reference</span>
             </div>
             <span class="badge fs-6 @StatusBadge(_request.Status)">@StatusLabel(_request.Status)</span>
@@ -968,6 +972,56 @@ else
     </div>
 }
 
+@* ── Modification History Modal ─────────────────────────────────────────────── *@
+@if (_showHistoryModal)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Modification History</h6>
+                    <button class="btn-close" @onclick="() => _showHistoryModal = false"></button>
+                </div>
+                <div class="modal-body p-0">
+                    @if (_historyLoading)
+                    {
+                        <div class="text-center py-5"><div class="spinner-border spinner-border-sm"></div></div>
+                    }
+                    else if (!_history.Any())
+                    {
+                        <div class="p-4 text-center text-muted small">No modification logs found for this request.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="ps-3">When</th>
+                                        <th>Updated By</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in _history)
+                                    {
+                                        <tr>
+                                            <td class="ps-3 small">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td class="small">@h.ModifiedByUserName</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showHistoryModal = false">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -1504,6 +1558,27 @@ else
         _actioning = false;
         if (res.IsFailure) { _actionError = res.Error.Message; }
         else { _actionSuccess = "Usage removed."; await LoadRequest(); }
+    }
+
+    // ── Modification History ──────────────────────────────────────────────────
+
+    private bool _showHistoryModal;
+    private bool _historyLoading;
+    private List<BudgetRequestModificationDto> _history = new();
+
+    private async Task OpenHistory()
+    {
+        _showHistoryModal = true;
+        _historyLoading = true;
+        _history = new();
+        StateHasChanged();
+
+        var result = await Mediator.Send(new GetBudgetRequestHistoryQuery(Id));
+        if (result.IsSuccess)
+        {
+            _history = result.Value.ToList();
+        }
+        _historyLoading = false;
     }
 
     private async Task DoSubmitReconciliation()
