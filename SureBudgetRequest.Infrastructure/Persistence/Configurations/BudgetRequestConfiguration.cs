@@ -110,6 +110,18 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(r => r.WithdrawMethodId);
 
+        // ── Budget Category FK ────────────────────────────────────────────────
+        // Optional label (e.g. "Asset" / "Expense") set by the requester and
+        // editable by the dept head while PendingDeptHead. Always nullable —
+        // classification is never required. Restrict on delete so a category
+        // cannot be hard-deleted while referenced — admins must Deactivate.
+        builder.Property(r => r.BudgetCategoryId);
+        builder.HasOne<BudgetCategory>()
+               .WithMany()
+               .HasForeignKey(r => r.BudgetCategoryId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => r.BudgetCategoryId);
+
         // ── Indexes ───────────────────────────────────────────────────────────
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);

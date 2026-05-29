@@ -49,6 +49,11 @@ public sealed record BudgetRequestDto(
     Guid? WithdrawMethodId,
     string? WithdrawMethodName,
     bool WithdrawMethodRequiresAttachment,
+    // Budget category — optional label set by the requester at draft time and
+    // editable by the dept head while PendingDeptHead. Null when unset; the
+    // display name is resolved from the BudgetCategory entity by the handler.
+    Guid? BudgetCategoryId,
+    string? BudgetCategoryName,
     // Child collections
     IReadOnlyList<ApprovalActionDto> ApprovalActions,
     IReadOnlyList<PaymentDto> Payments,
@@ -84,7 +89,8 @@ public sealed record BudgetRequestDto(
     public static BudgetRequestDto FromEntity(
         BudgetRequest e,
         Coa? coa = null,
-        WithdrawMethod? withdrawMethod = null) => new(
+        WithdrawMethod? withdrawMethod = null,
+        BudgetCategory? budgetCategory = null) => new(
         e.Id,
         e.RequesterId,
         e.Reference,
@@ -119,6 +125,8 @@ public sealed record BudgetRequestDto(
         e.WithdrawMethodId,
         withdrawMethod?.Name,
         withdrawMethod?.RequiresAttachment ?? false,
+        e.BudgetCategoryId,
+        budgetCategory?.Name,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
         e.Payments.Select(PaymentDto.FromEntity).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList(),

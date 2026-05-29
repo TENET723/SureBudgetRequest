@@ -97,6 +97,17 @@ public partial class BudgetRequest
     /// </summary>
     public Guid? WithdrawMethodId { get; private set; }
 
+    /// <summary>
+    /// Optional budget category (e.g. "Asset" / "Expense") chosen by the
+    /// requester at draft time and editable by the assigned department head
+    /// while the request is in <see cref="RequestStatus.PendingDeptHead"/>.
+    /// Nullable by design — classification is never required. Purely a label:
+    /// no routing, finance, or chart-of-account logic depends on it. References
+    /// the <see cref="BudgetCategory"/> master list by surrogate FK so an admin
+    /// can rename a category without rewriting historical request rows.
+    /// </summary>
+    public Guid? BudgetCategoryId { get; private set; }
+
     // === Advance withdrawal — reconciliation phase ===
     // All five fields below stay at their defaults for non-advance requests.
 

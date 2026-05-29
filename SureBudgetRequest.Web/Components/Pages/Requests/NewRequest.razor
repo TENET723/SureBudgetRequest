@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
+@using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Domain.Enums
 
 <PageTitle>New Budget Request</PageTitle>
@@ -203,6 +204,18 @@
                 }
             </div>
 
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Budget Category <span class="text-muted fw-normal">(optional)</span></label>
+                <select class="form-select form-select-sm" @bind="_budgetCategoryId">
+                    <option value="">— none —</option>
+                    @foreach (var c in _budgetCategories)
+                    {
+                        <option value="@c.Id">@c.Name</option>
+                    }
+                </select>
+                <div class="form-text small">e.g. Asset or Expense. Your department head can change this during review.</div>
+            </div>
+
         </div>
         <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
             <a href="requests/mine" class="btn btn-sm btn-link text-muted">Cancel</a>
@@ -281,6 +294,8 @@
     private List<CurrencyDto> _currencies = new();
     private List<WithdrawMethodDto> _withdrawMethods = new();
     private string _withdrawMethodId = "";
+    private List<BudgetCategoryDto> _budgetCategories = new();
+    private string _budgetCategoryId = "";
 
     // Monthly limit state
     private decimal? _monthlyLimit;
@@ -327,6 +342,13 @@
         if (methodsResult.IsSuccess)
         {
             _withdrawMethods = methodsResult.Value.OrderBy(m => m.Name).ToList();
+        }
+
+        // Load active budget categories for the optional selector.
+        var categoriesResult = await Mediator.Send(new ListBudgetCategoriesQuery(IncludeInactive: false));
+        if (categoriesResult.IsSuccess)
+        {
+            _budgetCategories = categoriesResult.Value.OrderBy(c => c.Name).ToList();
         }
 
         var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
@@ -466,7 +488,10 @@
                 MonthlyOverrunJustification: string.IsNullOrWhiteSpace(_monthlyOverrunJustification)
                     ? null
                     : _monthlyOverrunJustification,
-                ManualExchangeRate: manualRate));
+                ManualExchangeRate: manualRate,
+                BudgetCategoryId: string.IsNullOrEmpty(_budgetCategoryId)
+                    ? (Guid?)null
+                    : Guid.Parse(_budgetCategoryId)));
 
             if (draftResult.IsFailure) { _error = draftResult.Error.Message; return; }
 

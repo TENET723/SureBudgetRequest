@@ -23,7 +23,8 @@ public sealed record CreateDraftCommand(
     bool AllowsPartialPayment,
     string? PartialPaymentDetail,
     string? MonthlyOverrunJustification = null,
-    decimal? ManualExchangeRate = null) : IRequest<Result<Guid>>;
+    decimal? ManualExchangeRate = null,
+    Guid? BudgetCategoryId = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateDraftCommandHandler
     : IRequestHandler<CreateDraftCommand, Result<Guid>>
@@ -32,6 +33,7 @@ public sealed class CreateDraftCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IBudgetCategoryRepository _budgetCategoryRepository;
     private readonly IUnitOfWork _unitOfWork;
 
     public CreateDraftCommandHandler(
@@ -39,12 +41,14 @@ public sealed class CreateDraftCommandHandler
         IUserRepository userRepository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
+        IBudgetCategoryRepository budgetCategoryRepository,
         IUnitOfWork unitOfWork)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _budgetCategoryRepository = budgetCategoryRepository;
         _unitOfWork = unitOfWork;
     }
 
@@ -79,6 +83,18 @@ public sealed class CreateDraftCommandHandler
         if (!withdrawMethod.IsActive)
             return Result.Failure<Guid>(WithdrawMethodErrors.Inactive(withdrawMethod.Name));
 
+        // Budget category is optional. Validate only when one was chosen — it
+        // must exist and still be active.
+        if (command.BudgetCategoryId.HasValue)
+        {
+            var category = await _budgetCategoryRepository.GetByIdAsync(
+                command.BudgetCategoryId.Value, cancellationToken);
+            if (category is null)
+                return Result.Failure<Guid>(BudgetCategoryErrors.NotFound);
+            if (!category.IsActive)
+                return Result.Failure<Guid>(BudgetCategoryErrors.Inactive(category.Name));
+        }
+
         var utcRequestDate = DateTime.SpecifyKind(command.RequestDate, DateTimeKind.Utc);
 
         BudgetRequest draft;
@@ -100,7 +116,8 @@ public sealed class CreateDraftCommandHandler
                 command.AllowsPartialPayment,
                 command.PartialPaymentDetail,
                 command.MonthlyOverrunJustification,
-                command.ManualExchangeRate);
+                command.ManualExchangeRate,
+                command.BudgetCategoryId);
         }
         catch (ArgumentException ex)
         {

@@ -13,15 +13,18 @@ public sealed class GetBudgetRequestQueryHandler
     private readonly IBudgetRequestRepository _repository;
     private readonly ICoaRepository _coaRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IBudgetCategoryRepository _budgetCategoryRepository;
 
     public GetBudgetRequestQueryHandler(
         IBudgetRequestRepository repository,
         ICoaRepository coaRepository,
-        IWithdrawMethodRepository withdrawMethodRepository)
+        IWithdrawMethodRepository withdrawMethodRepository,
+        IBudgetCategoryRepository budgetCategoryRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _budgetCategoryRepository = budgetCategoryRepository;
     }
 
     public async Task<Result<BudgetRequestDto>> Handle(
@@ -44,6 +47,11 @@ public sealed class GetBudgetRequestQueryHandler
             ? await _withdrawMethodRepository.GetByIdAsync(entity.WithdrawMethodId.Value, cancellationToken)
             : null;
 
-        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod));
+        // Resolve the chosen budget category for display (null when unset).
+        var budgetCategory = entity.BudgetCategoryId.HasValue
+            ? await _budgetCategoryRepository.GetByIdAsync(entity.BudgetCategoryId.Value, cancellationToken)
+            : null;
+
+        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod, budgetCategory));
     }
 }

@@ -39,6 +39,7 @@ public sealed class DbSeeder
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCoasAsync(cancellationToken);
         await SeedWithdrawMethodsAsync(cancellationToken);
+        await SeedBudgetCategoriesAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
     }
 
@@ -124,6 +125,25 @@ public sealed class DbSeeder
             new WithdrawMethod("Bank Transfer", requiresAttachment: true),
             new WithdrawMethod("Cheque", requiresAttachment: true),
             new WithdrawMethod("Mobile Wallet", requiresAttachment: true)
+        );
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // ── Budget Categories ─────────────────────────────────────────────────────
+    private async Task SeedBudgetCategoriesAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BudgetCategories.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("Budget categories already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding budget categories...");
+
+        _db.BudgetCategories.AddRange(
+            new BudgetCategory("Asset"),
+            new BudgetCategory("Expense")
         );
 
         await _db.SaveChangesAsync(cancellationToken);

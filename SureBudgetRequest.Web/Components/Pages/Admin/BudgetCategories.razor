@@ -1,0 +1,263 @@
+@page "/admin/budget-categories"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.BudgetCategories.Queries
+@using SureBudgetRequest.Application.BudgetCategories.Commands.CreateBudgetCategory
+@using SureBudgetRequest.Application.BudgetCategories.Commands.UpdateBudgetCategory
+@using SureBudgetRequest.Application.BudgetCategories.Commands.DeactivateBudgetCategory
+@using SureBudgetRequest.Application.BudgetCategories.Commands.ReactivateBudgetCategory
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Budget Categories</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Budget Categories</h5>
+        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Category</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="showInactiveCategories" @bind="_showInactive" @bind:after="LoadData" />
+        <label class="form-check-label small" for="showInactiveCategories">Show inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _categories)
+                    {
+                        <tr class="@(!c.IsActive ? "text-muted" : "")">
+                            <td><strong>@c.Name</strong></td>
+                            <td>
+                                @if (c.IsActive) { <span class="badge bg-success">Active</span> }
+                                else             { <span class="badge bg-secondary">Inactive</span> }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(c)">Edit</button>
+                                @if (c.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(c)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => DoReactivate(c)" disabled="@_saving">Reactivate</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!_categories.Any())
+                    {
+                        <tr><td colspan="3" class="text-center text-muted py-3">No budget categories found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingId.HasValue ? "Edit Budget Category" : "New Budget Category")</h6>
+                    <button class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-danger small py-2">@_formError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Name</label>
+                        <input class="form-control form-control-sm" @bind="_formName"
+                               placeholder="e.g. Asset, Expense" maxlength="200" />
+                        <div class="form-text small">Shown to requesters and department heads on the request form.</div>
+                    </div>
+                    @if (_editingId.HasValue)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="categoryFormActive" @bind="_formIsActive" />
+                            <label class="form-check-label small" for="categoryFormActive">Active</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
+@if (_deactivatingCategory is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Deactivate Budget Category</h6>
+                    <button class="btn-close" @onclick="() => _deactivatingCategory = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 small">
+                        Deactivate <strong>@_deactivatingCategory.Name</strong>?
+                        It won't appear in the request picker. Existing requests keep their link.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingCategory = null">Cancel</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BudgetCategoryDto> _categories = new();
+    private bool _loading = true;
+    private bool _showInactive;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Form state
+    private bool _showForm;
+    private bool _saving;
+    private string? _formError;
+    private Guid? _editingId;
+    private string _formName = "";
+    private bool _formIsActive = true;
+
+    // Deactivate confirm
+    private BudgetCategoryDto? _deactivatingCategory;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Admin owns budget categories.
+        if (CurrentUser.Role is not UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new ListBudgetCategoriesQuery(IncludeInactive: _showInactive));
+        if (result.IsSuccess)
+            _categories = result.Value.OrderBy(c => c.Name).ToList();
+        else
+            _errorMessage = result.Error.Message;
+        _loading = false;
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = null;
+        _formName = "";
+        _formIsActive = true;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(BudgetCategoryDto c)
+    {
+        _editingId = c.Id;
+        _formName = c.Name;
+        _formIsActive = c.IsActive;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private async Task SaveForm()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formName)) { _formError = "Name is required."; return; }
+
+        _saving = true;
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                var result = await Mediator.Send(new UpdateBudgetCategoryCommand(
+                    _editingId.Value, _formName, _formIsActive));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Budget category updated.";
+            }
+            else
+            {
+                var result = await Mediator.Send(new CreateBudgetCategoryCommand(_formName));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Budget category created.";
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        finally { _saving = false; }
+    }
+
+    private void ConfirmDeactivate(BudgetCategoryDto c) => _deactivatingCategory = c;
+
+    private async Task DoDeactivate()
+    {
+        if (_deactivatingCategory is null) return;
+        _saving = true;
+        var result = await Mediator.Send(new DeactivateBudgetCategoryCommand(_deactivatingCategory.Id));
+        _saving = false;
+        var name = _deactivatingCategory.Name;
+        _deactivatingCategory = null;
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        else { _successMessage = $"'{name}' deactivated."; await LoadData(); }
+    }
+
+    private async Task DoReactivate(BudgetCategoryDto c)
+    {
+        _saving = true;
+        var result = await Mediator.Send(new ReactivateBudgetCategoryCommand(c.Id));
+        _saving = false;
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        else { _successMessage = $"'{c.Name}' reactivated."; await LoadData(); }
+    }
+}

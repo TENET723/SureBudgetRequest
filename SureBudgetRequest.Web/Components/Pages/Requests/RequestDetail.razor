@@ -175,6 +175,13 @@ else
                             <div>@_request.WithdrawMethodName</div>
                         </div>
                     }
+                    @if (!string.IsNullOrWhiteSpace(_request.BudgetCategoryName))
+                    {
+                        <div class="col-sm-6">
+                            <div class="small text-muted">Budget Category</div>
+                            <div>@_request.BudgetCategoryName</div>
+                        </div>
+                    }
                     @if (_request.SubmittedAt.HasValue)
                     {
                         <div class="col-sm-6">

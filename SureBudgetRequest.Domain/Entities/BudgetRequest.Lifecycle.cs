@@ -28,7 +28,8 @@ public partial class BudgetRequest
         bool allowsPartialPayment,
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null,
-        decimal? manualExchangeRate = null)
+        decimal? manualExchangeRate = null,
+        Guid? budgetCategoryId = null)
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
@@ -70,6 +71,7 @@ public partial class BudgetRequest
             AllowsPartialPayment = allowsPartialPayment,
             PartialPaymentDetail = partialPaymentDetail,
             MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification),
+            BudgetCategoryId = budgetCategoryId,
             Status = RequestStatus.Draft,
             ApprovedAmount = 0,
             CreatedAt = DateTime.UtcNow
@@ -89,7 +91,8 @@ public partial class BudgetRequest
         bool allowsPartialPayment,
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null,
-        decimal? manualExchangeRate = null)
+        decimal? manualExchangeRate = null,
+        Guid? budgetCategoryId = null)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
@@ -125,6 +128,7 @@ public partial class BudgetRequest
         AllowsPartialPayment = allowsPartialPayment;
         PartialPaymentDetail = partialPaymentDetail;
         MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
+        BudgetCategoryId = budgetCategoryId;
 
         // If the request was already submitted (PendingDeptHead or SentBack), we must
         // update the MMK snapshot to reflect the new amount, using the exchange rate

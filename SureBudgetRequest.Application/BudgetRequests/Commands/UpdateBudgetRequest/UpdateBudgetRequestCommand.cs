@@ -22,7 +22,8 @@ public sealed record UpdateBudgetRequestCommand(
     bool AllowsPartialPayment,
     string? PartialPaymentDetail,
     string? MonthlyOverrunJustification = null,
-    decimal? ManualExchangeRate = null) : IRequest<Result>;
+    decimal? ManualExchangeRate = null,
+    Guid? BudgetCategoryId = null) : IRequest<Result>;
 
 public sealed class UpdateBudgetRequestCommandHandler
     : IRequestHandler<UpdateBudgetRequestCommand, Result>
@@ -30,6 +31,7 @@ public sealed class UpdateBudgetRequestCommandHandler
     private readonly IBudgetRequestRepository _repository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IBudgetCategoryRepository _budgetCategoryRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
 
@@ -37,12 +39,14 @@ public sealed class UpdateBudgetRequestCommandHandler
         IBudgetRequestRepository repository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
+        IBudgetCategoryRepository budgetCategoryRepository,
         IBudgetRequestModificationRepository modificationRepository,
         IUnitOfWork unitOfWork)
     {
         _repository = repository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _budgetCategoryRepository = budgetCategoryRepository;
         _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
     }
@@ -89,6 +93,18 @@ public sealed class UpdateBudgetRequestCommandHandler
         if (!withdrawMethod.IsActive)
             return Result.Failure(WithdrawMethodErrors.Inactive(withdrawMethod.Name));
 
+        // Budget category is optional. Validate only when one was chosen — it
+        // must exist and still be active.
+        if (command.BudgetCategoryId.HasValue)
+        {
+            var category = await _budgetCategoryRepository.GetByIdAsync(
+                command.BudgetCategoryId.Value, cancellationToken);
+            if (category is null)
+                return Result.Failure(BudgetCategoryErrors.NotFound);
+            if (!category.IsActive)
+                return Result.Failure(BudgetCategoryErrors.Inactive(category.Name));
+        }
+
         var utcRequestDate = DateTime.SpecifyKind(command.RequestDate, DateTimeKind.Utc);
 
         var result = request.UpdateDetails(
@@ -103,7 +119,8 @@ public sealed class UpdateBudgetRequestCommandHandler
             command.AllowsPartialPayment,
             command.PartialPaymentDetail,
             command.MonthlyOverrunJustification,
-            command.ManualExchangeRate);
+            command.ManualExchangeRate,
+            command.BudgetCategoryId);
 
         if (result.IsFailure) return result;
 

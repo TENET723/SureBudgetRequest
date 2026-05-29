@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
+@using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Domain.Enums
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
 @using SureBudgetRequest.Web.Components.Shared
@@ -247,6 +248,18 @@
                     }
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">Budget Category <span class="text-muted fw-normal">(optional)</span></label>
+                    <select class="form-select form-select-sm" @bind="_budgetCategoryId">
+                        <option value="">— none —</option>
+                        @foreach (var c in _budgetCategories)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                    <div class="form-text small">e.g. Asset or Expense.</div>
+                </div>
+
             </div>
             <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
                 <a href="requests/@Id" class="btn btn-sm btn-link text-muted">Cancel</a>
@@ -332,6 +345,8 @@
     private List<CurrencyDto> _currencies = new();
     private List<WithdrawMethodDto> _withdrawMethods = new();
     private string _withdrawMethodId = "";
+    private List<BudgetCategoryDto> _budgetCategories = new();
+    private string _budgetCategoryId = "";
     private string _reason = "";
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
@@ -401,6 +416,7 @@
             _allowsPartial = _request.AllowsPartialPayment;
             _partialDetail = _request.PartialPaymentDetail;
             _withdrawMethodId = _request.WithdrawMethodId?.ToString() ?? "";
+            _budgetCategoryId = _request.BudgetCategoryId?.ToString() ?? "";
             // Pre-fill justification from the saved draft so the user doesn't retype it.
             _monthlyOverrunJustification = _request.MonthlyOverrunJustification ?? "";
 
@@ -430,6 +446,20 @@
                     && !_withdrawMethods.Any(m => m.Id.ToString() == _withdrawMethodId))
                 {
                     _withdrawMethodId = "";
+                }
+            }
+
+            // Load active budget categories. If the request references an inactive
+            // one, clear the selection so the editor must re-pick (or leave blank,
+            // since the field is optional).
+            var categoriesResult = await Mediator.Send(new ListBudgetCategoriesQuery(IncludeInactive: false));
+            if (categoriesResult.IsSuccess)
+            {
+                _budgetCategories = categoriesResult.Value.OrderBy(c => c.Name).ToList();
+                if (!string.IsNullOrEmpty(_budgetCategoryId)
+                    && !_budgetCategories.Any(c => c.Id.ToString() == _budgetCategoryId))
+                {
+                    _budgetCategoryId = "";
                 }
             }
 
@@ -566,7 +596,10 @@
                 MonthlyOverrunJustification: string.IsNullOrWhiteSpace(_monthlyOverrunJustification)
                     ? null
                     : _monthlyOverrunJustification,
-                ManualExchangeRate: manualRate));
+                ManualExchangeRate: manualRate,
+                BudgetCategoryId: string.IsNullOrEmpty(_budgetCategoryId)
+                    ? (Guid?)null
+                    : Guid.Parse(_budgetCategoryId)));
 
             if (updateResult.IsFailure) { _error = updateResult.Error.Message; return; }
 
