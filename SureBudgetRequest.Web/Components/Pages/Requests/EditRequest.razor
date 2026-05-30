@@ -253,6 +253,15 @@
                 </div>
 
             </div>
+            @if (IsDhModifying)
+            {
+                <div class="card-body border-top">
+                    <label class="form-label small fw-semibold">Note (what did you change?)</label>
+                    <textarea class="form-control form-control-sm" rows="2" @bind="_modificationNote"
+                              placeholder="Optional — describe what you changed and why"></textarea>
+                    <div class="form-text small">Saved to the modification history. Optional.</div>
+                </div>
+            }
             <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
                 <a href="requests/@Id" class="btn btn-sm btn-link text-muted">Cancel</a>
 
@@ -340,6 +349,7 @@
     private List<BudgetCategoryDto> _budgetCategories = new();
     private string _budgetCategoryId = "";
     private string _reason = "";
+    private string? _modificationNote;
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
     private string _deptHeadName = "";
@@ -586,7 +596,8 @@
                 ManualExchangeRate: manualRate,
                 BudgetCategoryId: string.IsNullOrEmpty(_budgetCategoryId)
                     ? (Guid?)null
-                    : Guid.Parse(_budgetCategoryId)));
+                    : Guid.Parse(_budgetCategoryId),
+                Note: IsDhModifying ? _modificationNote : null));
 
             if (updateResult.IsFailure) { _error = updateResult.Error.Message; return; }
 

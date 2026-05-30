@@ -15,6 +15,7 @@ public class BudgetRequestModificationConfiguration : IEntityTypeConfiguration<B
         builder.Property(x => x.BudgetRequestId).IsRequired();
         builder.Property(x => x.ModifiedByUserId).IsRequired();
         builder.Property(x => x.ModifiedAt).IsRequired();
+        builder.Property(x => x.Note).HasMaxLength(1000);
 
         // FK to BudgetRequests
         builder.HasOne<BudgetRequest>()

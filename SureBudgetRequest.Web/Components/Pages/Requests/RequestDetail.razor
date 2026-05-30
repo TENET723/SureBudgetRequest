@@ -1006,6 +1006,7 @@ else
                                     <tr>
                                         <th class="ps-3">When</th>
                                         <th>Updated By</th>
+                                        <th>Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1014,6 +1015,7 @@ else
                                         <tr>
                                             <td class="ps-3 small">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                             <td class="small">@h.ModifiedByUserName</td>
+                                            <td class="small">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>
                                     }
                                 </tbody>

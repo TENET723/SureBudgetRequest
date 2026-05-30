@@ -23,7 +23,8 @@ public sealed record UpdateBudgetRequestCommand(
     string? PartialPaymentDetail,
     string? MonthlyOverrunJustification = null,
     decimal? ManualExchangeRate = null,
-    Guid? BudgetCategoryId = null) : IRequest<Result>;
+    Guid? BudgetCategoryId = null,
+    string? Note = null) : IRequest<Result>;
 
 public sealed class UpdateBudgetRequestCommandHandler
     : IRequestHandler<UpdateBudgetRequestCommand, Result>
@@ -126,7 +127,7 @@ public sealed class UpdateBudgetRequestCommandHandler
 
         // Record the modification in the audit trail.
         await _modificationRepository.AddAsync(
-            new BudgetRequestModification(request.Id, command.ActorId),
+            new BudgetRequestModification(request.Id, command.ActorId, command.Note),
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

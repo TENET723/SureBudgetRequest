@@ -9,7 +9,8 @@ public sealed record BudgetRequestModificationDto(
     Guid BudgetRequestId,
     Guid ModifiedByUserId,
     string ModifiedByUserName,
-    DateTime ModifiedAt);
+    DateTime ModifiedAt,
+    string? Note);
 
 public sealed record GetBudgetRequestHistoryQuery(Guid BudgetRequestId) : IRequest<Result<IReadOnlyList<BudgetRequestModificationDto>>>;
 
@@ -50,7 +51,8 @@ public sealed class GetBudgetRequestHistoryQueryHandler
                 log.BudgetRequestId,
                 log.ModifiedByUserId,
                 userName,
-                log.ModifiedAt));
+                log.ModifiedAt,
+                log.Note));
         }
 
         return Result.Success<IReadOnlyList<BudgetRequestModificationDto>>(dtos);

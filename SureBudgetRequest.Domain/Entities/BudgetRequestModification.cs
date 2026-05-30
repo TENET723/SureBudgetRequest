@@ -10,11 +10,12 @@ public class BudgetRequestModification
     public Guid BudgetRequestId { get; private set; }
     public Guid ModifiedByUserId { get; private set; }
     public DateTime ModifiedAt { get; private set; }
+    public string? Note { get; private set; }
 
     // For EF Core
     private BudgetRequestModification() { }
 
-    public BudgetRequestModification(Guid budgetRequestId, Guid modifiedByUserId)
+    public BudgetRequestModification(Guid budgetRequestId, Guid modifiedByUserId, string? note = null)
     {
         if (budgetRequestId == Guid.Empty)
             throw new ArgumentException("Budget request ID is required.", nameof(budgetRequestId));
@@ -24,5 +25,6 @@ public class BudgetRequestModification
         BudgetRequestId = budgetRequestId;
         ModifiedByUserId = modifiedByUserId;
         ModifiedAt = DateTime.UtcNow;
+        Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
     }
 }
