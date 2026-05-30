@@ -79,11 +79,11 @@ else
                 <div class="small">
                     <strong>This request exceeded the department's monthly limit at submission.</strong>
                     <div class="mt-1">
-                        Already spent this month: <strong>@_request.MonthlySpendBeforeAtSubmission.Value.ToString("N0")</strong> MMK
-                        of a <strong>@_request.MonthlyLimitAtSubmission.Value.ToString("N0")</strong> MMK limit.
-                        This request adds <strong>@_request.RequestedAmountInMmkAtSubmission.ToString("N0")</strong> MMK,
+                        Already spent this month: <strong>@_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2")</strong> MMK
+                        of a <strong>@_request.MonthlyLimitAtSubmission.Value.ToString("N2")</strong> MMK limit.
+                        This request adds <strong>@_request.RequestedAmountInMmkAtSubmission.ToString("N2")</strong> MMK,
                         bringing the total to
-                        <strong>@((_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission).ToString("N0"))</strong> MMK.
+                        <strong>@((_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission).ToString("N2"))</strong> MMK.
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
                     {
@@ -111,12 +111,12 @@ else
                     </div>
                     <div class="col-sm-6">
                         <div class="small text-muted">Amount Requested</div>
-                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N0") @_request.CurrencyCode</div>
+                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N2") @_request.CurrencyCode</div>
                         @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
                         {
                             <div class="small text-muted">
-                                ≈ @_request.RequestedAmountInMmkAtSubmission.ToString("N0") MMK
-                                <span class="text-muted">(at @_request.ExchangeRateAtSubmission.ToString("N4") MMK/@_request.CurrencyCode)</span>
+                                ≈ @_request.RequestedAmountInMmkAtSubmission.ToString("N2") MMK
+                                <span class="text-muted">(at @_request.ExchangeRateAtSubmission.ToString("N2") MMK/@_request.CurrencyCode)</span>
                             </div>
                         }
                     </div>
@@ -124,11 +124,11 @@ else
                     {
                         <div class="col-sm-6">
                             <div class="small text-muted">Approved Amount</div>
-                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode</div>
+                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode</div>
                             @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
                             {
                                 <div class="small text-muted">
-                                    ≈ @((_request.ApprovedAmount * _request.ExchangeRateAtSubmission).ToString("N0")) MMK
+                                    ≈ @((_request.ApprovedAmount * _request.ExchangeRateAtSubmission).ToString("N2")) MMK
                                 </div>
                             }
                         </div>
@@ -149,9 +149,9 @@ else
                             {
                                 <div class="small text-muted mt-1">
                                     At submission:
-                                    @_request.MonthlySpendBeforeAtSubmission.Value.ToString("N0") MMK already
+                                    @_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2") MMK already
                                     spent this month against a
-                                    @_request.MonthlyLimitAtSubmission.Value.ToString("N0") MMK monthly limit.
+                                    @_request.MonthlyLimitAtSubmission.Value.ToString("N2") MMK monthly limit.
                                 </div>
                             }
                         </div>
@@ -369,7 +369,7 @@ else
                                 {
                                     <tr>
                                         <td class="small">@p.PaidAt.ToLocalTime().ToString("g")</td>
-                                        <td class="text-end">@p.Amount.ToString("N0")</td>
+                                        <td class="text-end">@p.Amount.ToString("N2")</td>
                                         <td class="small text-muted">@(p.Reference ?? "—")</td>
                                         <td class="small">
                                             @if (p.AttachmentId.HasValue)
@@ -401,10 +401,10 @@ else
                             </tbody>
                         </table>
                         <div class="d-flex justify-content-between small text-muted">
-                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N0") @_request.CurrencyCode</strong></span>
+                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N2") @_request.CurrencyCode</strong></span>
                             @if (_request.RemainingBalance > 0)
                             {
-                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode</span>
+                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode</span>
                             }
                         </div>
                     }
@@ -448,11 +448,11 @@ else
                             <div class="col-sm-6">
                                 <div class="small text-muted">Recorded usage / Advance</div>
                                 <div class="fw-semibold">
-                                    @_request.TotalUsageRecorded.ToString("N0") /
-                                    @_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode
+                                    @_request.TotalUsageRecorded.ToString("N2") /
+                                    @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode
                                 </div>
                                 <div class="small text-muted">
-                                    Remaining: @_request.RemainingAdvance.ToString("N0") @_request.CurrencyCode
+                                    Remaining: @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode
                                 </div>
                             </div>
                         </div>
@@ -462,7 +462,7 @@ else
                     {
                         <div class="alert alert-warning small py-2">
                             Awaiting refund of
-                            <strong>@_request.RefundAmount.ToString("N0") @_request.CurrencyCode</strong>
+                            <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong>
                             — the unspent balance of this advance.
                         </div>
                     }
@@ -473,7 +473,7 @@ else
                             @if (_request.RefundReceivedAt.HasValue)
                             {
                                 <span>
-                                    Refund of @_request.RefundAmount.ToString("N0") @_request.CurrencyCode
+                                    Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
                                     received on @_request.RefundReceivedAt.Value.ToLocalTime().ToString("g").
                                 </span>
                             }
@@ -497,7 +497,7 @@ else
                                 {
                                     <tr>
                                         <td class="small">@u.SpentOn.ToString("dd MMM yyyy")</td>
-                                        <td class="text-end">@u.Amount.ToString("N0")</td>
+                                        <td class="text-end">@u.Amount.ToString("N2")</td>
                                         <td class="small">@u.Description</td>
                                         <td class="small">
                                             @if (u.AttachmentId.HasValue)
@@ -719,12 +719,12 @@ else
                         {
                             @if (_request.AllowsPartialPayment)
                             {
-                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode</div>
+                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode</div>
                             }
                             else
                             {
                                 <div class="form-text small text-warning">
-                                    Full payment required: @_request.RemainingBalance.ToString("N0") @_request.CurrencyCode
+                                    Full payment required: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode
                                     (this request does not allow installments)
                                 </div>
                             }
@@ -815,7 +815,7 @@ else
                         {
                             <div class="form-text small">
                                 Remaining on the advance:
-                                @RemainingForUsageEntry().ToString("N0") @_request.CurrencyCode
+                                @RemainingForUsageEntry().ToString("N2") @_request.CurrencyCode
                             </div>
                         }
                     </div>
@@ -894,10 +894,10 @@ else
                     @if (_request.RemainingAdvance > 0)
                     {
                         <div class="alert alert-warning small mt-2 mb-0">
-                            Recorded usage is @_request.TotalUsageRecorded.ToString("N0") of
-                            @_request.ApprovedAmount.ToString("N0") @_request.CurrencyCode.
+                            Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
+                            @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
                             You will need to refund the unspent
-                            <strong>@_request.RemainingAdvance.ToString("N0") @_request.CurrencyCode</strong>.
+                            <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
                         </div>
                     }
                 </div>
@@ -930,7 +930,7 @@ else
                         <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_refundAmount" />
                         <div class="form-text small">
                             Must match the outstanding refund of
-                            @_request.RefundAmount.ToString("N0") @_request.CurrencyCode exactly.
+                            @_request.RefundAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
                     <div class="mb-3">
@@ -1298,7 +1298,7 @@ else
         if (_paymentAmount <= 0) { _paymentError = "Amount must be greater than zero."; return; }
         if (_request is not null && !_request.AllowsPartialPayment && _paymentAmount != _request.RemainingBalance)
         {
-            _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N0} {_request.CurrencyCode}).";
+            _paymentError = $"This request does not allow partial payments. Amount must equal the full remaining balance ({_request.RemainingBalance:N2} {_request.CurrencyCode}).";
             return;
         }
 
@@ -1496,7 +1496,7 @@ else
         if (_usageAmount > RemainingForUsageEntry())
         {
             _usageError = $"Amount exceeds the remaining advance " +
-                          $"({RemainingForUsageEntry():N0} {_request.CurrencyCode}).";
+                          $"({RemainingForUsageEntry():N2} {_request.CurrencyCode}).";
             return;
         }
 

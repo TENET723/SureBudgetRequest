@@ -48,7 +48,7 @@
                     {
                         <tr class="@(!d.IsActive ? "text-muted" : "")">
                             <td>@d.Name</td>
-                            <td class="text-end">@d.BudgetLimit.ToString("N0")</td>
+                            <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
                             <td>
                                 @if (d.HeadUserId.HasValue && _userNames.TryGetValue(d.HeadUserId.Value, out var name))
                                 {

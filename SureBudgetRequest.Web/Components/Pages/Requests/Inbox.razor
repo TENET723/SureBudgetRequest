@@ -69,10 +69,10 @@
                                 <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
                                 <td>@Truncate(r.Reasons, 45)</td>
                                 <td class="text-end">
-                                    @r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span>
+                                    @r.RequestedAmount.ToString("N2") <span class="text-muted small">@r.CurrencyCode</span>
                                     @if (r.CurrencyCode != "MMK" && r.RequestedAmountInMmkAtSubmission > 0)
                                     {
-                                        <div class="small text-muted">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N0") MMK</div>
+                                        <div class="small text-muted">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N2") MMK</div>
                                     }
                                 </td>
                                 <td>

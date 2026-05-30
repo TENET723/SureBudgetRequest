@@ -30,10 +30,10 @@
             <div class="small">
                 <strong>This request would push the department over its monthly limit.</strong>
                 <div class="mt-1">
-                    This month: <strong>@_monthlySpent.ToString("N0")</strong> MMK used
-                    of <strong>@_monthlyLimit!.Value.ToString("N0")</strong> MMK.
-                    This request adds <strong>@AmountInMmk.ToString("N0")</strong> MMK
-                    (total would be <strong>@((_monthlySpent + AmountInMmk).ToString("N0"))</strong> MMK).
+                    This month: <strong>@_monthlySpent.ToString("N2")</strong> MMK used
+                    of <strong>@_monthlyLimit!.Value.ToString("N2")</strong> MMK.
+                    This request adds <strong>@AmountInMmk.ToString("N2")</strong> MMK
+                    (total would be <strong>@((_monthlySpent + AmountInMmk).ToString("N2"))</strong> MMK).
                 </div>
                 <div class="mt-1 text-muted">
                     A written justification will be required when you save or submit.
@@ -88,15 +88,9 @@
             {
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">Exchange Rate (MMK per @_currencyCode)</label>
-                    <input class="form-control form-control-sm" type="number" min="1" step="0.01" @bind="_selectedRate"  />
-                    @if (_type == BudgetRequestType.Advance)
-                    {
-                        <div class="form-text small text-muted">System rate is locked for Advance requests.</div>
-                    }
-                    else
-                    {
-                        <div class="form-text small text-muted">Default system rate: @_systemRate.ToString("N2")</div>
-                    }
+                    <input class="form-control form-control-sm" type="number" step="0.01" 
+                           @bind="_selectedRate" @bind:after="OnAmountChanged" />
+                    <div class="form-text small text-muted">Default system rate: @_systemRate.ToString("N2")</div>
                 </div>
             }
 
@@ -108,7 +102,7 @@
                 else if (_selectedRate > 0 && _amount > 0)
                 {
                     <span>
-                        ≈ <strong>@((_amount * _selectedRate).ToString("N0"))</strong> MMK
+                        ≈ <strong>@((_amount * _selectedRate).ToString("N2"))</strong> MMK
                         <span class="text-muted">(at @_selectedRate.ToString("N2") MMK / @_currencyCode)</span>
                     </span>
                 }
@@ -121,9 +115,9 @@
             @if (_monthlyLimit.HasValue && !WouldOverflowMonthly)
             {
                 <div class="form-text small mb-3 text-muted">
-                    Monthly spending so far: @_monthlySpent.ToString("N0") /
-                    @_monthlyLimit.Value.ToString("N0") MMK
-                    (@((_monthlyLimit.Value - _monthlySpent).ToString("N0")) MMK remaining this month).
+                    Monthly spending so far: @_monthlySpent.ToString("N2") /
+                    @_monthlyLimit.Value.ToString("N2") MMK
+                    (@((_monthlyLimit.Value - _monthlySpent).ToString("N2")) MMK remaining this month).
                 </div>
             }
 
@@ -245,11 +239,11 @@
                 </div>
                 <div class="modal-body">
                     <p class="small mb-3">
-                        This request of <strong>@AmountInMmk.ToString("N0") MMK</strong> would bring
+                        This request of <strong>@AmountInMmk.ToString("N2") MMK</strong> would bring
                         your department's monthly total to
-                        <strong>@((_monthlySpent + AmountInMmk).ToString("N0")) MMK</strong>,
+                        <strong>@((_monthlySpent + AmountInMmk).ToString("N2")) MMK</strong>,
                         exceeding the configured monthly limit of
-                        <strong>@_monthlyLimit!.Value.ToString("N0") MMK</strong>.
+                        <strong>@_monthlyLimit!.Value.ToString("N2") MMK</strong>.
                     </p>
                     <label class="form-label small fw-semibold" for="overrunJustification">
                         Please justify why this overrun is necessary.
@@ -385,14 +379,8 @@
         _selectedRate = _systemRate;
     }
 
-    private void OnTypeChanged()
-    {
-        if (_type == BudgetRequestType.Advance)
-        {
-            // If type changed to Advance, reset rate to system rate (locking will happen in UI)
-            _selectedRate = _systemRate;
-        }
-    }
+    // No-op — Advance requests may now use a manual rate, so type changes no longer reset the rate.
+    private void OnTypeChanged() { }
 
     // No-op — needed so the after-binding hook fires and the MMK preview re-renders.
     private void OnAmountChanged() { }
@@ -465,7 +453,7 @@
         _submitting = submit;
         try
         {
-            decimal? manualRate = (_type != BudgetRequestType.Advance && _selectedRate != _systemRate) 
+            decimal? manualRate = (_selectedRate != _systemRate) 
                 ? _selectedRate 
                 : null;
 

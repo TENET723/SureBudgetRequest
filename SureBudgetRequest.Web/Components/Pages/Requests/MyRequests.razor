@@ -46,7 +46,7 @@
                             <td><strong>@r.Reference</strong></td>
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
-                            <td class="text-end">@r.RequestedAmount.ToString("N0") <span class="text-muted small">@r.CurrencyCode</span></td>
+                            <td class="text-end">@r.RequestedAmount.ToString("N2") <span class="text-muted small">@r.CurrencyCode</span></td>
                             <td>
                                 <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
                                 <MonthlyOverrunBadge
@@ -88,7 +88,7 @@
                     <button class="btn-close" @onclick="() => _cancellingRequest = null"></button>
                 </div>
                 <div class="modal-body small">
-                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N0") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
+                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="() => _cancellingRequest = null">No</button>

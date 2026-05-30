@@ -66,11 +66,11 @@
                                     <span class="text-muted small">— none —</span>
                                 }
                             </td>
-                            <td class="text-end">@d.BudgetLimit.ToString("N0")</td>
+                            <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
                             <td class="text-end">
                                 @if (d.MonthlyLimit.HasValue)
                                 {
-                                    @d.MonthlyLimit.Value.ToString("N0")
+                                    @d.MonthlyLimit.Value.ToString("N2")
                                 }
                                 else
                                 {

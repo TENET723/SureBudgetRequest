@@ -204,8 +204,8 @@
                                 <td class="small">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
                                 <td>@Truncate(r.Reasons, 40)</td>
                                 <td class="small text-muted">@r.CurrencyCode</td>
-                                <td class="text-end">@r.RequestedAmount.ToString("N0")</td>
-                                <td class="text-end small text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N0")</td>
+                                <td class="text-end">@r.RequestedAmount.ToString("N2")</td>
+                                <td class="text-end small text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
                                 <td>
                                     <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
                                     @if (r.IsOverLimit)
@@ -251,7 +251,7 @@
                 <div class="d-flex justify-content-end mt-2">
                     <div class="small text-muted text-end">
                         <div>Total across @_requests.Count request@(_requests.Count == 1 ? "" : "s"):</div>
-                        <div><strong class="text-dark">@_requests.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N0") MMK</strong> (at submission rate)</div>
+                        <div><strong class="text-dark">@_requests.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N2") MMK</strong> (at submission rate)</div>
                     </div>
                 </div>
             }

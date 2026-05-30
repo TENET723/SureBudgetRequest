@@ -71,7 +71,7 @@ internal static class SlackMessageBuilder
 
         // Currency is MMK only in v1 but we read it off the request so it's
         // forward-compatible when multi-currency goes live.
-        var amount = $"{request.RequestedAmount:N0} {request.CurrencyCode}";
+        var amount = $"{request.RequestedAmount:N2} {request.CurrencyCode}";
 
         return string.Join("\n", new[]
         {
@@ -180,5 +180,5 @@ internal static class SlackMessageBuilder
             : "—";
 
     private static string RefundText(BudgetRequest request) =>
-        $"{request.RefundAmount:N0} {request.CurrencyCode}";
+        $"{request.RefundAmount:N2} {request.CurrencyCode}";
 }

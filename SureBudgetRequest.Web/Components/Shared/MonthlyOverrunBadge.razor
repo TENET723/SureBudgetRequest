@@ -47,8 +47,8 @@
             var total = spend + amount;
             return
                 $"Exceeded the monthly limit at submission. " +
-                $"Already spent {spend:N0} MMK of {limit:N0} MMK; " +
-                $"this request adds {amount:N0} MMK (total {total:N0} MMK).";
+                $"Already spent {spend:N2} MMK of {limit:N2} MMK; " +
+                $"this request adds {amount:N2} MMK (total {total:N2} MMK).";
         }
     }
 }

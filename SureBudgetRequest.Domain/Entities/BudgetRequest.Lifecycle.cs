@@ -46,9 +46,6 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(deptHeadName))
             throw new ArgumentException("Dept head name is required.", nameof(deptHeadName));
 
-        if (type == BudgetRequestType.Advance && manualExchangeRate.HasValue)
-            throw new ArgumentException("Manual exchange rate is not allowed for Advance requests.", nameof(manualExchangeRate));
-
         if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
             throw new ArgumentException("Manual exchange rate must be greater than zero.", nameof(manualExchangeRate));
 
@@ -109,9 +106,6 @@ public partial class BudgetRequest
             return Result.Failure("Withdrawer job title is required.");
         if (withdrawMethodId == Guid.Empty)
             return Result.Failure("Withdraw method is required.");
-
-        if (type == BudgetRequestType.Advance && manualExchangeRate.HasValue)
-            return Result.Failure("Manual exchange rate is not allowed for Advance requests.");
 
         if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
             return Result.Failure("Manual exchange rate must be greater than zero.");
