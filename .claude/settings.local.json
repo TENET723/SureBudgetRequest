@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(dotnet build *)"
+      "PowerShell(dotnet build *)",
+      "Bash(findstr /I \"withdraw\")"
     ]
   }
 }

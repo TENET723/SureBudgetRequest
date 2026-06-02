@@ -168,10 +168,16 @@ public sealed record PaymentDto(
     Guid RecordedByUserId,
     string? Reference,
     string? Note,
-    Guid? AttachmentId)
+    Guid? AttachmentId,
+    // Source company bank account — snapshotted at payment time. Null for cash.
+    Guid? SourceBankAccountId,
+    string? SourceBankName,
+    string? SourceAccountNumber,
+    string? SourceAccountHolderName)
 {
     public static PaymentDto FromEntity(Payment e) => new(
-        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, e.AttachmentId);
+        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, e.AttachmentId,
+        e.SourceBankAccountId, e.SourceBankName, e.SourceAccountNumber, e.SourceAccountHolderName);
 }
 
 public sealed record AttachmentDto(

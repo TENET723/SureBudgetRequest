@@ -11,7 +11,11 @@ public partial class BudgetRequest
         DateTime paidAt,
         string? reference,
         string? note,
-        Guid? attachmentId = null)
+        Guid? attachmentId = null,
+        Guid? sourceBankAccountId = null,
+        string? sourceBankName = null,
+        string? sourceAccountNumber = null,
+        string? sourceAccountHolderName = null)
     {
         if (amount <= 0)
             return Result.Failure("Payment amount must be greater than zero.");
@@ -34,7 +38,9 @@ public partial class BudgetRequest
                 $"Payment exceeds remaining balance. Remaining: {remaining}, attempted: {amount}.");
         }
 
-        _payments.Add(new Payment(Id, amount, paidAt, financeUserId, reference, note, attachmentId));
+        _payments.Add(new Payment(
+            Id, amount, paidAt, financeUserId, reference, note, attachmentId,
+            sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName));
 
         // R15: status auto-transition based on totals
         if (newTotal == ApprovedAmount)

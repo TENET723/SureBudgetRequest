@@ -11,6 +11,14 @@ public class Payment
     public string? Note { get; private set; }
     public Guid? AttachmentId { get; private set; }
 
+    // Source company bank account — set for bank transfers, null for cash.
+    // The account's details are snapshotted onto the payment row so payment
+    // history stays stable even if the account is later edited or deactivated.
+    public Guid? SourceBankAccountId { get; private set; }
+    public string? SourceBankName { get; private set; }
+    public string? SourceAccountNumber { get; private set; }
+    public string? SourceAccountHolderName { get; private set; }
+
     // For EF Core
     private Payment() { }
 
@@ -22,7 +30,11 @@ public class Payment
         Guid recordedByUserId,
         string? reference,
         string? note,
-        Guid? attachmentId)
+        Guid? attachmentId,
+        Guid? sourceBankAccountId,
+        string? sourceBankName,
+        string? sourceAccountNumber,
+        string? sourceAccountHolderName)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -32,5 +44,9 @@ public class Payment
         Reference = reference;
         Note = note;
         AttachmentId = attachmentId;
+        SourceBankAccountId = sourceBankAccountId;
+        SourceBankName = sourceBankName;
+        SourceAccountNumber = sourceAccountNumber;
+        SourceAccountHolderName = sourceAccountHolderName;
     }
 }

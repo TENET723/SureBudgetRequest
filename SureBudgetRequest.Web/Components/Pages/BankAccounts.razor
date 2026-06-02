@@ -1,0 +1,285 @@
+@page "/bank-accounts"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.BankAccounts.Queries
+@using SureBudgetRequest.Application.BankAccounts.Commands.CreateBankAccount
+@using SureBudgetRequest.Application.BankAccounts.Commands.UpdateBankAccount
+@using SureBudgetRequest.Application.BankAccounts.Commands.DeactivateBankAccount
+@using SureBudgetRequest.Application.BankAccounts.Commands.ReactivateBankAccount
+
+<PageTitle>Bank Accounts</PageTitle>
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Company Bank Accounts</h5>
+        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Account</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="showInactiveAccounts" @bind="_showInactive" @bind:after="LoadData" />
+        <label class="form-check-label small" for="showInactiveAccounts">Show inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Bank</th>
+                        <th>Account number</th>
+                        <th>Account holder</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in _accounts)
+                    {
+                        <tr class="@(!a.IsActive ? "text-muted" : "")">
+                            <td><strong>@a.BankName</strong></td>
+                            <td class="font-monospace small">@a.AccountNumber</td>
+                            <td>@a.AccountHolderName</td>
+                            <td>
+                                @if (a.IsActive) { <span class="badge bg-success">Active</span> }
+                                else             { <span class="badge bg-secondary">Inactive</span> }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(a)">Edit</button>
+                                @if (a.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(a)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => DoReactivate(a)" disabled="@_saving">Reactivate</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    @if (!_accounts.Any())
+                    {
+                        <tr><td colspan="5" class="text-center text-muted py-3">No bank accounts found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingId.HasValue ? "Edit Bank Account" : "New Bank Account")</h6>
+                    <button class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-danger small py-2">@_formError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Bank name</label>
+                        <input class="form-control form-control-sm" @bind="_formBankName"
+                               placeholder="e.g. KBZ Bank" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Account number</label>
+                        <input class="form-control form-control-sm" @bind="_formAccountNumber"
+                               placeholder="e.g. 0012-3456-7890-1234" maxlength="100" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Account holder name</label>
+                        <input class="form-control form-control-sm" @bind="_formAccountHolderName"
+                               placeholder="e.g. aSure Co., Ltd." maxlength="200" />
+                    </div>
+                    @if (_editingId.HasValue)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="accountFormActive" @bind="_formIsActive" />
+                            <label class="form-check-label small" for="accountFormActive">Active</label>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
+@if (_deactivatingAccount is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Deactivate Bank Account</h6>
+                    <button class="btn-close" @onclick="() => _deactivatingAccount = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0 small">
+                        Deactivate <strong>@_deactivatingAccount.BankName</strong>
+                        (@_deactivatingAccount.AccountNumber)?
+                        It won't appear when recording a payment. Existing payments keep their snapshot.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingAccount = null">Cancel</button>
+                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<BankAccountDto> _accounts = new();
+    private bool _loading = true;
+    private bool _showInactive;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    // Form state
+    private bool _showForm;
+    private bool _saving;
+    private string? _formError;
+    private Guid? _editingId;
+    private string _formBankName = "";
+    private string _formAccountNumber = "";
+    private string _formAccountHolderName = "";
+    private bool _formIsActive = true;
+
+    // Deactivate confirm
+    private BankAccountDto? _deactivatingAccount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Finance owns bank accounts (parallel to withdraw methods); Admin retains access as a safety net.
+        if (CurrentUser.Role is not UserRole.Finance and not UserRole.Admin)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        var result = await Mediator.Send(new ListBankAccountsQuery(IncludeInactive: _showInactive));
+        if (result.IsSuccess)
+            _accounts = result.Value.ToList();
+        else
+            _errorMessage = result.Error.Message;
+        _loading = false;
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = null;
+        _formBankName = "";
+        _formAccountNumber = "";
+        _formAccountHolderName = "";
+        _formIsActive = true;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(BankAccountDto a)
+    {
+        _editingId = a.Id;
+        _formBankName = a.BankName;
+        _formAccountNumber = a.AccountNumber;
+        _formAccountHolderName = a.AccountHolderName;
+        _formIsActive = a.IsActive;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private async Task SaveForm()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formBankName)) { _formError = "Bank name is required."; return; }
+        if (string.IsNullOrWhiteSpace(_formAccountNumber)) { _formError = "Account number is required."; return; }
+        if (string.IsNullOrWhiteSpace(_formAccountHolderName)) { _formError = "Account holder name is required."; return; }
+
+        _saving = true;
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                var result = await Mediator.Send(new UpdateBankAccountCommand(
+                    _editingId.Value, _formBankName, _formAccountNumber, _formAccountHolderName, _formIsActive));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Bank account updated.";
+            }
+            else
+            {
+                var result = await Mediator.Send(new CreateBankAccountCommand(
+                    _formBankName, _formAccountNumber, _formAccountHolderName));
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                _successMessage = "Bank account created.";
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        finally { _saving = false; }
+    }
+
+    private void ConfirmDeactivate(BankAccountDto a) => _deactivatingAccount = a;
+
+    private async Task DoDeactivate()
+    {
+        if (_deactivatingAccount is null) return;
+        _saving = true;
+        var result = await Mediator.Send(new DeactivateBankAccountCommand(_deactivatingAccount.Id));
+        _saving = false;
+        var name = _deactivatingAccount.BankName;
+        _deactivatingAccount = null;
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        else { _successMessage = $"'{name}' deactivated."; await LoadData(); }
+    }
+
+    private async Task DoReactivate(BankAccountDto a)
+    {
+        _saving = true;
+        var result = await Mediator.Send(new ReactivateBankAccountCommand(a.Id));
+        _saving = false;
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        else { _successMessage = $"'{a.BankName}' reactivated."; await LoadData(); }
+    }
+}

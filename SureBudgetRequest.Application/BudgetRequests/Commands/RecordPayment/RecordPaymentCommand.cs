@@ -15,24 +15,28 @@ public sealed record RecordPaymentCommand(
     DateTime PaidAt,
     string? Reference,
     string? Note,
-    Guid? AttachmentId = null) : IRequest<Result>;
+    Guid? AttachmentId = null,
+    Guid? SourceBankAccountId = null) : IRequest<Result>;
 
 public sealed class RecordPaymentCommandHandler
     : IRequestHandler<RecordPaymentCommand, Result>
 {
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IBankAccountRepository _bankAccountRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
     public RecordPaymentCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
+        IBankAccountRepository bankAccountRepository,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
+        _bankAccountRepository = bankAccountRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -50,6 +54,27 @@ public sealed class RecordPaymentCommandHandler
         if (financeUser is null || financeUser.Role != UserRole.Finance)
             return Result.Failure(BudgetRequestErrors.OnlyFinanceCanRecordPayment);
 
+        // Source bank account is optional (null for cash). When supplied, load it,
+        // ensure it's usable, and snapshot its details onto the payment row so the
+        // payment history stays stable if the account is later edited/deactivated.
+        Guid? sourceBankAccountId = null;
+        string? sourceBankName = null;
+        string? sourceAccountNumber = null;
+        string? sourceAccountHolderName = null;
+        if (command.SourceBankAccountId.HasValue)
+        {
+            var account = await _bankAccountRepository.GetByIdAsync(command.SourceBankAccountId.Value, cancellationToken);
+            if (account is null)
+                return Result.Failure(BankAccountErrors.NotFound);
+            if (!account.IsActive)
+                return Result.Failure(BankAccountErrors.Inactive(account.BankName));
+
+            sourceBankAccountId = account.Id;
+            sourceBankName = account.BankName;
+            sourceAccountNumber = account.AccountNumber;
+            sourceAccountHolderName = account.AccountHolderName;
+        }
+
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.RecordPayment(
             command.Amount,
@@ -57,7 +82,11 @@ public sealed class RecordPaymentCommandHandler
             DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.Reference,
             command.Note,
-            command.AttachmentId);
+            command.AttachmentId,
+            sourceBankAccountId,
+            sourceBankName,
+            sourceAccountNumber,
+            sourceAccountHolderName);
 
         if (result.IsFailure) return result;
 

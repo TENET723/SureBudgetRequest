@@ -39,6 +39,7 @@ public sealed class DbSeeder
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCoasAsync(cancellationToken);
         await SeedWithdrawMethodsAsync(cancellationToken);
+        await SeedBankAccountsAsync(cancellationToken);
         await SeedBudgetCategoriesAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
     }
@@ -125,6 +126,25 @@ public sealed class DbSeeder
             new WithdrawMethod("Bank Transfer", requiresAttachment: true),
             new WithdrawMethod("Cheque", requiresAttachment: true),
             new WithdrawMethod("Mobile Wallet", requiresAttachment: true)
+        );
+
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+
+    // ── Bank Accounts ─────────────────────────────────────────────────────────
+    private async Task SeedBankAccountsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.BankAccounts.AnyAsync(cancellationToken))
+        {
+            _logger.LogInformation("Bank accounts already seeded — skipping.");
+            return;
+        }
+
+        _logger.LogInformation("Seeding bank accounts...");
+
+        _db.BankAccounts.AddRange(
+            new BankAccount("KBZ Bank", "0012-3456-7890-1234", "aSure Co., Ltd."),
+            new BankAccount("AYA Bank", "9988-7766-5544-3322", "aSure Co., Ltd.")
         );
 
         await _db.SaveChangesAsync(cancellationToken);

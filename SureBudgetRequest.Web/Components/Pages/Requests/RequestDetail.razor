@@ -20,6 +20,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
+@using SureBudgetRequest.Application.BankAccounts.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
@@ -359,6 +360,7 @@ else
                                 <tr>
                                     <th>Date</th>
                                     <th class="text-end">Amount (@_request.CurrencyCode)</th>
+                                    <th>Source account</th>
                                     <th>Reference</th>
                                     <th>Receipt</th>
                                     <th>Recorded by</th>
@@ -370,6 +372,17 @@ else
                                     <tr>
                                         <td class="small">@p.PaidAt.ToLocalTime().ToString("g")</td>
                                         <td class="text-end">@p.Amount.ToString("N2")</td>
+                                        <td class="small">
+                                            @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
+                                            {
+                                                <div>@p.SourceBankName</div>
+                                                <div class="text-muted font-monospace" style="font-size:0.75rem">@p.SourceAccountNumber</div>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
                                         <td class="small text-muted">@(p.Reference ?? "—")</td>
                                         <td class="small">
                                             @if (p.AttachmentId.HasValue)
@@ -735,6 +748,19 @@ else
                         <input class="form-control form-control-sm" type="date" @bind="_paymentDate" />
                     </div>
                     <div class="mb-3">
+                        <label class="form-label small fw-semibold">
+                            Source bank account <span class="text-muted fw-normal">(optional)</span>
+                        </label>
+                        <select class="form-select form-select-sm" @bind="_selectedBankAccountId">
+                            <option value="">— none (e.g. cash) —</option>
+                            @foreach (var ba in _bankAccounts)
+                            {
+                                <option value="@ba.Id">@ba.BankName — @ba.AccountNumber (@ba.AccountHolderName)</option>
+                            }
+                        </select>
+                        <div class="form-text small">Pick the company account the money was paid from. Leave blank for cash.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label small fw-semibold">Reference <span class="text-muted fw-normal">(optional)</span></label>
                         <input class="form-control form-control-sm" @bind="_paymentRef" placeholder="Bank ref, voucher no…" />
                     </div>
@@ -1055,6 +1081,9 @@ else
     private IBrowserFile? _paymentReceiptFile;
     private string? _paymentPreviewUrl;
     private string? _paymentError;
+    // Source bank account picker for the payment modal. Empty = none (cash).
+    private List<BankAccountDto> _bankAccounts = new();
+    private string _selectedBankAccountId = "";
     private bool _showCancelModal;
 
     // Finance approve modal state
@@ -1282,16 +1311,22 @@ else
         else { _actionSuccess = "Request sent back to requester."; await LoadRequest(); }
     }
 
-    private void OpenPaymentModal()
+    private async Task OpenPaymentModal()
     {
         _paymentError = null;
         _paymentReceiptFile = null;
         _paymentPreviewUrl = null;
+        _selectedBankAccountId = "";
         // When partial isn't allowed, force the amount to the full remaining balance.
         _paymentAmount = (_request is not null && !_request.AllowsPartialPayment)
             ? _request.RemainingBalance
             : 0;
         _showPaymentModal = true;
+
+        // Load active company bank accounts for the source picker.
+        var accounts = await Mediator.Send(new ListBankAccountsQuery(IncludeInactive: false));
+        if (accounts.IsSuccess)
+            _bankAccounts = accounts.Value.ToList();
     }
 
     private async Task DoRecordPayment()
@@ -1342,6 +1377,8 @@ else
                 attachmentId = upload.Value;
             }
 
+            Guid? sourceBankAccountId = Guid.TryParse(_selectedBankAccountId, out var baId) ? baId : null;
+
             var result = await Mediator.Send(new RecordPaymentCommand(
                 Id,
                 CurrentUser.UserId,
@@ -1349,7 +1386,8 @@ else
                 _paymentDate,
                 _paymentRef,
                 _paymentNote,
-                attachmentId));
+                attachmentId,
+                sourceBankAccountId));
 
             if (result.IsFailure)
             {
@@ -1364,6 +1402,7 @@ else
             _paymentNote = null;
             _paymentReceiptFile = null;
             _paymentPreviewUrl = null;
+            _selectedBankAccountId = "";
             _actionSuccess = "Payment recorded.";
             await LoadRequest();
         }

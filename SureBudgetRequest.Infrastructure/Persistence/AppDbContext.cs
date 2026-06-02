@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<CurrencyRateChange> CurrencyRateChanges => Set<CurrencyRateChange>();
     public DbSet<Coa> Coas => Set<Coa>();
     public DbSet<WithdrawMethod> WithdrawMethods => Set<WithdrawMethod>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<BudgetCategory> BudgetCategories => Set<BudgetCategory>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<BudgetRequestModification> BudgetRequestModifications => Set<BudgetRequestModification>();
