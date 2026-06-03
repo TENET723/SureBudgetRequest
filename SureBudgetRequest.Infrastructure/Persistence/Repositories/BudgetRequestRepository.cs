@@ -136,4 +136,31 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
                      && r.SubmittedAt < toUtc)
             .SumAsync(r => r.RequestedAmountInMmkAtSubmission, cancellationToken);
     }
+
+    public async Task<bool> HasOverdueAdvanceAsync(
+        Guid requesterId,
+        DateTime asOfUtc,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _context.BudgetRequests
+            .AsNoTracking()
+            .AnyAsync(r => r.RequesterId == requesterId
+                        && r.Type == BudgetRequestType.Advance
+                        && r.ReconciliationDeadline != null
+                        && r.ReconciliationDeadline < asOfUtc
+                        && (r.Status == RequestStatus.PendingReconciliation
+                         || r.Status == RequestStatus.AwaitingRefund),
+                cancellationToken);
+
+        //var test = await _context.BudgetRequests
+        //    .AsNoTracking()
+        //    .FirstAsync(r => r.RequesterId == requesterId
+        //                && r.Type == BudgetRequestType.Advance
+        //                && r.ReconciliationDeadline != null
+        //                && r.ReconciliationDeadline < asOfUtc
+        //                && (r.Status == RequestStatus.PendingReconciliation
+        //                 || r.Status == RequestStatus.AwaitingRefund),
+        //        cancellationToken);
+        return result;
+    }
 }

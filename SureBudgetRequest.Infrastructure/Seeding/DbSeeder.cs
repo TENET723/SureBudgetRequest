@@ -58,11 +58,6 @@ public sealed class DbSeeder
 
         _logger.LogInformation("Seeding app settings...");
 
-        _db.AppSettings.Add(new AppSetting(
-            "AdvanceBlackoutDays",
-            "3",
-            "Days before month-end when advance requests are blocked."));
-
         // Company-wide financial-year start month (1-12). Quarters and yearly
         // windows for department spending caps derive from this. Default: April.
         _db.AppSettings.Add(new AppSetting(

@@ -68,4 +68,14 @@ public interface IBudgetRequestRepository
         DateTime fromUtc,
         DateTime toUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns true if the requester has any Advance whose
+    /// <c>ReconciliationDeadline</c> is before <paramref name="asOfUtc"/> and
+    /// whose <c>Status</c> is <c>PendingReconciliation</c> or <c>AwaitingRefund</c>.
+    /// </summary>
+    Task<bool> HasOverdueAdvanceAsync(
+        Guid requesterId,
+        DateTime asOfUtc,
+        CancellationToken cancellationToken = default);
 }

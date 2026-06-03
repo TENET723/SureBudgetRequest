@@ -55,9 +55,9 @@ public static class BudgetRequestErrors
     public static readonly Error OnlyRequesterCanUpdateUsage = 
         Error.Forbidden("BudgetRequest.OnlyRequesterCanUpdateUsage", "Only the requester can edit usage on their own advance.");
 
-    public static readonly Error OnlyRequesterCanEditDraft = 
+    public static readonly Error OnlyRequesterCanEditDraft =
         Error.Forbidden("BudgetRequest.OnlyRequesterCanEditDraft", "Only the requester can edit their draft.");
 
-    public static readonly Error AdvanceSubmissionBlockedMonthEnd = 
-        Error.Validation("BudgetRequest.AdvanceSubmissionBlockedMonthEnd", "Advance requests cannot be submitted during the month-end blackout window.");
+    public static readonly Error AdvanceBlockedByOverdueReconciliation =
+        Error.Validation("BudgetRequest.AdvanceBlockedByOverdueReconciliation", "You have an advance past its reconciliation deadline. Reconcile it before requesting a new advance.");
 }
