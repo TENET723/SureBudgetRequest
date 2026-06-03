@@ -64,6 +64,10 @@ public static class DependencyInjection
         // Singleton: stateless and thread-safe.
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
+        // ── Reporting / exports ───────────────────────────────────────────────
+        // Stateless formatter → singleton, matching IPasswordHasher / IDateTimeProvider.
+        services.AddSingleton<IReportExporter, ClosedXmlReportExporter>();
+
         // ── Notifications (outbox pattern) ────────────────────────────────────
         services.Configure<SlackOptions>(configuration.GetSection(SlackOptions.SectionName));
         services.AddScoped<INotificationService, SlackNotificationService>();

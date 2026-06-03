@@ -99,6 +99,9 @@ app.MapRazorComponents<App>()
 // Attachment HTTP endpoints (download).
 app.MapAttachmentEndpoints();
 
+// Report export HTTP endpoints (xlsx download).
+app.MapReportEndpoints();
+
 // Logout endpoint. Form-posted from MainLayout with an antiforgery token.
 app.MapPost("/logout", async (HttpContext ctx) =>
 {

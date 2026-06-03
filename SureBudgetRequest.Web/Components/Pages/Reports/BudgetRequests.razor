@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.Coas.Queries
@@ -157,6 +158,9 @@
                     </button>
                     <button class="btn btn-sm btn-outline-secondary" @onclick="ClearAsync" disabled="@_loading">
                         Clear
+                    </button>
+                    <button class="btn btn-sm btn-success" @onclick="ExportAsync" disabled="@_loading">
+                        Export to Excel
                     </button>
                 </div>
             </div>
@@ -432,6 +436,39 @@
     }
 
     private Task ApplyAsync() => RunQueryAsync();
+
+    // Builds the export URL from the CURRENT filter state and opens it in a new
+    // tab. The endpoint returns Content-Disposition: attachment, so the browser
+    // downloads the file. We use window.open rather than Nav.NavigateTo(forceLoad)
+    // so the Blazor circuit isn't torn down. Role scoping is re-enforced
+    // server-side, so we don't reproduce it here beyond the existing dept lock.
+    private async Task ExportAsync()
+    {
+        var query = new List<string>();
+
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+                query.Add($"{key}={Uri.EscapeDataString(value)}");
+        }
+
+        if (_fromDate.HasValue) Add("from", _fromDate.Value.ToString("yyyy-MM-dd"));
+        if (_toDate.HasValue) Add("to", _toDate.Value.ToString("yyyy-MM-dd"));
+        Add("departmentId", _selectedDepartmentId);
+        Add("coaId", _selectedCoaId);
+        Add("currency", _selectedCurrencyCode);
+        Add("requesterId", _selectedRequesterId);
+        Add("approverId", _selectedApproverId);
+        if (_overLimitFilter != "any") Add("overLimit", _overLimitFilter);
+        foreach (var s in _selectedStatuses)
+            Add("statuses", s.ToString());
+
+        var url = "/api/reports/budget-requests/export";
+        if (query.Count > 0)
+            url += "?" + string.Join("&", query);
+
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
 
     private async Task ClearAsync()
     {
