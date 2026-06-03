@@ -35,6 +35,25 @@ namespace SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequest
 /// with an <c>Approved</c> or <c>AutoApproved</c> decision — at any stage
 /// (Dept Head, Management, or Finance).
 /// </param>
+/// <param name="Types">
+/// <c>null</c> or empty = no filter. Otherwise matches requests whose
+/// <c>Type</c> is in the supplied set (IN semantics, same as
+/// <see cref="Statuses"/>).
+/// </param>
+/// <param name="AmountInMmkFrom">
+/// Inclusive lower bound matched against
+/// <c>RequestedAmountInMmkAtSubmission</c>. <c>null</c> = no lower bound.
+/// </param>
+/// <param name="AmountInMmkTo">
+/// Inclusive upper bound matched against
+/// <c>RequestedAmountInMmkAtSubmission</c>. <c>null</c> = no upper bound.
+/// </param>
+/// <param name="PeriodOverrunOnly">
+/// <c>null</c> = no filter. <c>true</c> = only requests that crossed their
+/// department's cumulative (period) cap at submission — i.e. those that
+/// would render the <c>PeriodOverrunBadge</c>. <c>false</c> = only requests
+/// that did not.
+/// </param>
 public sealed record ListBudgetRequestsQuery(
     Guid? RequesterId = null,
     Guid? DepartmentId = null,
@@ -45,7 +64,11 @@ public sealed record ListBudgetRequestsQuery(
     Guid? CoaId = null,
     string? CurrencyCode = null,
     Guid? ApproverId = null,
-    bool? OverLimitOnly = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
+    bool? OverLimitOnly = null,
+    IReadOnlyCollection<BudgetRequestType>? Types = null,
+    decimal? AmountInMmkFrom = null,
+    decimal? AmountInMmkTo = null,
+    bool? PeriodOverrunOnly = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
 
 public sealed class ListBudgetRequestsQueryHandler
     : IRequestHandler<ListBudgetRequestsQuery, Result<IReadOnlyList<BudgetRequestSummaryDto>>>
@@ -79,6 +102,10 @@ public sealed class ListBudgetRequestsQueryHandler
             request.CurrencyCode,
             request.ApproverId,
             request.OverLimitOnly,
+            request.Types,
+            request.AmountInMmkFrom,
+            request.AmountInMmkTo,
+            request.PeriodOverrunOnly,
             cancellationToken);
 
         // Batch-resolve COA codes/names for display. The COA master list is

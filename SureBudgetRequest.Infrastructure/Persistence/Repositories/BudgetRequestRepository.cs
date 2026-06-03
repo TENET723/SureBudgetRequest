@@ -35,6 +35,10 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         string? currencyCode = null,
         Guid? approverId = null,
         bool? overLimitOnly = null,
+        IReadOnlyCollection<BudgetRequestType>? types = null,
+        decimal? amountInMmkFrom = null,
+        decimal? amountInMmkTo = null,
+        bool? periodOverrunOnly = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.BudgetRequests
@@ -88,6 +92,35 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             query = overLimitOnly.Value
                 ? query.Where(r => r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission)
                 : query.Where(r => r.RequestedAmountInMmkAtSubmission <= r.DepartmentLimitAtSubmission);
+        }
+
+        // Type — IN semantics, same shape as the statuses filter above.
+        if (types is { Count: > 0 })
+            query = query.Where(r => types.Contains(r.Type));
+
+        // Amount range — inclusive bounds on the MMK-at-submission amount.
+        if (amountInMmkFrom.HasValue)
+            query = query.Where(r => r.RequestedAmountInMmkAtSubmission >= amountInMmkFrom.Value);
+
+        if (amountInMmkTo.HasValue)
+            query = query.Where(r => r.RequestedAmountInMmkAtSubmission <= amountInMmkTo.Value);
+
+        // Period overrun — mirrors the PeriodOverrunBadge.IsOver condition exactly,
+        // computed from the submission snapshots. true = crossed the cap; false =
+        // the inverse; null = no filter.
+        if (periodOverrunOnly.HasValue)
+        {
+            query = periodOverrunOnly.Value
+                ? query.Where(r =>
+                    r.PeriodTypeAtSubmission != BudgetPeriodType.None
+                    && r.PeriodLimitAtSubmission != null
+                    && r.PeriodSpendBeforeAtSubmission != null
+                    && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission)
+                : query.Where(r => !(
+                    r.PeriodTypeAtSubmission != BudgetPeriodType.None
+                    && r.PeriodLimitAtSubmission != null
+                    && r.PeriodSpendBeforeAtSubmission != null
+                    && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission));
         }
 
         return await query

@@ -26,6 +26,14 @@ public interface IBudgetRequestRepository
     ///   stage.</item>
     ///   <item><c>overLimitOnly</c> — null = either; true = only over-limit
     ///   (routed through Management); false = only within-limit.</item>
+    ///   <item><c>types</c> — null/empty = any type; otherwise match requests
+    ///   whose <c>Type</c> is in the supplied set (IN semantics).</item>
+    ///   <item><c>amountInMmkFrom</c> / <c>amountInMmkTo</c> — inclusive bounds
+    ///   on <c>RequestedAmountInMmkAtSubmission</c>; null = unbounded on that
+    ///   side.</item>
+    ///   <item><c>periodOverrunOnly</c> — null = either; true = only requests
+    ///   that crossed their department's cumulative (period) cap at submission;
+    ///   false = only those that did not.</item>
     /// </list>
     /// </remarks>
     Task<IReadOnlyList<BudgetRequest>> ListAsync(
@@ -39,6 +47,10 @@ public interface IBudgetRequestRepository
         string? currencyCode = null,
         Guid? approverId = null,
         bool? overLimitOnly = null,
+        IReadOnlyCollection<BudgetRequestType>? types = null,
+        decimal? amountInMmkFrom = null,
+        decimal? amountInMmkTo = null,
+        bool? periodOverrunOnly = null,
         CancellationToken cancellationToken = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);
