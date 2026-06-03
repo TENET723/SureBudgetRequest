@@ -1,0 +1,53 @@
+@*
+    A small, reusable client-side search input for list pages.
+
+    Presentation-only: it holds no list logic. Each page supplies its own
+    match predicate and runs it after the value changes. Matching is expected
+    to be in-memory and instant, so there is no debounce.
+
+    Usage:
+
+        <ListSearchBox @bind-Value="_search"
+                       OnEnter="ApplyFilters"
+                       Placeholder="Search requests…"
+                       Width="260px" />
+
+    ValueChanged fires on every keystroke so the bound value is current, but
+    the box does not auto-apply — the parent applies explicitly, typically by
+    handling OnEnter (raised when the user presses Enter in the input).
+*@
+
+<div class="input-group input-group-sm" style="@WidthStyle">
+    <span class="input-group-text">🔍</span>
+    <input type="text" class="form-control"
+           placeholder="@Placeholder"
+           value="@Value"
+           @oninput="OnInput"
+           @onkeydown="OnKeyDown" />
+    @if (!string.IsNullOrEmpty(Value))
+    {
+        <button class="btn btn-outline-secondary" type="button" @onclick="Clear">✕</button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Search…";
+    [Parameter] public string? Width { get; set; }
+    [Parameter] public EventCallback OnEnter { get; set; }
+
+    private string? WidthStyle => Width is null ? null : $"max-width: {Width};";
+
+    private async Task OnInput(ChangeEventArgs e)
+        => await ValueChanged.InvokeAsync(e.Value?.ToString() ?? "");
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await OnEnter.InvokeAsync();
+    }
+
+    private async Task Clear()
+        => await ValueChanged.InvokeAsync("");
+}

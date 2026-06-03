@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 
@@ -40,6 +41,37 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
         CancellationToken cancellationToken = default)
+    {
+        var query = BuildFilteredQuery(
+            requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
+            coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
+            periodOverrunOnly);
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Builds the eager-loaded, filtered query shared by <see cref="ListAsync"/>
+    /// and <see cref="SearchAsync"/>. Applies every filter dimension but does NOT
+    /// apply free-text search, sorting, or paging — callers add those.
+    /// </summary>
+    private IQueryable<BudgetRequest> BuildFilteredQuery(
+        Guid? requesterId,
+        Guid? departmentId,
+        RequestStatus? status,
+        IReadOnlyCollection<RequestStatus>? statuses,
+        DateTime? submittedFromUtc,
+        DateTime? submittedUntilUtc,
+        Guid? coaId,
+        string? currencyCode,
+        Guid? approverId,
+        bool? overLimitOnly,
+        IReadOnlyCollection<BudgetRequestType>? types,
+        decimal? amountInMmkFrom,
+        decimal? amountInMmkTo,
+        bool? periodOverrunOnly)
     {
         var query = _context.BudgetRequests
             .Include(r => r.ApprovalActions)
@@ -123,9 +155,97 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
                     && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission));
         }
 
-        return await query
-            .OrderByDescending(r => r.CreatedAt)
-            .ToListAsync(cancellationToken);
+        return query;
+    }
+
+    public async Task<(IReadOnlyList<BudgetRequest> Items, int TotalCount)> SearchAsync(
+        Guid? requesterId,
+        Guid? departmentId,
+        RequestStatus? status,
+        IReadOnlyCollection<RequestStatus>? statuses,
+        DateTime? submittedFromUtc,
+        DateTime? submittedUntilUtc,
+        Guid? coaId,
+        string? currencyCode,
+        Guid? approverId,
+        bool? overLimitOnly,
+        IReadOnlyCollection<BudgetRequestType>? types,
+        decimal? amountInMmkFrom,
+        decimal? amountInMmkTo,
+        bool? periodOverrunOnly,
+        string? searchTerm,
+        BudgetRequestSortBy sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = BuildFilteredQuery(
+            requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
+            coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
+            periodOverrunOnly);
+
+        // Free-text search — case-insensitive substring (ILike) against Reasons,
+        // RequesterNameAtSubmission and Reference (Reference is nullable, so guard
+        // it so the OR survives a null without NRE in translation).
+        var term = searchTerm?.Trim();
+        if (!string.IsNullOrEmpty(term))
+        {
+            var pattern = $"%{term}%";
+            query = query.Where(r =>
+                EF.Functions.ILike(r.Reasons, pattern)
+                || EF.Functions.ILike(r.RequesterNameAtSubmission, pattern)
+                || (r.Reference != null && EF.Functions.ILike(r.Reference, pattern)));
+        }
+
+        // Total before paging.
+        var totalCount = await query.CountAsync(ct);
+
+        // Sort by the requested column, then a stable tiebreaker on CreatedAt.
+        query = ApplySort(query, sortBy, sortDescending);
+
+        // Clamp paging into sane bounds.
+        var safePage = page < 1 ? 1 : page;
+        var safePageSize = pageSize < 1 ? 1 : (pageSize > 100 ? 100 : pageSize);
+
+        var items = await query
+            .Skip((safePage - 1) * safePageSize)
+            .Take(safePageSize)
+            .ToListAsync(ct);
+
+        return (items, totalCount);
+    }
+
+    private static IQueryable<BudgetRequest> ApplySort(
+        IQueryable<BudgetRequest> query, BudgetRequestSortBy sortBy, bool descending)
+    {
+        IOrderedQueryable<BudgetRequest> ordered = sortBy switch
+        {
+            BudgetRequestSortBy.RequestDate => descending
+                ? query.OrderByDescending(r => r.RequestDate)
+                : query.OrderBy(r => r.RequestDate),
+            BudgetRequestSortBy.Reference => descending
+                ? query.OrderByDescending(r => r.Reference)
+                : query.OrderBy(r => r.Reference),
+            BudgetRequestSortBy.Requester => descending
+                ? query.OrderByDescending(r => r.RequesterNameAtSubmission)
+                : query.OrderBy(r => r.RequesterNameAtSubmission),
+            BudgetRequestSortBy.Type => descending
+                ? query.OrderByDescending(r => r.Type)
+                : query.OrderBy(r => r.Type),
+            BudgetRequestSortBy.AmountInMmk => descending
+                ? query.OrderByDescending(r => r.RequestedAmountInMmkAtSubmission)
+                : query.OrderBy(r => r.RequestedAmountInMmkAtSubmission),
+            BudgetRequestSortBy.Status => descending
+                ? query.OrderByDescending(r => r.Status)
+                : query.OrderBy(r => r.Status),
+            // SubmittedAt is the default.
+            _ => descending
+                ? query.OrderByDescending(r => r.SubmittedAt)
+                : query.OrderBy(r => r.SubmittedAt),
+        };
+
+        return ordered.ThenByDescending(r => r.CreatedAt);
     }
 
     public async Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default)

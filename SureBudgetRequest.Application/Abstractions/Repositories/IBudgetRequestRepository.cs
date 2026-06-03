@@ -1,3 +1,4 @@
+using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 
@@ -52,6 +53,38 @@ public interface IBudgetRequestRepository
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Paged, sorted, server-side search. Applies the same filter dimensions as
+    /// <see cref="ListAsync"/> (shared filter logic), then an optional free-text
+    /// <paramref name="searchTerm"/> (case-insensitive substring match against
+    /// Reasons, RequesterNameAtSubmission and Reference), sorts by
+    /// <paramref name="sortBy"/>/<paramref name="sortDescending"/>, and returns a
+    /// single page along with the total matching count (computed before paging).
+    /// <paramref name="page"/> is clamped to >= 1 and <paramref name="pageSize"/>
+    /// to [1, 100].
+    /// </summary>
+    Task<(IReadOnlyList<BudgetRequest> Items, int TotalCount)> SearchAsync(
+        Guid? requesterId,
+        Guid? departmentId,
+        RequestStatus? status,
+        IReadOnlyCollection<RequestStatus>? statuses,
+        DateTime? submittedFromUtc,
+        DateTime? submittedUntilUtc,
+        Guid? coaId,
+        string? currencyCode,
+        Guid? approverId,
+        bool? overLimitOnly,
+        IReadOnlyCollection<BudgetRequestType>? types,
+        decimal? amountInMmkFrom,
+        decimal? amountInMmkTo,
+        bool? periodOverrunOnly,
+        string? searchTerm,
+        BudgetRequestSortBy sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);
 

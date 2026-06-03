@@ -3,7 +3,9 @@
 @inject ICurrentUser CurrentUser
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
+@using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 
@@ -20,6 +22,74 @@
         <div class="alert alert-danger">@_errorMessage</div>
     }
 
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="() => _showFilters = !_showFilters">
+            Filters @(_showFilters ? "▲" : "▼")
+        </button>
+    </div>
+
+    @if (_showFilters)
+    {
+        <div class="card card-body bg-light mb-3">
+            <div class="row g-3">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <label class="form-label small mb-1">Search</label>
+                    <ListSearchBox @bind-Value="_search" OnEnter="() => LoadPageAsync(1)" Placeholder="Search reference or reason" />
+                </div>
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-1">From date</label>
+                    <input type="date" class="form-control form-control-sm" @bind="_fromDate" />
+                </div>
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label small mb-1">To date</label>
+                    <input type="date" class="form-control form-control-sm" @bind="_toDate" />
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-12 col-lg-8">
+                    <label class="form-label small mb-1">Status</label>
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_openStatuses))">Open</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_needsAttentionStatuses))">Needs attention</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_closedStatuses))">Closed</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(Array.Empty<RequestStatus>()))">Clear</button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var s in _allStatuses)
+                        {
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="status-@s"
+                                       checked="@_selectedStatuses.Contains(s)"
+                                       @onchange="e => ToggleStatus(s, (bool)e.Value!)" />
+                                <label class="form-check-label small" for="status-@s">@StatusLabel(s)</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="col-12 col-lg-4">
+                    <label class="form-label small mb-1">Type</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var t in _allTypes)
+                        {
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="type-@t"
+                                       checked="@_selectedTypes.Contains(t)"
+                                       @onchange="e => ToggleType(t, (bool)e.Value!)" />
+                                <label class="form-check-label small" for="type-@t">@TypeLabel(t)</label>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-primary" @onclick="() => LoadPageAsync(1)" disabled="@_loading">Apply</button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters" disabled="@_loading">Clear</button>
+            </div>
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -30,6 +100,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Reference</th>
                         <th>Date</th>
                         <th>Reason</th>
@@ -40,9 +111,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in _requests)
+                    @for (int i = 0; i < Items.Count; i++)
                     {
+                        var r = Items[i];
+                        var rowNo = (_result!.Page - 1) * _result.PageSize + i + 1;
                         <tr>
+                            <td class="text-muted small">@rowNo</td>
                             <td><strong>@r.Reference</strong></td>
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
@@ -68,12 +142,38 @@
                             </td>
                         </tr>
                     }
-                    @if (!_requests.Any())
+                    @if (!Items.Any())
                     {
-                        <tr><td colspan="6" class="text-center text-muted py-4">No requests yet. <a href="requests/new">Create one.</a></td></tr>
+                        @if (_result is not null && _result.TotalCount == 0 && !_appliedHasFilters)
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-4">No requests yet. <a href="requests/new">Create one.</a></td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-4">No requests match your search/filters.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between mt-2">
+            <span class="small text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-muted mb-0">Page size</label>
+                <select class="form-select form-select-sm" style="width:auto" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!(_result?.HasPrev ?? false))"
+                        @onclick="() => LoadPageAsync(_currentPage - 1)">Prev</button>
+                <span class="small">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
+                <button class="btn btn-sm btn-outline-secondary"
+                        disabled="@(!(_result?.HasNext ?? false))"
+                        @onclick="() => LoadPageAsync(_currentPage + 1)">Next</button>
+            </div>
         </div>
     }
 </div>
@@ -100,19 +200,130 @@
 }
 
 @code {
-    private List<BudgetRequestSummaryDto> _requests = new();
+    // Current page of server-side search results (source of truth for the table).
+    private PagedResult<BudgetRequestSummaryDto>? _result;
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    // Snapshot of "were any filters/search applied" for the query that produced
+    // _result — drives the empty-state message (set inside LoadPageAsync).
+    private bool _appliedHasFilters;
+
     private bool _loading = true;
     private string? _errorMessage;
     private BudgetRequestSummaryDto? _cancellingRequest;
     private bool _saving;
 
-    protected override async Task OnInitializedAsync()
+    private IReadOnlyList<BudgetRequestSummaryDto> Items => _result?.Items ?? Array.Empty<BudgetRequestSummaryDto>();
+
+    // ── Staged filter state (does nothing until Apply / Enter / preset+Apply) ──
+    private bool _showFilters;
+    private string _search = "";
+    private HashSet<RequestStatus> _selectedStatuses = new();
+    private HashSet<BudgetRequestType> _selectedTypes = new();
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+
+    // All statuses in workflow order (includes the four advance states).
+    private static readonly RequestStatus[] _allStatuses =
     {
-        var result = await Mediator.Send(new ListBudgetRequestsQuery(RequesterId: CurrentUser.UserId));
+        RequestStatus.Draft,
+        RequestStatus.PendingDeptHead,
+        RequestStatus.PendingManagement,
+        RequestStatus.PendingFinance,
+        RequestStatus.SentBack,
+        RequestStatus.Approved,
+        RequestStatus.PartiallyPaid,
+        RequestStatus.Paid,
+        RequestStatus.Rejected,
+        RequestStatus.Cancelled,
+        RequestStatus.PendingReconciliation,
+        RequestStatus.AwaitingRefund,
+        RequestStatus.AwaitingReimbursement,
+        RequestStatus.Reconciled,
+    };
+
+    private static readonly BudgetRequestType[] _allTypes =
+    {
+        BudgetRequestType.Urgent,
+        BudgetRequestType.Standard,
+        BudgetRequestType.ProjectProposal,
+        BudgetRequestType.Advance,
+    };
+
+    private static readonly RequestStatus[] _openStatuses =
+    {
+        RequestStatus.Draft, RequestStatus.PendingDeptHead, RequestStatus.PendingManagement,
+        RequestStatus.PendingFinance, RequestStatus.Approved, RequestStatus.PartiallyPaid,
+    };
+
+    private static readonly RequestStatus[] _needsAttentionStatuses =
+    {
+        RequestStatus.Draft, RequestStatus.SentBack, RequestStatus.PendingReconciliation,
+        RequestStatus.AwaitingRefund, RequestStatus.AwaitingReimbursement,
+    };
+
+    private static readonly RequestStatus[] _closedStatuses =
+    {
+        RequestStatus.Paid, RequestStatus.Reconciled, RequestStatus.Rejected, RequestStatus.Cancelled,
+    };
+
+    private bool HasStagedFilters =>
+        !string.IsNullOrWhiteSpace(_search)
+        || _selectedStatuses.Count > 0
+        || _selectedTypes.Count > 0
+        || _fromDate.HasValue
+        || _toDate.HasValue;
+
+    protected override async Task OnInitializedAsync() => await LoadPageAsync(1);
+
+    private async Task LoadPageAsync(int page)
+    {
+        if (page < 1) page = 1;
+
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        // Date range → SubmittedAt bounds. Inputs are calendar dates; treat them
+        // as UTC. Upper bound is exclusive next-day midnight so the end day is
+        // inclusive. A reversed range (from > to) is ignored rather than erroring.
+        DateTime? from = _fromDate.HasValue
+            ? DateTime.SpecifyKind(_fromDate.Value.Date, DateTimeKind.Utc)
+            : null;
+        DateTime? until = _toDate.HasValue
+            ? DateTime.SpecifyKind(_toDate.Value.Date.AddDays(1), DateTimeKind.Utc)
+            : null;
+        if (_fromDate.HasValue && _toDate.HasValue && _fromDate.Value.Date > _toDate.Value.Date)
+        {
+            from = null;
+            until = null;
+        }
+
+        // Remember whether this query carried any filter/search, for the
+        // empty-state message.
+        _appliedHasFilters = HasStagedFilters;
+
+        var query = new SearchBudgetRequestsQuery(
+            RequesterId: CurrentUser.UserId,
+            Statuses: _selectedStatuses.Count > 0 ? _selectedStatuses.ToList() : null,
+            Types: _selectedTypes.Count > 0 ? _selectedTypes.ToList() : null,
+            SubmittedFromUtc: from,
+            SubmittedUntilUtc: until,
+            SearchTerm: _search,
+            Page: page,
+            PageSize: _pageSize);
+
+        var result = await Mediator.Send(query);
         if (result.IsSuccess)
-            _requests = result.Value.OrderByDescending(r => r.CreatedAt).ToList();
+        {
+            _result = result.Value;
+            _currentPage = _result.Page;
+        }
         else
+        {
             _errorMessage = result.Error.Message;
+        }
+
         _loading = false;
     }
 
@@ -128,10 +339,45 @@
         if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else
         {
-            var r = await Mediator.Send(new ListBudgetRequestsQuery(RequesterId: CurrentUser.UserId));
-            if (r.IsSuccess) _requests = r.Value.OrderByDescending(x => x.CreatedAt).ToList();
+            // Reload the current page so the cancelled request reflects its new state.
+            await LoadPageAsync(_currentPage);
         }
     }
+
+    private void ToggleStatus(RequestStatus s, bool isChecked)
+    {
+        if (isChecked) _selectedStatuses.Add(s);
+        else _selectedStatuses.Remove(s);
+    }
+
+    private void ToggleType(BudgetRequestType t, bool isChecked)
+    {
+        if (isChecked) _selectedTypes.Add(t);
+        else _selectedTypes.Remove(t);
+    }
+
+    // Presets only stage the selection; they apply on the next Apply.
+    private void ApplyStatusPreset(IEnumerable<RequestStatus> statuses)
+        => _selectedStatuses = new HashSet<RequestStatus>(statuses);
+
+    private async Task ClearFilters()
+    {
+        _search = "";
+        _selectedStatuses.Clear();
+        _selectedTypes.Clear();
+        _fromDate = null;
+        _toDate = null;
+        await LoadPageAsync(1);
+    }
+
+    private static string TypeLabel(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent => "Urgent",
+        BudgetRequestType.Standard => "Standard",
+        BudgetRequestType.ProjectProposal => "Project Proposal",
+        BudgetRequestType.Advance => "Advance",
+        _ => t.ToString()
+    };
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";
