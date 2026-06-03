@@ -521,6 +521,7 @@
         RequestStatus.Paid              => "Paid",
         RequestStatus.Rejected          => "Rejected",
         RequestStatus.Cancelled         => "Cancelled",
+        RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
         _                               => s.ToString()
     };
 
@@ -536,6 +537,7 @@
         RequestStatus.Paid              => "bg-success",
         RequestStatus.Rejected          => "bg-danger",
         RequestStatus.Cancelled         => "bg-secondary",
+        RequestStatus.AwaitingReimbursement => "bg-info text-dark",
         _                               => "bg-secondary"
     };
 

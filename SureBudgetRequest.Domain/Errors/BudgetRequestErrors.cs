@@ -22,8 +22,11 @@ public static class BudgetRequestErrors
     public static Error CoaDeactivated(string code) => 
         Error.Validation("BudgetRequest.CoaDeactivated", $"Chart of Account '{code}' has been deactivated and cannot be used.");
 
-    public static readonly Error OnlyFinanceCanRecordRefund = 
+    public static readonly Error OnlyFinanceCanRecordRefund =
         Error.Forbidden("BudgetRequest.OnlyFinanceCanRecordRefund", "Only a Finance user can record a refund.");
+
+    public static readonly Error OnlyFinanceCanRecordReimbursement =
+        Error.Forbidden("BudgetRequest.OnlyFinanceCanRecordReimbursement", "Only a Finance user can record a reimbursement.");
 
     public static readonly Error FinanceApproverRequired = 
         Error.Forbidden("BudgetRequest.FinanceApproverRequired", "This Finance user is restricted to recording payments and cannot perform this action.");

@@ -60,4 +60,10 @@ public enum NotificationTrigger
 
     /// <summary>Finance recorded the refund; the advance is now reconciled → requester.</summary>
     RefundRecordedToRequester,
+
+    /// <summary>Reconciliation landed in AwaitingReimbursement (usage &gt; advance) → requester + Finance.</summary>
+    AdvanceAwaitingReimbursement,
+
+    /// <summary>Finance recorded the reimbursement; the advance is now reconciled → requester.</summary>
+    ReimbursementRecordedToRequester,
 }

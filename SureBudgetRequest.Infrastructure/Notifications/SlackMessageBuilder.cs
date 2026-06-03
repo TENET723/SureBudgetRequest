@@ -152,6 +152,14 @@ internal static class SlackMessageBuilder
                 => $"ID: {reference}: refund received and recorded by {actor}. "
                  + "The advance is now fully reconciled. ✅",
 
+            NotificationTrigger.AdvanceAwaitingReimbursement
+                => $"ID: {reference}: reconciliation complete — a reimbursement of "
+                 + $"{ReimbursementText(request)} is now owed to the requester. 💵",
+
+            NotificationTrigger.ReimbursementRecordedToRequester
+                => $"ID: {reference}: reimbursement paid and recorded by {actor}. "
+                 + "The advance is now fully reconciled. ✅",
+
             _ => $"ID: {reference} status updated."
         };
 
@@ -181,4 +189,7 @@ internal static class SlackMessageBuilder
 
     private static string RefundText(BudgetRequest request) =>
         $"{request.RefundAmount:N2} {request.CurrencyCode}";
+
+    private static string ReimbursementText(BudgetRequest request) =>
+        $"{request.ReimbursementAmount:N2} {request.CurrencyCode}";
 }

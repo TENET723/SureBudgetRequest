@@ -15,6 +15,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAdvanceUsage
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitReconciliation
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordRefund
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RecordReimbursement
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
@@ -434,6 +435,7 @@ else
         @if (_request.Type == BudgetRequestType.Advance
              && _request.Status is RequestStatus.PendingReconciliation
                  or RequestStatus.AwaitingRefund
+                 or RequestStatus.AwaitingReimbursement
                  or RequestStatus.Reconciled)
         {
             <div class="card border-0 shadow-sm mb-3">
@@ -465,9 +467,18 @@ else
                                     @_request.TotalUsageRecorded.ToString("N2") /
                                     @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode
                                 </div>
-                                <div class="small text-muted">
-                                    Remaining: @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode
-                                </div>
+                                @if (_request.RemainingAdvance >= 0)
+                                {
+                                    <div class="small text-muted">
+                                        Remaining: @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted">
+                                        Over-spent: @((-_request.RemainingAdvance).ToString("N2")) @_request.CurrencyCode
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
@@ -480,6 +491,14 @@ else
                             — the unspent balance of this advance.
                         </div>
                     }
+                    else if (_request.Status == RequestStatus.AwaitingReimbursement)
+                    {
+                        <div class="alert alert-info small py-2">
+                            Awaiting reimbursement of
+                            <strong>@_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode</strong>
+                            — the over-spent amount the company owes the requester.
+                        </div>
+                    }
                     else if (_request.Status == RequestStatus.Reconciled)
                     {
                         <div class="alert alert-success small py-2">
@@ -489,6 +508,13 @@ else
                                 <span>
                                     Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
                                     received on @_request.RefundReceivedAt.Value.ToLocalTime().ToString("g").
+                                </span>
+                            }
+                            @if (_request.ReimbursementPaidAt.HasValue)
+                            {
+                                <span>
+                                    Reimbursement of @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode
+                                    paid on @_request.ReimbursementPaidAt.Value.ToLocalTime().ToString("g").
                                 </span>
                             }
                         </div>
@@ -578,6 +604,12 @@ else
                     {
                         <div class="d-flex flex-wrap gap-2 mt-2">
                             <button class="btn btn-sm btn-success" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
+                        </div>
+                    }
+                    @if (IsFinance && _request.Status == RequestStatus.AwaitingReimbursement)
+                    {
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button class="btn btn-sm btn-success" @onclick="OpenReimbursementModal" disabled="@_actioning">Record reimbursement paid</button>
                         </div>
                     }
                 </div>
@@ -841,8 +873,9 @@ else
                         @if (_request is not null)
                         {
                             <div class="form-text small">
-                                Remaining on the advance:
-                                @RemainingForUsageEntry().ToString("N2") @_request.CurrencyCode
+                                Advance: @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode ·
+                                Recorded so far: @_request.TotalUsageRecorded.ToString("N2") @_request.CurrencyCode.
+                                Over-spending is allowed and will be reimbursed.
                             </div>
                         }
                     </div>
@@ -927,6 +960,15 @@ else
                             <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
                         </div>
                     }
+                    else if (_request.RemainingAdvance < 0)
+                    {
+                        <div class="alert alert-info small mt-2 mb-0">
+                            Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
+                            @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
+                            The company will reimburse the over-spent
+                            <strong>@((-_request.RemainingAdvance).ToString("N2")) @_request.CurrencyCode</strong>.
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="() => _showSubmitReconModal = false" disabled="@_actioning">Cancel</button>
@@ -968,6 +1010,43 @@ else
                 <div class="modal-footer">
                     <button class="btn btn-sm btn-secondary" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
                     <button class="btn btn-sm btn-success" @onclick="DoRecordRefund" disabled="@_actioning">Record Refund</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Record Reimbursement Modal ───────────────────────────────────────────────── *@
+@if (_showReimbursementModal && _request is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Record Reimbursement Paid</h6>
+                    <button class="btn-close" @onclick="() => _showReimbursementModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_reimbursementError))
+                    {
+                        <div class="alert alert-danger small py-2">@_reimbursementError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Reimbursement amount (@_request.CurrencyCode)</label>
+                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_reimbursementAmount" />
+                        <div class="form-text small">
+                            Must match the outstanding reimbursement of
+                            @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode exactly.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Date paid</label>
+                        <input class="form-control form-control-sm" type="date" @bind="_reimbursementDate" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-secondary" @onclick="() => _showReimbursementModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-sm btn-success" @onclick="DoRecordReimbursement" disabled="@_actioning">Record Reimbursement</button>
                 </div>
             </div>
         </div>
@@ -1113,6 +1192,10 @@ else
     private decimal _refundAmount;
     private DateTime _refundDate = DateTime.Today;
     private string? _refundError;
+    private bool _showReimbursementModal;
+    private decimal _reimbursementAmount;
+    private DateTime _reimbursementDate = DateTime.Today;
+    private string? _reimbursementError;
     private bool _showExtendModal;
     private DateTime _newDeadline = DateTime.Today;
     private string? _extendError;
@@ -1450,20 +1533,6 @@ else
         return $"{days} day(s) remaining";
     }
 
-    // Max amount allowed for the row currently being entered/edited — the
-    // advance ceiling minus all OTHER recorded usage.
-    private decimal RemainingForUsageEntry()
-    {
-        if (_request is null) return 0m;
-        var otherUsage = _request.TotalUsageRecorded;
-        if (_editingUsageId.HasValue)
-        {
-            var row = _request.AdvanceUsages.FirstOrDefault(u => u.Id == _editingUsageId.Value);
-            if (row is not null) otherUsage -= row.Amount;
-        }
-        return _request.ApprovedAmount - otherUsage;
-    }
-
     private void OpenAddUsageModal()
     {
         _editingUsageId = null;
@@ -1545,12 +1614,8 @@ else
 
         if (_usageAmount <= 0) { _usageError = "Amount must be greater than zero."; return; }
         if (string.IsNullOrWhiteSpace(_usageDescription)) { _usageError = "Description is required."; return; }
-        if (_usageAmount > RemainingForUsageEntry())
-        {
-            _usageError = $"Amount exceeds the remaining advance " +
-                          $"({RemainingForUsageEntry():N2} {_request.CurrencyCode}).";
-            return;
-        }
+        // No cap: over-spending the advance is permitted and resolves to a
+        // reimbursement at reconciliation-submit time.
 
         _usageBusy = true;
         try
@@ -1669,6 +1734,26 @@ else
         await LoadRequest();
     }
 
+    private void OpenReimbursementModal()
+    {
+        _reimbursementError = null;
+        _reimbursementAmount = _request?.ReimbursementAmount ?? 0m;
+        _reimbursementDate = DateTime.Today;
+        _showReimbursementModal = true;
+    }
+
+    private async Task DoRecordReimbursement()
+    {
+        _reimbursementError = null;
+        _actioning = true;
+        var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount, _reimbursementDate));
+        _actioning = false;
+        if (res.IsFailure) { _reimbursementError = res.Error.Message; return; }
+        _showReimbursementModal = false;
+        _actionSuccess = "Reimbursement recorded.";
+        await LoadRequest();
+    }
+
     private void OpenExtendModal()
     {
         _extendError = null;
@@ -1702,6 +1787,7 @@ else
         RequestStatus.Cancelled      => "Cancelled",
         RequestStatus.PendingReconciliation => "Pending Reconciliation",
         RequestStatus.AwaitingRefund => "Awaiting Refund",
+        RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
         RequestStatus.Reconciled     => "Reconciled",
         _ => s.ToString()
     };
@@ -1735,6 +1821,7 @@ else
         RequestStatus.Rejected       => "bg-danger",
         RequestStatus.Cancelled      => "bg-secondary",
         RequestStatus.PendingReconciliation or RequestStatus.AwaitingRefund => "bg-warning text-dark",
+        RequestStatus.AwaitingReimbursement => "bg-info text-dark",
         RequestStatus.Reconciled     => "bg-success",
         _ => "bg-secondary"
     };

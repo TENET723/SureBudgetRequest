@@ -7,18 +7,24 @@ namespace SureBudgetRequest.Domain.Entities;
 /// Advance-withdrawal reconciliation phase. Once an advance is fully paid it
 /// enters <see cref="RequestStatus.PendingReconciliation"/>; the requester then
 /// self-reports usage as line items (<see cref="AdvanceUsage"/>) and submits.
-/// Recorded usage can never exceed <see cref="ApprovedAmount"/> — overspending
-/// is rejected at the entity level by <see cref="AddAdvanceUsage"/> /
-/// <see cref="UpdateAdvanceUsage"/>. If less than the advance was used the
-/// difference must be refunded before the request reaches the terminal
-/// <see cref="RequestStatus.Reconciled"/> state.
+/// Usage is fully self-reported, with no cap — it may be less than, equal to, or
+/// greater than <see cref="ApprovedAmount"/>. On submission there are three
+/// outcomes: usage equal to the advance reaches the terminal
+/// <see cref="RequestStatus.Reconciled"/> state directly; usage less than the
+/// advance moves to <see cref="RequestStatus.AwaitingRefund"/> (the requester
+/// owes the unspent balance back); usage greater than the advance moves to
+/// <see cref="RequestStatus.AwaitingReimbursement"/> (the company owes the
+/// requester the over-spent difference). Refund / reimbursement are settled by
+/// Finance before the request reaches <see cref="RequestStatus.Reconciled"/>.
 /// </summary>
 public partial class BudgetRequest
 {
     /// <summary>
     /// Records a usage line item against the advance. Application layer enforces
-    /// that the caller is the requester; the domain enforces phase, type and the
-    /// no-overspending invariant. Returns the new <see cref="AdvanceUsage.Id"/>.
+    /// that the caller is the requester; the domain enforces phase and type.
+    /// Usage is self-reported and uncapped — recording more than the advance is
+    /// permitted and resolves to a reimbursement at submission time. Returns the
+    /// new <see cref="AdvanceUsage.Id"/>.
     /// </summary>
     public Result<Guid> AddAdvanceUsage(
         DateTime spentOn,
@@ -41,21 +47,14 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(description))
             return Result<Guid>.Failure("A description is required for each usage line item.");
 
-        if (TotalUsageRecorded + amount > ApprovedAmount)
-        {
-            var remaining = ApprovedAmount - TotalUsageRecorded;
-            return Result<Guid>.Failure(
-                $"Recorded usage cannot exceed the advance. Remaining: {remaining}, attempted: {amount}.");
-        }
-
         var usage = new AdvanceUsage(Id, spentOn, amount, description.Trim(), attachmentId, now, userId);
         _advanceUsages.Add(usage);
         return Result<Guid>.Success(usage.Id);
     }
 
     /// <summary>
-    /// Edits an existing usage line item. The no-overspending invariant is
-    /// re-checked against the total with the old amount swapped out.
+    /// Edits an existing usage line item. Usage is uncapped — the edited total
+    /// may exceed the advance, resolving to a reimbursement at submission time.
     /// </summary>
     public Result UpdateAdvanceUsage(
         Guid usageId,
@@ -78,13 +77,6 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(description))
             return Result.Failure("A description is required for each usage line item.");
 
-        if (TotalUsageRecorded - usage.Amount + amount > ApprovedAmount)
-        {
-            var remaining = ApprovedAmount - (TotalUsageRecorded - usage.Amount);
-            return Result.Failure(
-                $"Recorded usage cannot exceed the advance. Remaining: {remaining}, attempted: {amount}.");
-        }
-
         usage.Update(spentOn, amount, description.Trim(), attachmentId);
         return Result.Success();
     }
@@ -106,11 +98,12 @@ public partial class BudgetRequest
 
     /// <summary>
     /// Finalises the reconciliation. There is no re-approval — usage is
-    /// self-reported. If recorded usage exactly matches the advance the request
-    /// becomes <see cref="RequestStatus.Reconciled"/>; otherwise it moves to
-    /// <see cref="RequestStatus.AwaitingRefund"/> and the unspent balance is
-    /// captured in <see cref="RefundAmount"/>. Overspending is impossible —
-    /// <see cref="AddAdvanceUsage"/> / <see cref="UpdateAdvanceUsage"/> reject it.
+    /// self-reported. Three outcomes depending on recorded usage vs the advance:
+    /// exact match → <see cref="RequestStatus.Reconciled"/>; under-spend →
+    /// <see cref="RequestStatus.AwaitingRefund"/> with the unspent balance
+    /// captured in <see cref="RefundAmount"/>; over-spend →
+    /// <see cref="RequestStatus.AwaitingReimbursement"/> with the over-spent
+    /// difference captured in <see cref="ReimbursementAmount"/>.
     /// </summary>
     public Result SubmitReconciliation(Guid userId, DateTime now)
     {
@@ -128,11 +121,17 @@ public partial class BudgetRequest
             Status = RequestStatus.Reconciled;
             FinalizedAt = now;
         }
-        else
+        else if (TotalUsageRecorded < ApprovedAmount)
         {
-            // TotalUsageRecorded < ApprovedAmount (overspending cannot happen).
+            // Under-spent: the requester owes the unspent balance back.
             Status = RequestStatus.AwaitingRefund;
             RefundAmount = ApprovedAmount - TotalUsageRecorded;
+        }
+        else
+        {
+            // Over-spent: the company owes the requester the difference.
+            Status = RequestStatus.AwaitingReimbursement;
+            ReimbursementAmount = TotalUsageRecorded - ApprovedAmount;
         }
 
         return Result.Success();
@@ -159,6 +158,32 @@ public partial class BudgetRequest
         RefundReceivedByUserId = receivedByUserId;
         Status = RequestStatus.Reconciled;
         FinalizedAt = receivedAt;
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Records payment of the outstanding reimbursement on an advance that
+    /// reconciled for more than it disbursed. The amount must match
+    /// <see cref="ReimbursementAmount"/> exactly — partial reimbursements are not
+    /// supported. On success the advance reaches the terminal
+    /// <see cref="RequestStatus.Reconciled"/> state.
+    /// </summary>
+    public Result RecordReimbursement(decimal amount, DateTime paidAt, Guid paidByUserId)
+    {
+        if (Status != RequestStatus.AwaitingReimbursement)
+            return Result.Failure(
+                $"A reimbursement can only be recorded while the request is awaiting one (current status: '{Status}').");
+
+        if (amount != ReimbursementAmount)
+            return Result.Failure(
+                $"The reimbursement amount must exactly match the outstanding reimbursement of {ReimbursementAmount}. " +
+                "Partial reimbursements are not supported.");
+
+        ReimbursementPaidAt = paidAt;
+        ReimbursementPaidByUserId = paidByUserId;
+        Status = RequestStatus.Reconciled;
+        FinalizedAt = paidAt;
 
         return Result.Success();
     }

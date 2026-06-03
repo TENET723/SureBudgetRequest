@@ -86,8 +86,10 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.FinalizedAt);
 
         // ── Advance withdrawal — reconciliation phase ─────────────────────────
-        // All nullable except RefundAmount, which defaults to 0 for every
-        // non-advance request (and for advances that reconciled exactly).
+        // All nullable except RefundAmount / ReimbursementAmount, which default
+        // to 0 for every non-advance request (and for advances that reconciled
+        // exactly). RefundAmount is set on under-spend, ReimbursementAmount on
+        // over-spend.
         builder.Property(r => r.ReconciliationDeadline);
         builder.Property(r => r.ReconciliationSubmittedAt);
         builder.Property(r => r.RefundAmount)
@@ -95,6 +97,11 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .HasColumnType("numeric(18,2)");
         builder.Property(r => r.RefundReceivedAt);
         builder.Property(r => r.RefundReceivedByUserId);
+        builder.Property(r => r.ReimbursementAmount)
+               .IsRequired()
+               .HasColumnType("numeric(18,2)");
+        builder.Property(r => r.ReimbursementPaidAt);
+        builder.Property(r => r.ReimbursementPaidByUserId);
 
         // ── Chart of Account FK ───────────────────────────────────────────────
         // Nullable — only set when Finance has approved (and stays set through

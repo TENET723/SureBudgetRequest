@@ -3,29 +3,32 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
-namespace SureBudgetRequest.Application.BudgetRequests.Commands.SubmitReconciliation;
+namespace SureBudgetRequest.Application.BudgetRequests.Commands.RecordReimbursement;
 
 /// <summary>
-/// Finalises the requester's reconciliation. Requester-only. Lands the request
-/// in <c>Reconciled</c> (usage == advance), <c>AwaitingRefund</c> (usage &lt;
-/// advance) or <c>AwaitingReimbursement</c> (usage &gt; advance) and fires the
-/// reconciliation-submitted notifications.
+/// Records payment of the outstanding reimbursement on an advance that
+/// reconciled for more than it disbursed. Finance-only. The amount must match
+/// <c>BudgetRequest.ReimbursementAmount</c> exactly (the aggregate enforces this).
+/// On success the advance becomes <c>Reconciled</c>.
 /// </summary>
-public sealed record SubmitReconciliationCommand(
+public sealed record RecordReimbursementCommand(
     Guid BudgetRequestId,
-    Guid UserId) : IRequest<Result>;
+    Guid FinanceUserId,
+    decimal Amount,
+    DateTime PaidAt) : IRequest<Result>;
 
-public sealed class SubmitReconciliationCommandHandler
-    : IRequestHandler<SubmitReconciliationCommand, Result>
+public sealed class RecordReimbursementCommandHandler
+    : IRequestHandler<RecordReimbursementCommand, Result>
 {
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
-    public SubmitReconciliationCommandHandler(
+    public RecordReimbursementCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
@@ -38,7 +41,7 @@ public sealed class SubmitReconciliationCommandHandler
     }
 
     public async Task<Result> Handle(
-        SubmitReconciliationCommand command,
+        RecordReimbursementCommand command,
         CancellationToken cancellationToken)
     {
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
@@ -46,17 +49,20 @@ public sealed class SubmitReconciliationCommandHandler
         if (budgetRequest is null)
             return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
-        if (command.UserId != budgetRequest.RequesterId)
-            return Result.Failure(BudgetRequestErrors.OnlyRequesterCanSubmitReconciliation);
+        var financeUser = await _userRepository.GetByIdAsync(command.FinanceUserId, cancellationToken);
+        if (financeUser is null || financeUser.Role != UserRole.Finance)
+            return Result.Failure(BudgetRequestErrors.OnlyFinanceCanRecordReimbursement);
 
-        var result = budgetRequest.SubmitReconciliation(command.UserId, DateTime.UtcNow);
+        var result = budgetRequest.RecordReimbursement(
+            command.Amount,
+            DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
+            command.FinanceUserId);
+
         if (result.IsFailure) return result;
 
-        var actor = await _userRepository.GetByIdAsync(command.UserId, cancellationToken);
-
-        await _dispatcher.DispatchReconciliationSubmittedAsync(
+        await _dispatcher.DispatchReimbursementRecordedAsync(
             budgetRequest,
-            actorName: actor?.FullName,
+            actorName: financeUser.FullName,
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

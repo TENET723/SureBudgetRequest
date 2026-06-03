@@ -68,7 +68,9 @@ public sealed record BudgetRequestDto(
     DateTime? ReconciliationDeadline = null,
     DateTime? ReconciliationSubmittedAt = null,
     decimal RefundAmount = 0m,
-    DateTime? RefundReceivedAt = null)
+    DateTime? RefundReceivedAt = null,
+    decimal ReimbursementAmount = 0m,
+    DateTime? ReimbursementPaidAt = null)
 {
     /// <summary>Total advance usage self-reported so far.</summary>
     public decimal TotalUsageRecorded => AdvanceUsages.Sum(u => u.Amount);
@@ -142,7 +144,9 @@ public sealed record BudgetRequestDto(
         e.ReconciliationDeadline,
         e.ReconciliationSubmittedAt,
         e.RefundAmount,
-        e.RefundReceivedAt);
+        e.RefundReceivedAt,
+        e.ReimbursementAmount,
+        e.ReimbursementPaidAt);
 }
 
 public sealed record AdvanceUsageDto(

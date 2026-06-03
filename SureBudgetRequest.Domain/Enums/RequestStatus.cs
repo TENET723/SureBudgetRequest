@@ -33,5 +33,12 @@ public enum RequestStatus
     /// Terminal state for an advance request: usage fully reconciled (and any
     /// refund received).
     /// </summary>
-    Reconciled = 12
+    Reconciled = 12,
+
+    /// <summary>
+    /// The requester submitted reconciliation but recorded more usage than the
+    /// advance; the company owes the requester the over-spent difference, which
+    /// must be reimbursed before the request closes.
+    /// </summary>
+    AwaitingReimbursement = 13
 }

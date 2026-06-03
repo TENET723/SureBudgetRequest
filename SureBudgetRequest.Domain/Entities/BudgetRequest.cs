@@ -120,7 +120,10 @@ public partial class BudgetRequest
     public Guid? BudgetCategoryId { get; private set; }
 
     // === Advance withdrawal — reconciliation phase ===
-    // All five fields below stay at their defaults for non-advance requests.
+    // All the fields below stay at their defaults for non-advance requests.
+    // Reconciliation has three outcomes: usage == advance → Reconciled; usage <
+    // advance → AwaitingRefund (requester owes the unspent balance back); usage >
+    // advance → AwaitingReimbursement (company owes the requester the overspend).
 
     /// <summary>
     /// Deadline by which the requester must reconcile an advance. Set by Finance
@@ -134,13 +137,24 @@ public partial class BudgetRequest
 
     /// <summary>
     /// Amount the requester must refund — set when reconciliation lands in
-    /// <see cref="RequestStatus.AwaitingRefund"/> (recorded usage &lt; advance).
-    /// Zero in every other case.
+    /// <see cref="RequestStatus.AwaitingRefund"/> (recorded usage &lt; advance,
+    /// the company is owed money back). Zero in every other case.
     /// </summary>
     public decimal   RefundAmount              { get; private set; }
 
     public DateTime? RefundReceivedAt          { get; private set; }
     public Guid?     RefundReceivedByUserId    { get; private set; }
+
+    /// <summary>
+    /// Amount the company must reimburse the requester — set when reconciliation
+    /// lands in <see cref="RequestStatus.AwaitingReimbursement"/> (recorded usage
+    /// &gt; advance, the company owes the requester the over-spent difference).
+    /// Zero in every other case.
+    /// </summary>
+    public decimal   ReimbursementAmount       { get; private set; }
+
+    public DateTime? ReimbursementPaidAt       { get; private set; }
+    public Guid?     ReimbursementPaidByUserId { get; private set; }
 
     // === Child collections (part of the aggregate) ===
     private readonly List<ApprovalAction> _approvalActions = new();
