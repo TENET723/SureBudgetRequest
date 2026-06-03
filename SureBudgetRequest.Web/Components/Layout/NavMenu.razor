@@ -23,18 +23,25 @@
             <NavLink class="nav-link" href="requests/mine">My requests</NavLink>
         </div>
 
-        @if (CurrentUser.Role != UserRole.Employee)
+        @* Inbox is an action queue — everyone except Employee and read-only Accounting. *@
+        @if (CurrentUser.Role is not UserRole.Employee and not UserRole.Accounting)
         {
             <div class="nav-item">
                 <NavLink class="nav-link" href="requests/inbox">Inbox</NavLink>
             </div>
         }
 
-        @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
+        @* "To pay" is a read view — Finance, Admin, and read-only Accounting all see it. *@
+        @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting)
         {
             <div class="nav-item">
                 <NavLink class="nav-link" href="requests/outstanding">To pay</NavLink>
             </div>
+        }
+
+        @* Reference-data maintenance — Finance and Admin only. Accounting must not see these. *@
+        @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
+        {
             <div class="nav-item">
                 <NavLink class="nav-link" href="coas">Chart of accounts</NavLink>
             </div>

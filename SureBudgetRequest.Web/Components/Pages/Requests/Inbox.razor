@@ -1,6 +1,7 @@
 @page "/requests/inbox"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.Users.Queries
@@ -117,7 +118,18 @@
     private bool ShowOverdueToggle =>
         CurrentUser.Role == UserRole.Finance && CurrentUser.IsFinanceApprover;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // The Inbox is an action queue (approve / reject / process). The read-only
+        // Accounting role must never reach it — bounce them to the dashboard.
+        if (CurrentUser.Role == UserRole.Accounting)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        await LoadAsync();
+    }
 
     private async Task SwitchView(string view)
     {

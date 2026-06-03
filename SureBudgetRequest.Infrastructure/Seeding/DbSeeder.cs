@@ -233,12 +233,16 @@ public sealed class DbSeeder
         // Finance Payer-only (Type 2) — can only record payments.
         var financePayer = CreateUser("daw_hla", "Daw Hla Win (Finance Payer)", "daw.hla@asure.local", adminDeptId, UserRole.Finance);
 
+        // Accounting (read-only) — sees everything Finance sees but can take no actions.
+        // Lives in the same department as the Finance users.
+        var accountant = CreateUser("accountant", "Accountant (read-only)", "accountant@asure.local", adminDeptId, UserRole.Accounting);
+
         var employee = CreateUser("ma_aye", "Ma Aye Aye (Employee)", "ma.aye@asure.local", itDeptId, UserRole.Employee);
 
-        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, mgmt1, mgmt2, finance, financePayer, employee);
+        _db.Users.AddRange(admin, deptHeadIt, deptHeadHr, mgmt1, mgmt2, finance, financePayer, accountant, employee);
 
         await _db.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 8);
+        _logger.LogInformation("Seeded {DeptCount} departments and {UserCount} users.", 3, 9);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

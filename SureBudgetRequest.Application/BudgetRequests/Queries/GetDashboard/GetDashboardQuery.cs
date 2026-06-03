@@ -138,11 +138,14 @@ public sealed class GetDashboardQueryHandler
                     .ToList());
         }
 
-        // === Finance-only: payment queue + metric tiles =====================
+        // === Finance + Accounting: payment queue + metric tiles ==============
+        // These are read-only tiles, so Accounting (read-only) sees them too.
+        // The "Pending my approval" block above stays Finance-only — it's
+        // action-framed and Accounting never approves.
 
         PaymentQueueDto? paymentQueue = null;
         FinanceMetricsDto? financeMetrics = null;
-        if (role == UserRole.Finance)
+        if (role is UserRole.Finance or UserRole.Accounting)
         {
             var awaitingPayment = await _budgetRequestRepository.ListAsync(
                 statuses: PaymentQueueStatuses, cancellationToken: ct);
