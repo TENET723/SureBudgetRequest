@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
@@ -41,6 +42,104 @@
             </div>
         }
 
+        @* ─── Toolbar: search + filter toggle + result count ──────────────── *@
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <ListSearchBox @bind-Value="_search" OnEnter="Apply"
+                           Placeholder="Search reference, reason, or requester" Width="320px" />
+
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ToggleFilters">
+                Filters
+                @if (ActiveFilterCount > 0)
+                {
+                    <span class="badge bg-primary ms-1">@ActiveFilterCount</span>
+                }
+            </button>
+
+            @if (!_loading)
+            {
+                <span class="text-muted small ms-auto">
+                    @_requests.Count result@(_requests.Count == 1 ? "" : "s")
+                </span>
+            }
+        </div>
+
+        @* ─── Collapsible filter strip ─────────────────────────────────────── *@
+        @if (_showFilters)
+        {
+            <div class="card card-body mb-3 bg-light">
+                <div class="row g-3">
+
+                    @* Department — privileged roles only; Dept Head's queue stays
+                       locked to their own dept (no dropdown). *@
+                    @if (SeesAllDepartments)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted mb-1">Department</label>
+                            <select class="form-select form-select-sm" @bind="_selectedDepartmentId">
+                                <option value="">All departments</option>
+                                @foreach (var d in _departments)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    @* Date range *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Submitted from</label>
+                        <input type="date" class="form-control form-control-sm" @bind="_fromDate" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Submitted to</label>
+                        <input type="date" class="form-control form-control-sm" @bind="_toDate" />
+                    </div>
+
+                    @* Amount range (MMK) — inclusive bounds on the MMK-at-submission amount *@
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Amount from (MMK)</label>
+                        <input type="number" step="any" min="0" class="form-control form-control-sm"
+                               placeholder="No minimum" @bind="_amountMmkFrom" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Amount to (MMK)</label>
+                        <input type="number" step="any" min="0" class="form-control form-control-sm"
+                               placeholder="No maximum" @bind="_amountMmkTo" />
+                    </div>
+
+                    @* Type — multi-select via checkboxes *@
+                    <div class="col-12">
+                        <label class="form-label small text-muted mb-1">Type</label>
+                        <div class="d-flex flex-wrap gap-3">
+                            @foreach (var t in AllTypes)
+                            {
+                                var type = t;
+                                <label class="form-check small mb-0">
+                                    <input class="form-check-input" type="checkbox"
+                                           checked="@_selectedTypes.Contains(type)"
+                                           @onchange="@((ChangeEventArgs e) => ToggleType(type, (bool)e.Value!))" />
+                                    <span class="form-check-label">@TypeLabel(type)</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-sm btn-primary" @onclick="Apply" disabled="@_loading">
+                        @if (_loading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Apply
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="Clear" disabled="@_loading">
+                        Clear filters
+                    </button>
+                </div>
+            </div>
+        }
+
         @if (_loading)
         {
             <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -53,6 +152,7 @@
                 <table class="table table-sm table-hover align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:1%">#</th>
                             <th>Date</th>
                             <th>Requester</th>
                             <th>Reason</th>
@@ -63,9 +163,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var r in _requests)
+                        @for (var i = 0; i < _requests.Count; i++)
                         {
+                            var r = _requests[i];
                             <tr>
+                                <td class="text-muted small">@(i + 1)</td>
                                 <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                                 <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
                                 <td>@Truncate(r.Reasons, 45)</td>
@@ -100,7 +202,14 @@
                         }
                         @if (!_requests.Any())
                         {
-                            <tr><td colspan="7" class="text-center text-muted py-4">@EmptyText()</td></tr>
+                            @if (_appliedHasFilters)
+                            {
+                                <tr><td colspan="8" class="text-center text-muted py-4">No requests match your search/filters.</td></tr>
+                            }
+                            else
+                            {
+                                <tr><td colspan="8" class="text-center text-muted py-4">@EmptyText()</td></tr>
+                            }
                         }
                     </tbody>
                 </table>
@@ -110,13 +219,65 @@
 </div>
 
 @code {
+    // The four request types, in enum order, for the Type multi-select.
+    private static readonly BudgetRequestType[] AllTypes =
+    {
+        BudgetRequestType.Urgent,
+        BudgetRequestType.Standard,
+        BudgetRequestType.ProjectProposal,
+        BudgetRequestType.Advance,
+    };
+
     private List<BudgetRequestSummaryDto> _requests = new();
     private Dictionary<Guid, string> _userNames = new();
     private bool _loading = true;
     private string _view = "inbox";   // "inbox" | "overdue"
 
+    // ── Reference data for the filter dropdowns ──────────────────────────────
+    private List<DepartmentDto> _departments = new();
+
+    // ── Staged filter state ──────────────────────────────────────────────────
+    // Filters are staged here and only flow into the query on Apply / Clear.
+    private string _search = "";
+    private string _selectedDepartmentId = "";   // privileged roles only
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private decimal? _amountMmkFrom;
+    private decimal? _amountMmkTo;
+    private HashSet<BudgetRequestType> _selectedTypes = new();
+
+    private bool _showFilters;
+
+    // Whether the currently-displayed result set carried any filter — drives the
+    // empty-state message ("nothing matches" vs the 🎉 EmptyText).
+    private bool _appliedHasFilters;
+
     private bool ShowOverdueToggle =>
         CurrentUser.Role == UserRole.Finance && CurrentUser.IsFinanceApprover;
+
+    // Roles whose queue spans departments and so get a Department dropdown
+    // (Dept Head stays locked to their own dept; Employee/Accounting never reach here).
+    private bool SeesAllDepartments =>
+        CurrentUser.Role is UserRole.Management
+                         or UserRole.Finance
+                         or UserRole.Admin;
+
+    // Count of active staged filters, shown as a badge on the Filters toggle.
+    private int ActiveFilterCount
+    {
+        get
+        {
+            var n = 0;
+            if (!string.IsNullOrWhiteSpace(_search)) n++;
+            if (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId)) n++;
+            if (_fromDate.HasValue) n++;
+            if (_toDate.HasValue) n++;
+            if (_amountMmkFrom.HasValue) n++;
+            if (_amountMmkTo.HasValue) n++;
+            if (_selectedTypes.Count > 0) n++;
+            return n;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,6 +288,45 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        await LoadReferenceDataAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        // Departments — only needed for the privileged-role dropdown. Mirror the
+        // Report/Outstanding pages: load all, show only active ones.
+        if (SeesAllDepartments)
+        {
+            var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
+            if (depts.IsSuccess)
+                _departments = depts.Value!.Where(d => d.IsActive).OrderBy(d => d.Name).ToList();
+        }
+    }
+
+    private void ToggleFilters() => _showFilters = !_showFilters;
+
+    private void ToggleType(BudgetRequestType t, bool isChecked)
+    {
+        if (isChecked) _selectedTypes.Add(t);
+        else _selectedTypes.Remove(t);
+    }
+
+    private async Task Apply() => await LoadAsync();
+
+    private async Task Clear()
+    {
+        _search = "";
+        _fromDate = null;
+        _toDate = null;
+        _amountMmkFrom = null;
+        _amountMmkTo = null;
+        _selectedTypes.Clear();
+
+        // Dept Heads have no dropdown; privileged roles reset to "All departments".
+        if (SeesAllDepartments)
+            _selectedDepartmentId = "";
 
         await LoadAsync();
     }
@@ -151,12 +351,66 @@
             return;
         }
 
+        // ── Staged filters, resolved once and shared by both branches ─────────
+        var term = string.IsNullOrWhiteSpace(_search) ? null : _search;
+
+        IReadOnlyCollection<BudgetRequestType>? types =
+            _selectedTypes.Count > 0 ? _selectedTypes.ToList() : null;
+
+        // Amount range — inclusive bounds; a reversed range (from > to) is ignored.
+        decimal? amountFrom = _amountMmkFrom;
+        decimal? amountTo = _amountMmkTo;
+        if (amountFrom.HasValue && amountTo.HasValue && amountFrom.Value > amountTo.Value)
+        {
+            amountFrom = null;
+            amountTo = null;
+        }
+
+        // Date bounds: lower inclusive midnight UTC; upper = NEXT day's midnight
+        // (exclusive) so the whole "to" day is included. Reversed range ignored.
+        DateTime? fromUtc = _fromDate.HasValue
+            ? DateTime.SpecifyKind(_fromDate.Value.Date, DateTimeKind.Utc)
+            : null;
+        DateTime? untilUtc = _toDate.HasValue
+            ? DateTime.SpecifyKind(_toDate.Value.Date, DateTimeKind.Utc).AddDays(1)
+            : null;
+        if (fromUtc.HasValue && untilUtc.HasValue && fromUtc.Value >= untilUtc.Value)
+        {
+            fromUtc = null;
+            untilUtc = null;
+        }
+
+        // Department: Dept Head is forced to their own dept; privileged roles use
+        // the dropdown; everyone else is unscoped.
+        Guid? deptFilter;
+        if (CurrentUser.Role == UserRole.DepartmentHead)
+            deptFilter = CurrentUser.DepartmentId;
+        else if (SeesAllDepartments)
+            deptFilter = ParseGuid(_selectedDepartmentId);
+        else
+            deptFilter = null;
+
+        _appliedHasFilters = term is not null
+            || types is not null
+            || amountFrom.HasValue
+            || amountTo.HasValue
+            || fromUtc.HasValue
+            || untilUtc.HasValue
+            || (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId));
+
         if (_view == "overdue")
         {
             // Overdue advances: Type == Advance && PendingReconciliation && deadline passed.
             // The status filter narrows the DB query; IsOverdueAdvance applies the rest.
             var overdue = await Mediator.Send(new ListBudgetRequestsQuery(
-                Status: RequestStatus.PendingReconciliation));
+                DepartmentId: deptFilter,
+                Status: RequestStatus.PendingReconciliation,
+                SubmittedFromUtc: fromUtc,
+                SubmittedUntilUtc: untilUtc,
+                Types: types,
+                AmountInMmkFrom: amountFrom,
+                AmountInMmkTo: amountTo,
+                SearchTerm: term));
 
             _requests = overdue.IsSuccess
                 ? overdue.Value.Where(r => r.IsOverdueAdvance)
@@ -174,13 +428,15 @@
                 _                       => (RequestStatus?)null
             };
 
-            Guid? deptFilter = CurrentUser.Role == UserRole.DepartmentHead
-                ? CurrentUser.DepartmentId
-                : null;
-
             var result = await Mediator.Send(new ListBudgetRequestsQuery(
                 DepartmentId: deptFilter,
-                Status: statusFilter));
+                Status: statusFilter,
+                SubmittedFromUtc: fromUtc,
+                SubmittedUntilUtc: untilUtc,
+                Types: types,
+                AmountInMmkFrom: amountFrom,
+                AmountInMmkTo: amountTo,
+                SearchTerm: term));
 
             _requests = result.IsSuccess
                 ? result.Value.OrderBy(r => r.SubmittedAt).ToList()
@@ -213,8 +469,20 @@
         ? "No overdue advances. 🎉"
         : "Your inbox is empty. 🎉";
 
+    private static Guid? ParseGuid(string s) =>
+        Guid.TryParse(s, out var g) ? g : null;
+
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";
+
+    private static string TypeLabel(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent          => "Urgent",
+        BudgetRequestType.Standard        => "Standard",
+        BudgetRequestType.ProjectProposal => "Project Proposal",
+        BudgetRequestType.Advance         => "Advance",
+        _                                 => t.ToString()
+    };
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
