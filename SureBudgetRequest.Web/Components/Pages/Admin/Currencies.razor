@@ -6,6 +6,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Currencies.Commands.CreateCurrency
 @using SureBudgetRequest.Application.Currencies.Commands.UpdateCurrencyRate
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Currencies</PageTitle>
 
@@ -29,6 +30,11 @@
         <label class="form-check-label small" for="showInactiveCurrencies">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search code or name" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -39,6 +45,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Code</th>
                         <th>Name</th>
                         <th class="text-end">Rate to MMK</th>
@@ -48,9 +55,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in _currencies)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var c = _filtered[i];
                         <tr class="@(!c.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td><strong>@c.Code</strong></td>
                             <td>@c.Name</td>
                             <td class="text-end">@c.RateToMmk.ToString("N2")</td>
@@ -65,9 +74,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_currencies.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="6" class="text-center text-muted py-3">No currencies found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="7" class="text-center text-muted py-3">No currencies match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="7" class="text-center text-muted py-3">No currencies found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -197,8 +213,10 @@
 
 @code {
     private List<CurrencyDto> _currencies = new();
+    private List<CurrencyDto> _filtered = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -234,7 +252,19 @@
         var result = await Mediator.Send(new ListCurrenciesQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
             _currencies = result.Value.OrderBy(c => c.Code).ToList();
+        ApplyFilter();
         _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _currencies.ToList()
+            : _currencies
+                .Where(c => c.Code.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || c.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
     }
 
     private void OpenCreate()

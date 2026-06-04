@@ -9,6 +9,7 @@
 @using SureBudgetRequest.Application.Users.Commands.DeactivateUser
 @using SureBudgetRequest.Application.Users.Commands.ResetUserPassword
 @using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Users</PageTitle>
 
@@ -28,6 +29,10 @@
     }
 
     <div class="row g-2 mb-3">
+        <div class="col-auto">
+            <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                           Placeholder="Search name, email, or username" Width="260px" />
+        </div>
         <div class="col-auto">
             <select class="form-select form-select-sm" @bind="_filterDept" @bind:after="ApplyFilter">
                 <option value="">All Departments</option>
@@ -64,6 +69,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Full Name</th>
                         <th>Email</th>
                         <th>Username</th>
@@ -75,9 +81,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var u in _filtered)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var u = _filtered[i];
                         <tr class="@(!u.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td>@u.FullName</td>
                             <td class="small">@u.Email</td>
                             <td class="text-muted small">@u.Username</td>
@@ -120,7 +128,14 @@
                     }
                     @if (!_filtered.Any())
                     {
-                        <tr><td colspan="7" class="text-center text-muted py-3">No users found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-3">No users match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-3">No users found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -306,6 +321,7 @@
     private string? _successMessage;
 
     // Filters
+    private string _search = "";
     private string _filterDept = "";
     private string _filterRole = "";
     private bool _showInactive;
@@ -359,12 +375,21 @@
 
     private void ApplyFilter()
     {
+        var term = _search.Trim();
         _filtered = _allUsers
             .Where(u => string.IsNullOrEmpty(_filterDept) || u.DepartmentId.ToString() == _filterDept)
             .Where(u => string.IsNullOrEmpty(_filterRole) || (int)u.Role == int.Parse(_filterRole))
+            .Where(u => term.Length == 0
+                || (u.FullName?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                || (u.Email?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                || (u.Username?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                || (DeptName(u.DepartmentId).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0))
             .OrderBy(u => u.FullName)
             .ToList();
     }
+
+    private string DeptName(Guid id) =>
+        _deptNames.TryGetValue(id, out var dn) ? dn : "";
 
     private void OpenCreate()
     {

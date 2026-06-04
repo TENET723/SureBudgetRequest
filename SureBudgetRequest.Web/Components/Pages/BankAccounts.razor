@@ -8,6 +8,7 @@
 @using SureBudgetRequest.Application.BankAccounts.Commands.UpdateBankAccount
 @using SureBudgetRequest.Application.BankAccounts.Commands.DeactivateBankAccount
 @using SureBudgetRequest.Application.BankAccounts.Commands.ReactivateBankAccount
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Bank Accounts</PageTitle>
 
@@ -31,6 +32,11 @@
         <label class="form-check-label small" for="showInactiveAccounts">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search bank, number, or holder" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -41,6 +47,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Bank</th>
                         <th>Account number</th>
                         <th>Account holder</th>
@@ -49,9 +56,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var a in _accounts)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var a = _filtered[i];
                         <tr class="@(!a.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td><strong>@a.BankName</strong></td>
                             <td class="font-monospace small">@a.AccountNumber</td>
                             <td>@a.AccountHolderName</td>
@@ -72,9 +81,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_accounts.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="5" class="text-center text-muted py-3">No bank accounts found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-3">No bank accounts match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-3">No bank accounts found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -160,8 +176,10 @@
 
 @code {
     private List<BankAccountDto> _accounts = new();
+    private List<BankAccountDto> _filtered = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -197,7 +215,20 @@
             _accounts = result.Value.ToList();
         else
             _errorMessage = result.Error.Message;
+        ApplyFilter();
         _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _accounts.ToList()
+            : _accounts
+                .Where(a => a.BankName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || a.AccountNumber.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || a.AccountHolderName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
     }
 
     private void OpenCreate()

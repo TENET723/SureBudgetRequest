@@ -10,6 +10,7 @@
 @using SureBudgetRequest.Application.Departments.Commands.SetDepartmentBudgetPeriod
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Departments</PageTitle>
 
@@ -33,6 +34,11 @@
         <label class="form-check-label small" for="showInactive">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search name or head" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -43,6 +49,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Name</th>
                         <th>Department Head</th>
                         <th class="text-end">Budget Limit (MMK)</th>
@@ -53,9 +60,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var d in _departments)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var d = _filtered[i];
                         <tr class="@(!d.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td>@d.Name</td>
                             <td>
                                 @if (d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var head))
@@ -120,9 +129,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_departments.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="7" class="text-center text-muted py-3">No departments found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-3">No departments match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="8" class="text-center text-muted py-3">No departments found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -265,10 +281,12 @@
 
 @code {
     private List<DepartmentDto> _departments = new();
+    private List<DepartmentDto> _filtered = new();
     private Dictionary<Guid, string> _users = new();
     private List<UserDto> _activeUsers = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -326,8 +344,23 @@
         if (deptsResult.IsSuccess)
             _departments = deptsResult.Value.OrderBy(d => d.Name).ToList();
 
+        ApplyFilter();
         _loading = false;
     }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _departments.ToList()
+            : _departments
+                .Where(d => d.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || HeadName(d).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+    }
+
+    private string HeadName(DepartmentDto d) =>
+        d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var name) ? name : "";
 
     private void OpenCreate()
     {

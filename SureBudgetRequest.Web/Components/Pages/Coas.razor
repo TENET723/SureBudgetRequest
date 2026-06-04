@@ -8,6 +8,7 @@
 @using SureBudgetRequest.Application.Coas.Commands.UpdateCoa
 @using SureBudgetRequest.Application.Coas.Commands.DeactivateCoa
 @using SureBudgetRequest.Application.Coas.Commands.ReactivateCoa
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Chart of Accounts</PageTitle>
 
@@ -31,6 +32,11 @@
         <label class="form-check-label small" for="showInactiveCoas">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search code, name, or description" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -41,6 +47,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Code</th>
                         <th>Name</th>
                         <th>Description</th>
@@ -49,9 +56,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in _coas)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var c = _filtered[i];
                         <tr class="@(!c.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td><strong>@c.Code</strong></td>
                             <td>@c.Name</td>
                             <td class="small text-muted">
@@ -74,9 +83,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_coas.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="5" class="text-center text-muted py-3">No accounts found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-3">No accounts match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="6" class="text-center text-muted py-3">No accounts found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -165,8 +181,10 @@
 
 @code {
     private List<CoaDto> _coas = new();
+    private List<CoaDto> _filtered = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -202,7 +220,20 @@
             _coas = result.Value.OrderBy(c => c.Code).ToList();
         else
             _errorMessage = result.Error.Message;
+        ApplyFilter();
         _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _coas.ToList()
+            : _coas
+                .Where(c => c.Code.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || c.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || (c.Description?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0))
+                .ToList();
     }
 
     private void OpenCreate()

@@ -9,6 +9,7 @@
 @using SureBudgetRequest.Application.BudgetCategories.Commands.DeactivateBudgetCategory
 @using SureBudgetRequest.Application.BudgetCategories.Commands.ReactivateBudgetCategory
 @using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Budget Categories</PageTitle>
 
@@ -32,6 +33,11 @@
         <label class="form-check-label small" for="showInactiveCategories">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search name" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -42,15 +48,18 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Name</th>
                         <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in _categories)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var c = _filtered[i];
                         <tr class="@(!c.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td><strong>@c.Name</strong></td>
                             <td>
                                 @if (c.IsActive) { <span class="badge bg-success">Active</span> }
@@ -69,9 +78,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_categories.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="3" class="text-center text-muted py-3">No budget categories found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="4" class="text-center text-muted py-3">No budget categories match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="4" class="text-center text-muted py-3">No budget categories found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -147,8 +163,10 @@
 
 @code {
     private List<BudgetCategoryDto> _categories = new();
+    private List<BudgetCategoryDto> _filtered = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -182,7 +200,18 @@
             _categories = result.Value.OrderBy(c => c.Name).ToList();
         else
             _errorMessage = result.Error.Message;
+        ApplyFilter();
         _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _categories.ToList()
+            : _categories
+                .Where(c => c.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
     }
 
     private void OpenCreate()

@@ -8,6 +8,7 @@
 @using SureBudgetRequest.Application.WithdrawMethods.Commands.UpdateWithdrawMethod
 @using SureBudgetRequest.Application.WithdrawMethods.Commands.DeactivateWithdrawMethod
 @using SureBudgetRequest.Application.WithdrawMethods.Commands.ReactivateWithdrawMethod
+@using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Withdraw Methods</PageTitle>
 
@@ -31,6 +32,11 @@
         <label class="form-check-label small" for="showInactiveMethods">Show inactive</label>
     </div>
 
+    <div class="mb-3">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search name" Width="260px" />
+    </div>
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -41,6 +47,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Name</th>
                         <th>Status</th>
                         <th>Requires attachment</th>
@@ -48,9 +55,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var m in _methods)
+                    @for (var i = 0; i < _filtered.Count; i++)
                     {
+                        var m = _filtered[i];
                         <tr class="@(!m.IsActive ? "text-muted" : "")">
+                            <td class="text-muted small">@(i + 1)</td>
                             <td><strong>@m.Name</strong></td>
                             <td>
                                 @if (m.IsActive) { <span class="badge bg-success">Active</span> }
@@ -79,9 +88,16 @@
                             </td>
                         </tr>
                     }
-                    @if (!_methods.Any())
+                    @if (!_filtered.Any())
                     {
-                        <tr><td colspan="4" class="text-center text-muted py-3">No withdraw methods found.</td></tr>
+                        @if (!string.IsNullOrWhiteSpace(_search))
+                        {
+                            <tr><td colspan="5" class="text-center text-muted py-3">No withdraw methods match your search.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="5" class="text-center text-muted py-3">No withdraw methods found.</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -168,8 +184,10 @@
 
 @code {
     private List<WithdrawMethodDto> _methods = new();
+    private List<WithdrawMethodDto> _filtered = new();
     private bool _loading = true;
     private bool _showInactive;
+    private string _search = "";
     private string? _errorMessage;
     private string? _successMessage;
 
@@ -204,7 +222,18 @@
             _methods = result.Value.OrderBy(m => m.Name).ToList();
         else
             _errorMessage = result.Error.Message;
+        ApplyFilter();
         _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _methods.ToList()
+            : _methods
+                .Where(m => m.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
     }
 
     private void OpenCreate()
