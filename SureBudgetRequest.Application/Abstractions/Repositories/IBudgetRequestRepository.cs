@@ -52,6 +52,7 @@ public interface IBudgetRequestRepository
         decimal? amountInMmkFrom = null,
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

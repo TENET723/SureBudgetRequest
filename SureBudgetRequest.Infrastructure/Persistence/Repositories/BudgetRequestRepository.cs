@@ -40,12 +40,13 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         decimal? amountInMmkFrom = null,
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
+        string? searchTerm = null,
         CancellationToken cancellationToken = default)
     {
         var query = BuildFilteredQuery(
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
-            periodOverrunOnly);
+            periodOverrunOnly, searchTerm);
 
         return await query
             .OrderByDescending(r => r.CreatedAt)
@@ -54,8 +55,9 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
 
     /// <summary>
     /// Builds the eager-loaded, filtered query shared by <see cref="ListAsync"/>
-    /// and <see cref="SearchAsync"/>. Applies every filter dimension but does NOT
-    /// apply free-text search, sorting, or paging — callers add those.
+    /// and <see cref="SearchAsync"/>. Applies every filter dimension plus the
+    /// optional free-text search, but does NOT apply sorting or paging — callers
+    /// add those.
     /// </summary>
     private IQueryable<BudgetRequest> BuildFilteredQuery(
         Guid? requesterId,
@@ -71,7 +73,8 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         IReadOnlyCollection<BudgetRequestType>? types,
         decimal? amountInMmkFrom,
         decimal? amountInMmkTo,
-        bool? periodOverrunOnly)
+        bool? periodOverrunOnly,
+        string? searchTerm)
     {
         var query = _context.BudgetRequests
             .Include(r => r.ApprovalActions)
@@ -155,6 +158,19 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
                     && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission));
         }
 
+        // Free-text search — case-insensitive substring (ILike) against Reasons,
+        // RequesterNameAtSubmission and Reference (Reference is nullable, so guard
+        // it so the OR survives a null without NRE in translation).
+        var term = searchTerm?.Trim();
+        if (!string.IsNullOrEmpty(term))
+        {
+            var pattern = $"%{term}%";
+            query = query.Where(r =>
+                EF.Functions.ILike(r.Reasons, pattern)
+                || EF.Functions.ILike(r.RequesterNameAtSubmission, pattern)
+                || (r.Reference != null && EF.Functions.ILike(r.Reference, pattern)));
+        }
+
         return query;
     }
 
@@ -183,20 +199,7 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         var query = BuildFilteredQuery(
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
-            periodOverrunOnly);
-
-        // Free-text search — case-insensitive substring (ILike) against Reasons,
-        // RequesterNameAtSubmission and Reference (Reference is nullable, so guard
-        // it so the OR survives a null without NRE in translation).
-        var term = searchTerm?.Trim();
-        if (!string.IsNullOrEmpty(term))
-        {
-            var pattern = $"%{term}%";
-            query = query.Where(r =>
-                EF.Functions.ILike(r.Reasons, pattern)
-                || EF.Functions.ILike(r.RequesterNameAtSubmission, pattern)
-                || (r.Reference != null && EF.Functions.ILike(r.Reference, pattern)));
-        }
+            periodOverrunOnly, searchTerm);
 
         // Total before paging.
         var totalCount = await query.CountAsync(ct);

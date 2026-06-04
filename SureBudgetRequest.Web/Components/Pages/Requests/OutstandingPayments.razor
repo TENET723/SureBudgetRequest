@@ -3,6 +3,8 @@
 @inject ICurrentUser CurrentUser
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.Currencies.Queries
+@using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
@@ -17,6 +19,104 @@
         <div class="alert alert-danger">@_errorMessage</div>
     }
 
+    @* ─── Toolbar: search + filter toggle + result count ──────────────────── *@
+    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <ListSearchBox @bind-Value="_search" OnEnter="Apply"
+                       Placeholder="Search reference, reason, or requester" Width="320px" />
+
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ToggleFilters">
+            Filters
+            @if (ActiveFilterCount > 0)
+            {
+                <span class="badge bg-primary ms-1">@ActiveFilterCount</span>
+            }
+        </button>
+
+        @if (!_loading)
+        {
+            <span class="text-muted small ms-auto">
+                @_requests.Count result@(_requests.Count == 1 ? "" : "s")
+            </span>
+        }
+    </div>
+
+    @* ─── Collapsible filter strip ───────────────────────────────────────── *@
+    @if (_showFilters)
+    {
+        <div class="card card-body mb-3 bg-light">
+            <div class="row g-3">
+
+                @* Department — privileged roles only; Dept Head keeps the existing
+                   lock (no dropdown), Employee never sees it. *@
+                @if (SeesAllDepartments)
+                {
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">Department</label>
+                        <select class="form-select form-select-sm" @bind="_selectedDepartmentId">
+                            <option value="">All departments</option>
+                            @foreach (var d in _departments)
+                            {
+                                <option value="@d.Id">@d.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                @* Currency *@
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Currency</label>
+                    <select class="form-select form-select-sm" @bind="_selectedCurrencyCode">
+                        <option value="">All currencies</option>
+                        @foreach (var c in _currencies)
+                        {
+                            <option value="@c.Code">@c.Code — @c.Name</option>
+                        }
+                    </select>
+                </div>
+
+                @* Date range *@
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Submitted from</label>
+                    <input type="date" class="form-control form-control-sm" @bind="_fromDate" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">Submitted to</label>
+                    <input type="date" class="form-control form-control-sm" @bind="_toDate" />
+                </div>
+
+                @* Type — multi-select via checkboxes *@
+                <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Type</label>
+                    <div class="d-flex flex-wrap gap-3">
+                        @foreach (var t in AllTypes)
+                        {
+                            var type = t;
+                            <label class="form-check small mb-0">
+                                <input class="form-check-input" type="checkbox"
+                                       checked="@_selectedTypes.Contains(type)"
+                                       @onchange="@((ChangeEventArgs e) => ToggleType(type, (bool)e.Value!))" />
+                                <span class="form-check-label">@TypeLabel(type)</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm btn-primary" @onclick="Apply" disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Apply
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="Clear" disabled="@_loading">
+                    Clear filters
+                </button>
+            </div>
+        </div>
+    }
+
     @if (_loading)
     {
         <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -29,6 +129,7 @@
             <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:1%">#</th>
                         <th>Date</th>
                         <th>Requester</th>
                         <th>Reason</th>
@@ -41,9 +142,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in _requests)
+                    @for (var i = 0; i < _requests.Count; i++)
                     {
+                        var r = _requests[i];
                         <tr>
+                            <td class="text-muted small">@(i + 1)</td>
                             <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td class="small">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
                             <td>@Truncate(r.Reasons, 40)</td>
@@ -64,7 +167,14 @@
                     }
                     @if (!_requests.Any())
                     {
-                        <tr><td colspan="9" class="text-center text-muted py-4">Nothing outstanding. 🎉</td></tr>
+                        @if (_appliedHasFilters)
+                        {
+                            <tr><td colspan="10" class="text-center text-muted py-4">No outstanding payments match your search/filters.</td></tr>
+                        }
+                        else
+                        {
+                            <tr><td colspan="10" class="text-center text-muted py-4">Nothing outstanding. 🎉</td></tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -89,27 +199,173 @@
     private static readonly RequestStatus[] OutstandingStatuses =
         { RequestStatus.Approved, RequestStatus.PartiallyPaid };
 
+    // The four request types, in enum order, for the Type multi-select.
+    private static readonly BudgetRequestType[] AllTypes =
+    {
+        BudgetRequestType.Urgent,
+        BudgetRequestType.Standard,
+        BudgetRequestType.ProjectProposal,
+        BudgetRequestType.Advance,
+    };
+
     private List<BudgetRequestSummaryDto> _requests = new();
     private Dictionary<Guid, string> _userNames = new();
     private bool _loading = true;
     private string? _errorMessage;
 
+    // ── Reference data for the filter dropdowns ──────────────────────────────
+    private List<DepartmentDto> _departments = new();
+    private List<CurrencyDto> _currencies = new();
+
+    // ── Staged filter state ──────────────────────────────────────────────────
+    // Filters are staged here and only flow into the query on Apply / Clear.
+    private string _search = "";
+    private string _selectedDepartmentId = "";   // privileged roles only
+    private string _selectedCurrencyCode = "";
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private HashSet<BudgetRequestType> _selectedTypes = new();
+
+    private bool _showFilters;
+
+    // Whether the currently-displayed result set carried any filter — drives the
+    // empty-state message ("nothing matches" vs "nothing outstanding").
+    private bool _appliedHasFilters;
+
+    // Roles that may filter across all departments (vs. Dept Head's locked dept
+    // and Employee's own requests).
+    private bool SeesAllDepartments =>
+        CurrentUser.Role is UserRole.Finance
+                         or UserRole.Accounting
+                         or UserRole.Management
+                         or UserRole.Admin;
+
+    // Count of active staged filters, shown as a badge on the Filters toggle.
+    private int ActiveFilterCount
+    {
+        get
+        {
+            var n = 0;
+            if (!string.IsNullOrWhiteSpace(_search)) n++;
+            if (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId)) n++;
+            if (!string.IsNullOrEmpty(_selectedCurrencyCode)) n++;
+            if (_fromDate.HasValue) n++;
+            if (_toDate.HasValue) n++;
+            if (_selectedTypes.Count > 0) n++;
+            return n;
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        await LoadReferenceDataAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadReferenceDataAsync()
+    {
+        // Departments — only needed for the privileged-role dropdown. Mirror the
+        // Report page: load all, but only show active ones in the dropdown.
+        if (SeesAllDepartments)
+        {
+            var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
+            if (depts.IsSuccess)
+                _departments = depts.Value!.Where(d => d.IsActive).OrderBy(d => d.Name).ToList();
+        }
+
+        // Currencies — same load as the Report page (MMK first).
+        var ccys = await Mediator.Send(new ListCurrenciesQuery(IncludeInactive: true));
+        if (ccys.IsSuccess)
+            _currencies = ccys.Value!.OrderBy(c => c.Code == "MMK" ? 0 : 1).ThenBy(c => c.Code).ToList();
+    }
+
+    private void ToggleFilters() => _showFilters = !_showFilters;
+
+    private void ToggleType(BudgetRequestType t, bool isChecked)
+    {
+        if (isChecked) _selectedTypes.Add(t);
+        else _selectedTypes.Remove(t);
+    }
+
+    private async Task Apply() => await LoadAsync();
+
+    private async Task Clear()
+    {
+        _search = "";
+        _selectedCurrencyCode = "";
+        _fromDate = null;
+        _toDate = null;
+        _selectedTypes.Clear();
+
+        // Dept Heads have no dropdown; privileged roles reset to "All departments".
+        if (SeesAllDepartments)
+            _selectedDepartmentId = "";
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
         // Role-based scoping mirrors how Inbox.razor narrows visibility:
-        // Finance/Admin see everything; DeptHead sees their dept; Employee sees only their own.
+        // Finance/Accounting/Management/Admin see everything (optionally filtered
+        // by the Department dropdown); Dept Head is forced to their own dept;
+        // Employee sees only their own requests.
         Guid? requesterFilter = CurrentUser.Role == UserRole.Employee
             ? CurrentUser.UserId
             : null;
 
-        Guid? deptFilter = CurrentUser.Role == UserRole.DepartmentHead
-            ? CurrentUser.DepartmentId
+        Guid? deptFilter;
+        if (CurrentUser.Role == UserRole.DepartmentHead)
+            deptFilter = CurrentUser.DepartmentId;
+        else if (SeesAllDepartments)
+            deptFilter = ParseGuid(_selectedDepartmentId);
+        else
+            deptFilter = null;
+
+        var term = string.IsNullOrWhiteSpace(_search) ? null : _search;
+
+        IReadOnlyCollection<BudgetRequestType>? types =
+            _selectedTypes.Count > 0 ? _selectedTypes.ToList() : null;
+
+        var currency = string.IsNullOrEmpty(_selectedCurrencyCode) ? null : _selectedCurrencyCode;
+
+        // Date bounds: lower is inclusive midnight UTC, upper is the NEXT day's
+        // midnight (exclusive) so the whole "to" day is included. A reversed
+        // range (from > to) is ignored rather than returning an empty set.
+        DateTime? fromUtc = _fromDate.HasValue
+            ? DateTime.SpecifyKind(_fromDate.Value.Date, DateTimeKind.Utc)
             : null;
+        DateTime? untilUtc = _toDate.HasValue
+            ? DateTime.SpecifyKind(_toDate.Value.Date, DateTimeKind.Utc).AddDays(1)
+            : null;
+        if (fromUtc.HasValue && untilUtc.HasValue && fromUtc.Value >= untilUtc.Value)
+        {
+            fromUtc = null;
+            untilUtc = null;
+        }
+
+        // Record whether this load carried any user filter, to pick the right
+        // empty-state message.
+        _appliedHasFilters = term is not null
+            || types is not null
+            || currency is not null
+            || fromUtc.HasValue
+            || untilUtc.HasValue
+            || (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId));
 
         var result = await Mediator.Send(new ListBudgetRequestsQuery(
             RequesterId: requesterFilter,
             DepartmentId: deptFilter,
-            Statuses: OutstandingStatuses));
+            Statuses: OutstandingStatuses,
+            SubmittedFromUtc: fromUtc,
+            SubmittedUntilUtc: untilUtc,
+            CurrencyCode: currency,
+            Types: types,
+            SearchTerm: term));
 
         if (result.IsSuccess)
         {
@@ -118,7 +374,11 @@
                 .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
                 .ToList();
 
-            var requesterIds = _requests.Select(r => r.RequesterId).Distinct();
+            // Re-resolve any requester names we haven't already cached.
+            var requesterIds = _requests
+                .Select(r => r.RequesterId)
+                .Distinct()
+                .Where(id => !_userNames.ContainsKey(id));
             foreach (var id in requesterIds)
             {
                 var u = await Mediator.Send(new GetUserQuery(id));
@@ -133,6 +393,9 @@
         _loading = false;
     }
 
+    private static Guid? ParseGuid(string s) =>
+        Guid.TryParse(s, out var g) ? g : null;
+
     private string ScopeDescription() => CurrentUser.Role switch
     {
         UserRole.Finance        => "Approved requests still awaiting full payment.",
@@ -146,6 +409,15 @@
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";
+
+    private static string TypeLabel(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent          => "Urgent",
+        BudgetRequestType.Standard        => "Standard",
+        BudgetRequestType.ProjectProposal => "Project Proposal",
+        BudgetRequestType.Advance         => "Advance",
+        _                                 => t.ToString()
+    };
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
