@@ -104,7 +104,6 @@
                                     }
                                 }
                             </td>
-                            <td class="small">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
                             <td>
                                 @if (u.IsActive)
                                 {
@@ -116,6 +115,9 @@
                                     <span class="badge bg-secondary">Inactive</span>
                                 }
                             </td>
+
+                            <td class="small">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
+                            
                             <td class="text-end">
                                 <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(u)">Edit</button>
                                 @if (u.IsActive)
@@ -198,7 +200,8 @@
                         <div class="col-12">
                             <label class="form-label small fw-semibold">Role</label>
                             <select class="form-select form-select-sm" @bind="_formRole" @bind:after="OnRoleChanged">
-                                @foreach (var r in Enum.GetValues<UserRole>())
+                                @foreach (var r in Enum.GetValues<UserRole>()
+                                    .Where(r => CurrentUser.Role == UserRole.Admin || r != UserRole.Admin))
                                 {
                                     <option value="@((int)r)">@r</option>
                                 }
@@ -350,7 +353,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.Role != UserRole.Admin)
+        if (CurrentUser.Role is not (UserRole.Admin or UserRole.Finance))
         {
             Nav.NavigateTo("/", replace: true);
             return;

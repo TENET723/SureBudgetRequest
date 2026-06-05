@@ -4,7 +4,13 @@
       "PowerShell(dotnet build *)",
       "Bash(findstr /I \"withdraw\")",
       "Bash(dotnet build *)",
-      "Bash(dotnet list *)"
+      "Bash(dotnet list *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\WIN\\\\source\\\\repos\\\\TENET723\\\\SureBudgetRequest\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "PowerShell(Head *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\WIN\\\\source\\\\repos\\\\TENET723\\\\SureBudgetRequest\\\\SureBudgetRequest.Web\" -Recurse -Force | Where-Object { $_.Extension -in '.cs', '.cshtml' } | Select-Object FullName | Select-Object -First 30)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\WIN\\\\source\\\\repos\\\\TENET723\\\\SureBudgetRequest\" -Name \"*.csproj\")",
+      "Bash(Select-Object -First 5)"
     ]
   }
 }

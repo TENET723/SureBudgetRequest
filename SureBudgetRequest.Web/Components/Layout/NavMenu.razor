@@ -65,6 +65,15 @@
             </div>
         }
 
+        @if (CurrentUser.Role == UserRole.Finance)
+        {
+            <div class="nav-section">Admin</div>
+
+            <div class="nav-item">
+                <NavLink class="nav-link" href="admin/users">Users</NavLink>
+            </div>
+        }
+
         @if (CurrentUser.Role == UserRole.Admin)
         {
             <div class="nav-section">Admin</div>
