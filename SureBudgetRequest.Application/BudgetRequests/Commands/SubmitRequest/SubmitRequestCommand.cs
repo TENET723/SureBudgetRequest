@@ -23,6 +23,8 @@ public sealed class SubmitRequestCommandHandler
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
+    private readonly IDepartmentMonthlyBudgetRepository _monthlyBudgetRepository;
+    private readonly IAppSettingRepository _appSettingRepository;
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
@@ -34,6 +36,8 @@ public sealed class SubmitRequestCommandHandler
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
         IBudgetRequestModificationRepository modificationRepository,
+        IDepartmentMonthlyBudgetRepository monthlyBudgetRepository,
+        IAppSettingRepository appSettingRepository,
         IDateTimeProvider clock,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
@@ -44,6 +48,8 @@ public sealed class SubmitRequestCommandHandler
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _modificationRepository = modificationRepository;
+        _monthlyBudgetRepository = monthlyBudgetRepository;
+        _appSettingRepository = appSettingRepository;
         _clock = clock;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
@@ -94,10 +100,18 @@ public sealed class SubmitRequestCommandHandler
             return Result.Failure(BudgetRequestErrors.DepartmentHeadNotFound);
 
         // Compute the current calendar-month window and approved spend so far.
+        var businessNow = _clock.BusinessNow;
         var (monthStartUtc, monthEndUtc) = MonthlyBudgetWindow.CurrentUtc(
-            _clock.BusinessNow, _clock.BusinessUtcOffset);
+            businessNow, _clock.BusinessUtcOffset);
         var monthlySpendBefore = await _budgetRequestRepository.GetApprovedSpendInMmkAsync(
             department.Id, monthStartUtc, monthEndUtc, cancellationToken);
+
+        // Resolve the effective monthly limit: preset for this FY month → fallback
+        var startMonthSetting = await _appSettingRepository.GetByKeyAsync("FinancialYear.StartMonth", cancellationToken);
+        int fyStartMonth = startMonthSetting is not null && int.TryParse(startMonthSetting.Value, out var fySmS) ? fySmS : 4;
+        int currentFy = businessNow.Month >= fyStartMonth ? businessNow.Year : businessNow.Year - 1;
+        var monthPreset = await _monthlyBudgetRepository.GetAsync(department.Id, currentFy, businessNow.Month, cancellationToken);
+        var effectiveMonthlyLimit = monthPreset?.Amount ?? department.MonthlyLimit;
 
         // Resolve the chosen withdraw method so the domain can enforce its
         // RequiresAttachment invariant. The method must exist by this point —
@@ -120,7 +134,7 @@ public sealed class SubmitRequestCommandHandler
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
-            department.MonthlyLimit,
+            effectiveMonthlyLimit,
             monthlySpendBefore,
             monthStartUtc,
             monthEndUtc,

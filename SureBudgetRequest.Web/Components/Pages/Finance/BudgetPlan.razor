@@ -1,0 +1,280 @@
+@page "/finance/budget-plan"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Departments.Commands.UpsertDepartmentMonthlyBudget
+@using SureBudgetRequest.Domain.Enums
+
+<PageTitle>Budget Plan</PageTitle>
+
+@if (CurrentUser.Role != UserRole.Finance)
+{
+    <div class="alert alert-danger mt-4">Access denied.</div>
+    return;
+}
+
+<div class="container-fluid py-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">Department Budget Plan</h5>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible">
+            @_errorMessage
+            <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success alert-dismissible">
+            @_successMessage
+            <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button>
+        </div>
+    }
+
+    @* ── Controls ──────────────────────────────────────────────────────── *@
+    <div class="row g-2 mb-3 align-items-center">
+        <div class="col-auto d-flex align-items-center gap-1">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="PrevYear">&#8249;</button>
+            <span class="fw-semibold px-2">FY @_selectedYear / @(_selectedYear + 1)</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NextYear">&#8250;</button>
+        </div>
+        <div class="col-auto">
+            <select class="form-select form-select-sm" @onchange="OnDeptChanged">
+                @foreach (var d in _departments)
+                {
+                    <option value="@d.Id" selected="@(d.Id == _selectedDeptId)">@d.Name</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else if (_plan is not null)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Month</th>
+                        <th>Budget (MMK)</th>
+                        <th class="text-end">Spent (MMK)</th>
+                        <th class="text-end">Remaining</th>
+                        <th class="text-end">Used %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in _plan.Months)
+                    {
+                        var monthName = new DateTime(2000, m.Month, 1).ToString("MMM");
+                        var spent = m.ActualSpentInMmk;
+                        var limit = m.EffectiveLimit;
+                        var remaining = limit - spent;
+                        var usedPct = limit > 0 ? Math.Min(100m, Math.Round(spent / limit * 100, 1)) : 0m;
+
+                        <tr class="@(m.IsCurrent ? "table-primary" : "")">
+                            <td>
+                                @monthName
+                                @if (m.IsCurrent)
+                                {
+                                    <span class="ms-1 badge bg-primary rounded-pill" style="font-size:.65rem">● Current</span>
+                                }
+                            </td>
+                            <td style="min-width:180px">
+                                @if (m.IsEditable)
+                                {
+                                    <input type="number" min="0" step="1000"
+                                           class="form-control form-control-sm"
+                                           style="max-width:160px"
+                                           placeholder="e.g. 5000000"
+                                           value="@(_formAmounts.TryGetValue(m.Month, out var v) ? v : "")"
+                                           @oninput="e => OnAmountInput(m.Month, e.Value?.ToString())" />
+                                    <div class="text-muted small mt-1">fallback: @_plan.FallbackMonthlyLimit.ToString("N0") MMK</div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">@(m.PresetAmount.HasValue ? m.PresetAmount.Value.ToString("N0") : "—")</span>
+                                    <div class="text-muted small mt-1">fallback: @_plan.FallbackMonthlyLimit.ToString("N0") MMK</div>
+                                }
+                            </td>
+                            <td class="text-end">@spent.ToString("N0")</td>
+                            <td class="text-end @(remaining < 0 ? "text-danger" : "")">@remaining.ToString("N0")</td>
+                            <td class="text-end">@usedPct%</td>
+                            <td>
+                                @if (m.IsCurrent)
+                                {
+                                    <span class="badge bg-primary">Current</span>
+                                }
+                                else if (!m.IsEditable)
+                                {
+                                    <span class="badge bg-secondary">Past</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-dark border">Future</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-2">
+            <button class="btn btn-sm btn-primary" @onclick="SavePlan" disabled="@_saving">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Save
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private DepartmentBudgetPlanDto? _plan;
+    private Dictionary<int, string> _formAmounts = new();
+    private List<DepartmentDto> _departments = new();
+    private Guid _selectedDeptId;
+    private int _selectedYear;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role != UserRole.Finance)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        // Determine default year
+        var now = DateTime.UtcNow;
+        // FY start month default 4 — use April as approximation here (AppSetting loaded later)
+        _selectedYear = now.Month >= 4 ? now.Year : now.Year - 1;
+
+        // Load departments
+        var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));
+        if (deptsResult.IsSuccess && deptsResult.Value.Count > 0)
+        {
+            _departments = deptsResult.Value.ToList();
+            _selectedDeptId = _departments[0].Id;
+        }
+
+        await LoadPlan();
+    }
+
+    private async Task LoadPlan()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _successMessage = null;
+        StateHasChanged();
+
+        if (_selectedDeptId == Guid.Empty)
+        {
+            _loading = false;
+            return;
+        }
+
+        var result = await Mediator.Send(new GetDepartmentBudgetPlanQuery(_selectedDeptId, _selectedYear));
+        if (result.IsSuccess)
+        {
+            _plan = result.Value;
+            _formAmounts = new Dictionary<int, string>();
+            foreach (var m in _plan.Months)
+            {
+                if (m.PresetAmount.HasValue)
+                    _formAmounts[m.Month] = m.PresetAmount.Value.ToString("F0");
+            }
+        }
+        else
+        {
+            _errorMessage = result.Error.Message;
+        }
+
+        _loading = false;
+    }
+
+    private async Task SavePlan()
+    {
+        _saving = true;
+        _errorMessage = null;
+        _successMessage = null;
+        StateHasChanged();
+
+        var entries = new List<MonthAmountEntry>();
+        if (_plan is not null)
+        {
+            foreach (var m in _plan.Months.Where(m => m.IsEditable))
+            {
+                decimal? amount = null;
+                if (_formAmounts.TryGetValue(m.Month, out var raw)
+                    && !string.IsNullOrWhiteSpace(raw)
+                    && decimal.TryParse(raw, out var parsed))
+                {
+                    amount = parsed;
+                }
+                entries.Add(new MonthAmountEntry(m.Month, amount));
+            }
+        }
+
+        var command = new UpsertDepartmentMonthlyBudgetCommand(
+            _selectedDeptId,
+            _selectedYear,
+            entries,
+            CurrentUser.UserId);
+
+        var result = await Mediator.Send(command);
+        if (result.IsSuccess)
+        {
+            _successMessage = "Budget plan saved.";
+            await LoadPlan();
+        }
+        else
+        {
+            _errorMessage = result.Error.Message;
+        }
+
+        _saving = false;
+    }
+
+    private void OnAmountInput(int month, string? value)
+    {
+        if (value is null)
+            _formAmounts.Remove(month);
+        else
+            _formAmounts[month] = value;
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var id))
+        {
+            _selectedDeptId = id;
+            await LoadPlan();
+        }
+    }
+
+    private async Task PrevYear()
+    {
+        _selectedYear--;
+        await LoadPlan();
+    }
+
+    private async Task NextYear()
+    {
+        _selectedYear++;
+        await LoadPlan();
+    }
+}

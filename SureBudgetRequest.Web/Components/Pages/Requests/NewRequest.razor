@@ -365,7 +365,7 @@
         var spendResult = await Mediator.Send(new GetMonthlySpendQuery(CurrentUser.DepartmentId));
         if (spendResult.IsSuccess)
         {
-            _monthlyLimit = spendResult.Value.MonthlyLimit;
+            _monthlyLimit = spendResult.Value.EffectiveLimit;
             _monthlySpent = spendResult.Value.SpentInMmk;
         }
 

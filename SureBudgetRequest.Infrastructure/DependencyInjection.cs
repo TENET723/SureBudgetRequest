@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IBudgetCategoryRepository, BudgetCategoryRepository>();
         services.AddScoped<IAppSettingRepository, AppSettingRepository>();
         services.AddScoped<IBudgetRequestModificationRepository, BudgetRequestModificationRepository>();
+        services.AddScoped<IDepartmentMonthlyBudgetRepository, DepartmentMonthlyBudgetRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
         // ── Clock ─────────────────────────────────────────────────────────────
