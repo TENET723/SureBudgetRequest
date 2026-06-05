@@ -155,9 +155,8 @@
                             <td class="text-end">@r.TotalPaid.ToString("N2")</td>
                             <td class="text-end fw-semibold">@r.RemainingBalance.ToString("N2")</td>
                             <td><span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
-                                <PeriodOverrunBadge
-                                    PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                    PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
                             <td class="text-end">

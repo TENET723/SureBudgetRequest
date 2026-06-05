@@ -1,12 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SureBudgetRequest.Application.Abstractions.Security;
-using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Infrastructure.Persistence;
-using SureBudgetRequest.Infrastructure.Persistence.Services;
-using SureBudgetRequest.Infrastructure.Time;
 
 namespace SureBudgetRequest.Infrastructure.Seeding;
 
@@ -38,34 +35,12 @@ public sealed class DbSeeder
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        await SeedAppSettingsAsync(cancellationToken);
         await SeedCurrenciesAsync(cancellationToken);
         await SeedCoasAsync(cancellationToken);
         await SeedWithdrawMethodsAsync(cancellationToken);
         await SeedBankAccountsAsync(cancellationToken);
         await SeedBudgetCategoriesAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
-    }
-
-    // ── App Settings ──────────────────────────────────────────────────────────
-    private async Task SeedAppSettingsAsync(CancellationToken cancellationToken)
-    {
-        if (await _db.AppSettings.AnyAsync(cancellationToken))
-        {
-            _logger.LogInformation("App settings already seeded — skipping.");
-            return;
-        }
-
-        _logger.LogInformation("Seeding app settings...");
-
-        // Company-wide financial-year start month (1-12). Quarters and yearly
-        // windows for department spending caps derive from this. Default: April.
-        _db.AppSettings.Add(new AppSetting(
-            FinancialYearProvider.StartMonthSettingKey,
-            FinancialYearProvider.DefaultStartMonth.ToString(),
-            "Month (1-12) the company financial year starts on. Drives all department budget-period windows."));
-
-        await _db.SaveChangesAsync(cancellationToken);
     }
 
     // ── Currencies ────────────────────────────────────────────────────────────
@@ -188,37 +163,21 @@ public sealed class DbSeeder
         var adminId = Guid.Parse("00000000-0000-0000-0000-000000000001");
         var deptHeadItId = Guid.Parse("00000000-0000-0000-0000-000000000002");
         var deptHeadHrId = Guid.Parse("00000000-0000-0000-0000-000000000003");
-        var bossId = Guid.Parse("00000000-0000-0000-0000-000000000004");
-        var financeId = Guid.Parse("00000000-0000-0000-0000-000000000005");
-        var employeeId = Guid.Parse("00000000-0000-0000-0000-000000000006");
 
         var itDeptId = Guid.Parse("00000000-0000-0000-0001-000000000001");
         var hrDeptId = Guid.Parse("00000000-0000-0000-0001-000000000002");
         var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
 
-        // Per-request limit (BudgetLimit) is the threshold for Management routing.
-        // The cumulative soft cap now lives in department_budget_periods (seeded
-        // just below), not on the department itself.
+        // BudgetLimit  = per-request routing threshold (requests above → Management stage).
+        // MonthlyLimit = cumulative monthly spending cap (soft cap, requires justification if exceeded).
         var itDept = new Department("Information Technology", deptHeadItId,
-            budgetLimit: 5_000_000);
+            budgetLimit: 5_000_000, monthlyLimit: 20_000_000);
         var hrDept = new Department("Human Resources", deptHeadHrId,
-            budgetLimit: 3_000_000);
+            budgetLimit: 3_000_000, monthlyLimit: 10_000_000);
         var adminDept = new Department("Administration", adminId,
-            budgetLimit: 10_000_000);
+            budgetLimit: 10_000_000, monthlyLimit: 40_000_000);
 
         _db.Departments.AddRange(itDept, hrDept, adminDept);
-
-        // Starter cumulative-cap config, effective from the current financial year.
-        // Monthly cadence with the same amounts the departments used to carry as a
-        // monthly limit. Admins can change cadence/amount (for the next FY) later.
-        var businessNow = DateTime.UtcNow.Add(SystemDateTimeProvider.SingaporeOffset);
-        var currentFy = new FinancialYearCalendar(FinancialYearProvider.DefaultStartMonth)
-            .FinancialYearFor(businessNow);
-
-        _db.DepartmentBudgetPeriods.AddRange(
-            new DepartmentBudgetPeriod(itDept.Id, currentFy, BudgetPeriodType.Monthly, 20_000_000),
-            new DepartmentBudgetPeriod(hrDept.Id, currentFy, BudgetPeriodType.Monthly, 10_000_000),
-            new DepartmentBudgetPeriod(adminDept.Id, currentFy, BudgetPeriodType.Monthly, 40_000_000));
 
         var admin = CreateUser("admin", "Mg Mg (Admin)", "admin@asure.local", adminDeptId, UserRole.Admin);
         var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.DepartmentHead);
@@ -234,7 +193,6 @@ public sealed class DbSeeder
         var financePayer = CreateUser("daw_hla", "Daw Hla Win (Finance Payer)", "daw.hla@asure.local", adminDeptId, UserRole.Finance);
 
         // Accounting (read-only) — sees everything Finance sees but can take no actions.
-        // Lives in the same department as the Finance users.
         var accountant = CreateUser("accountant", "Accountant (read-only)", "accountant@asure.local", adminDeptId, UserRole.Accounting);
 
         var employee = CreateUser("ma_aye", "Ma Aye Aye (Employee)", "ma.aye@asure.local", itDeptId, UserRole.Employee);

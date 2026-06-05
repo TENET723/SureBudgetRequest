@@ -25,12 +25,11 @@ public partial class BudgetRequest
 
     /// <summary>
     /// Free-text justification from the requester for why a request that would
-    /// push the department over its budget-period limit is still necessary. Set on
+    /// push the department over its monthly limit is still necessary. Set on
     /// the entity in Draft/SentBack (via <see cref="CreateDraft"/> /
     /// <see cref="UpdateDetails"/>) and validated at <see cref="Submit"/>-time
-    /// — Submit returns Failure if a period overrun is detected and this
-    /// field is null/whitespace. (Field name retained from the original
-    /// monthly-only design; now generic across all period cadences.)
+    /// — Submit returns Failure if a monthly overrun is detected and this
+    /// field is null/whitespace.
     /// </summary>
     public string? MonthlyOverrunJustification { get; private set; }
 
@@ -55,31 +54,24 @@ public partial class BudgetRequest
     public string RequesterNameAtSubmission { get; private set; } = null!;
 
     /// <summary>
-    /// The department's active cumulative-cap cadence at submission. Snapshotted
-    /// so audit display is stable even if the department's config changes later.
-    /// <see cref="BudgetPeriodType.None"/> when the department had no cumulative
-    /// cap at submission (or for rows that pre-date this feature).
+    /// The department's monthly limit (in MMK) at the moment this request was
+    /// submitted. <c>null</c> when the request was a non-Standard/non-Urgent type
+    /// that does not participate in the monthly cap check.
     /// </summary>
-    public BudgetPeriodType PeriodTypeAtSubmission { get; private set; }
+    public decimal? MonthlyLimitAtSubmission { get; private set; }
 
     /// <summary>
-    /// The department's period limit (in MMK) at the moment this request was
-    /// submitted. <c>null</c> when no cumulative cap was configured.
+    /// The department's already-spent total (in MMK) for the current calendar-month
+    /// window at submission, *before* this request was counted. <c>null</c> for
+    /// request types that do not participate in the monthly cap check.
     /// </summary>
-    public decimal? PeriodLimitAtSubmission { get; private set; }
+    public decimal? MonthlySpendBeforeAtSubmission { get; private set; }
 
-    /// <summary>
-    /// The department's already-spent total (in MMK) for the active period
-    /// window of submission, *before* this request was counted. <c>null</c> when
-    /// no cumulative cap was configured at submission.
-    /// </summary>
-    public decimal? PeriodSpendBeforeAtSubmission { get; private set; }
+    /// <summary>Inclusive UTC start of the active monthly window at submission. Null for non-participating types.</summary>
+    public DateTime? MonthlyWindowStartAtSubmission { get; private set; }
 
-    /// <summary>Inclusive UTC start of the active period window at submission. Null when no cap.</summary>
-    public DateTime? PeriodStartAtSubmission { get; private set; }
-
-    /// <summary>Exclusive UTC end of the active period window at submission. Null when no cap.</summary>
-    public DateTime? PeriodEndAtSubmission { get; private set; }
+    /// <summary>Exclusive UTC end of the active monthly window at submission. Null for non-participating types.</summary>
+    public DateTime? MonthlyWindowEndAtSubmission { get; private set; }
 
     // === Workflow state ===
     public RequestStatus Status { get; private set; }

@@ -22,9 +22,8 @@ public sealed class SubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
-    private readonly IDepartmentBudgetPeriodRepository _periodRepository;
-    private readonly IFinancialYearProvider _financialYearProvider;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
+    private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
 
@@ -34,9 +33,8 @@ public sealed class SubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
-        IDepartmentBudgetPeriodRepository periodRepository,
-        IFinancialYearProvider financialYearProvider,
         IBudgetRequestModificationRepository modificationRepository,
+        IDateTimeProvider clock,
         IUnitOfWork unitOfWork,
         INotificationDispatcher dispatcher)
     {
@@ -45,9 +43,8 @@ public sealed class SubmitRequestCommandHandler
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
-        _periodRepository = periodRepository;
-        _financialYearProvider = financialYearProvider;
         _modificationRepository = modificationRepository;
+        _clock = clock;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
     }
@@ -66,7 +63,7 @@ public sealed class SubmitRequestCommandHandler
 
         // Block a new Advance when the requester still has an overdue advance
         // (past its reconciliation deadline). Cheap early exit before the
-        // requester/department/period loads. Other request types are unaffected.
+        // requester/department loads. Other request types are unaffected.
         if (budgetRequest.Type == BudgetRequestType.Advance
             && await _budgetRequestRepository.HasOverdueAdvanceAsync(command.RequesterId, DateTime.UtcNow, cancellationToken))
         {
@@ -96,27 +93,11 @@ public sealed class SubmitRequestCommandHandler
         if (headUser is null)
             return Result.Failure(BudgetRequestErrors.DepartmentHeadNotFound);
 
-        // Resolve the department's active cumulative-cap config for the current
-        // financial year, then compute the period window + spend-so-far. Skipped
-        // entirely when the cadence is None (no cumulative cap).
-        var currentFy = await _financialYearProvider.GetCurrentFinancialYearAsync(cancellationToken);
-        var activePeriod = await _periodRepository.GetActiveAsync(department.Id, currentFy, cancellationToken);
-        var periodType = activePeriod?.PeriodType ?? BudgetPeriodType.None;
-
-        decimal? periodLimit = null;
-        decimal? periodSpendBeforeInMmk = null;
-        DateTime? periodStartUtc = null;
-        DateTime? periodEndUtc = null;
-        if (periodType != BudgetPeriodType.None)
-        {
-            var (startUtc, endUtc) = await _financialYearProvider
-                .GetPeriodWindowUtcAsync(periodType, cancellationToken);
-            periodStartUtc = startUtc;
-            periodEndUtc = endUtc;
-            periodLimit = activePeriod!.LimitAmount;
-            periodSpendBeforeInMmk = await _budgetRequestRepository
-                .GetApprovedSpendInMmkAsync(department.Id, startUtc, endUtc, cancellationToken);
-        }
+        // Compute the current calendar-month window and approved spend so far.
+        var (monthStartUtc, monthEndUtc) = MonthlyBudgetWindow.CurrentUtc(
+            _clock.BusinessNow, _clock.BusinessUtcOffset);
+        var monthlySpendBefore = await _budgetRequestRepository.GetApprovedSpendInMmkAsync(
+            department.Id, monthStartUtc, monthEndUtc, cancellationToken);
 
         // Resolve the chosen withdraw method so the domain can enforce its
         // RequiresAttachment invariant. The method must exist by this point —
@@ -139,11 +120,10 @@ public sealed class SubmitRequestCommandHandler
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
-            periodType,
-            periodLimit,
-            periodSpendBeforeInMmk,
-            periodStartUtc,
-            periodEndUtc,
+            department.MonthlyLimit,
+            monthlySpendBefore,
+            monthStartUtc,
+            monthEndUtc,
             currency.RateToMmk,
             department.HeadUserId.Value,
             headUser.FullName,

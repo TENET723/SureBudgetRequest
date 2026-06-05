@@ -33,13 +33,12 @@ public sealed record BudgetRequestDto(
     // Submission snapshots
     Guid DepartmentIdAtSubmission,
     decimal DepartmentLimitAtSubmission,
-    // Period (cumulative-cap) snapshot at submission. PeriodType = None when the
-    // dept had no cap at submission (or for rows that pre-date the feature).
-    BudgetPeriodType PeriodTypeAtSubmission,
-    decimal? PeriodLimitAtSubmission,
-    decimal? PeriodSpendBeforeAtSubmission,
-    DateTime? PeriodStartAtSubmission,
-    DateTime? PeriodEndAtSubmission,
+    // Monthly cap snapshot at submission. Null for request types that do not
+    // participate in the monthly cap check.
+    decimal? MonthlyLimitAtSubmission,
+    decimal? MonthlySpendBeforeAtSubmission,
+    DateTime? MonthlyWindowStartAtSubmission,
+    DateTime? MonthlyWindowEndAtSubmission,
     decimal ExchangeRateAtSubmission,
     decimal RequestedAmountInMmkAtSubmission,
     Guid DeptHeadIdAtSubmission,
@@ -121,11 +120,10 @@ public sealed record BudgetRequestDto(
         e.FinalizedAt,
         e.DepartmentIdAtSubmission,
         e.DepartmentLimitAtSubmission,
-        e.PeriodTypeAtSubmission,
-        e.PeriodLimitAtSubmission,
-        e.PeriodSpendBeforeAtSubmission,
-        e.PeriodStartAtSubmission,
-        e.PeriodEndAtSubmission,
+        e.MonthlyLimitAtSubmission,
+        e.MonthlySpendBeforeAtSubmission,
+        e.MonthlyWindowStartAtSubmission,
+        e.MonthlyWindowEndAtSubmission,
         e.ExchangeRateAtSubmission,
         e.RequestedAmountInMmkAtSubmission,
         e.DeptHeadIdAtSubmission,

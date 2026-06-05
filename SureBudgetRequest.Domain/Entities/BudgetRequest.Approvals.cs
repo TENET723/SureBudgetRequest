@@ -149,11 +149,10 @@ public partial class BudgetRequest
     public Result ResubmitAfterSendBack(
         Guid departmentId,
         decimal departmentLimit,
-        BudgetPeriodType periodType,
-        decimal? periodLimit,
-        decimal? periodSpendBeforeInMmk,
-        DateTime? periodStartUtc,
-        DateTime? periodEndUtc,
+        decimal monthlyLimit,
+        decimal monthlySpendBeforeInMmk,
+        DateTime monthlyWindowStartUtc,
+        DateTime monthlyWindowEndUtc,
         decimal exchangeRateToMmk,
         Guid deptHeadId,
         string deptHeadName,
@@ -165,11 +164,11 @@ public partial class BudgetRequest
 
         // R13: restart the chain. Reuses Submit() — the auto-approval logic re-runs
         // because amount/requester/limit/rate may have changed during the fix.
-        // The period check also re-runs because the dept's cumulative position may
+        // The monthly check also re-runs because the dept's cumulative position may
         // have changed since the original submission.
         return Submit(
-            departmentId, departmentLimit, periodType, periodLimit, periodSpendBeforeInMmk,
-            periodStartUtc, periodEndUtc, exchangeRateToMmk, deptHeadId, deptHeadName, requesterName,
-            withdrawMethodRequiresAttachment);
+            departmentId, departmentLimit, monthlyLimit, monthlySpendBeforeInMmk,
+            monthlyWindowStartUtc, monthlyWindowEndUtc, exchangeRateToMmk,
+            deptHeadId, deptHeadName, requesterName, withdrawMethodRequiresAttachment);
     }
 }

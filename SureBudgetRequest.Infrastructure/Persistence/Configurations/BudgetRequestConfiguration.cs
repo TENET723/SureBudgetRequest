@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SureBudgetRequest.Domain.Entities;
-using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Infrastructure.Persistence.Configurations;
 
@@ -44,20 +43,19 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .IsRequired()
                .HasColumnType("numeric(18,2)");
 
-        // ── Period (cumulative-cap) snapshot ──────────────────────────────────
-        // PeriodType defaults to None (0) so existing rows and the NOT NULL column
-        // add get the same value without a backfill pass. The other four are
-        // nullable — null when the dept had no cumulative cap at submission.
-        builder.Property(r => r.PeriodTypeAtSubmission)
-               .IsRequired()
-               .HasConversion<int>()
-               .HasDefaultValue(BudgetPeriodType.None);
-        builder.Property(r => r.PeriodLimitAtSubmission)
+        // ── Monthly cap snapshot ──────────────────────────────────────────────
+        // Nullable — null when the request type does not participate in the
+        // monthly cap check (kept nullable to handle pre-feature rows gracefully).
+        builder.Property(r => r.MonthlyLimitAtSubmission)
+               .HasColumnName("monthly_limit_at_submission")
                .HasColumnType("numeric(18,2)");
-        builder.Property(r => r.PeriodSpendBeforeAtSubmission)
+        builder.Property(r => r.MonthlySpendBeforeAtSubmission)
+               .HasColumnName("monthly_spend_before_at_submission")
                .HasColumnType("numeric(18,2)");
-        builder.Property(r => r.PeriodStartAtSubmission);
-        builder.Property(r => r.PeriodEndAtSubmission);
+        builder.Property(r => r.MonthlyWindowStartAtSubmission)
+               .HasColumnName("monthly_window_start_at_submission");
+        builder.Property(r => r.MonthlyWindowEndAtSubmission)
+               .HasColumnName("monthly_window_end_at_submission");
 
         builder.Property(r => r.ExchangeRateAtSubmission)
                .IsRequired()
@@ -86,10 +84,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.FinalizedAt);
 
         // ── Advance withdrawal — reconciliation phase ─────────────────────────
-        // All nullable except RefundAmount / ReimbursementAmount, which default
-        // to 0 for every non-advance request (and for advances that reconciled
-        // exactly). RefundAmount is set on under-spend, ReimbursementAmount on
-        // over-spend.
         builder.Property(r => r.ReconciliationDeadline);
         builder.Property(r => r.ReconciliationSubmittedAt);
         builder.Property(r => r.RefundAmount)
@@ -104,10 +98,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.ReimbursementPaidByUserId);
 
         // ── Chart of Account FK ───────────────────────────────────────────────
-        // Nullable — only set when Finance has approved (and stays set through
-        // PartiallyPaid / Paid / SentBack). Restrict on delete: a Coa cannot be
-        // deleted while any request references it. Admins should Deactivate
-        // unused codes instead of deleting them.
         builder.Property(r => r.CoaId);
         builder.HasOne<Coa>()
                .WithMany()
@@ -116,9 +106,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.HasIndex(r => r.CoaId);
 
         // ── Withdraw Method FK ────────────────────────────────────────────────
-        // Nullable in DB only for rows that pre-date the feature; new drafts
-        // require it. Restrict on delete so a method cannot be hard-deleted
-        // while referenced — admins must Deactivate instead.
         builder.Property(r => r.WithdrawMethodId);
         builder.HasOne<WithdrawMethod>()
                .WithMany()
@@ -127,10 +114,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.HasIndex(r => r.WithdrawMethodId);
 
         // ── Budget Category FK ────────────────────────────────────────────────
-        // Optional label (e.g. "Asset" / "Expense") set by the requester and
-        // editable by the dept head while PendingDeptHead. Always nullable —
-        // classification is never required. Restrict on delete so a category
-        // cannot be hard-deleted while referenced — admins must Deactivate.
         builder.Property(r => r.BudgetCategoryId);
         builder.HasOne<BudgetCategory>()
                .WithMany()
@@ -148,8 +131,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.HasIndex(r => new { r.DepartmentIdAtSubmission, r.Status, r.SubmittedAt });
 
         // ── Private collection backing fields ─────────────────────────────────
-        // EF Core must use the private List<T> fields, not the IReadOnlyList<T> properties.
-
         builder.HasMany(r => r.ApprovalActions)
                .WithOne()
                .HasForeignKey(a => a.BudgetRequestId)
@@ -177,10 +158,6 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .HasField("_attachments")
                .UsePropertyAccessMode(PropertyAccessMode.Field);
 
-        // Advance-usage line items. ClientCascade — no DB-level ON DELETE
-        // CASCADE; EF deletes orphans client-side when the aggregate removes a
-        // usage from the collection (RemoveAdvanceUsage). The aggregate owns the
-        // lifecycle, mirroring the task's "aggregate manages it" requirement.
         builder.HasMany(r => r.AdvanceUsages)
                .WithOne()
                .HasForeignKey(u => u.BudgetRequestId)

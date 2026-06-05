@@ -140,22 +140,20 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         if (amountInMmkTo.HasValue)
             query = query.Where(r => r.RequestedAmountInMmkAtSubmission <= amountInMmkTo.Value);
 
-        // Period overrun — mirrors the PeriodOverrunBadge.IsOver condition exactly,
-        // computed from the submission snapshots. true = crossed the cap; false =
+        // Monthly overrun — mirrors the MonthlyLimitBadge.IsOver condition exactly,
+        // computed from the submission snapshots. true = crossed the monthly cap; false =
         // the inverse; null = no filter.
         if (periodOverrunOnly.HasValue)
         {
             query = periodOverrunOnly.Value
                 ? query.Where(r =>
-                    r.PeriodTypeAtSubmission != BudgetPeriodType.None
-                    && r.PeriodLimitAtSubmission != null
-                    && r.PeriodSpendBeforeAtSubmission != null
-                    && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission)
+                    r.MonthlyLimitAtSubmission != null
+                    && r.MonthlySpendBeforeAtSubmission != null
+                    && (r.MonthlySpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.MonthlyLimitAtSubmission)
                 : query.Where(r => !(
-                    r.PeriodTypeAtSubmission != BudgetPeriodType.None
-                    && r.PeriodLimitAtSubmission != null
-                    && r.PeriodSpendBeforeAtSubmission != null
-                    && (r.PeriodSpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.PeriodLimitAtSubmission));
+                    r.MonthlyLimitAtSubmission != null
+                    && r.MonthlySpendBeforeAtSubmission != null
+                    && (r.MonthlySpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.MonthlyLimitAtSubmission));
         }
 
         // Free-text search — case-insensitive substring (ILike) against Reasons,

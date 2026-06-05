@@ -16,8 +16,8 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
         builder.Property(d => d.HeadUserId);   // nullable — department can exist without a head
         builder.Property(d => d.BudgetLimit).IsRequired().HasColumnType("numeric(18,2)");
 
-        // Cumulative spending caps are no longer a column on departments — they
-        // live in the effective-dated department_budget_periods table.
+        // Per-department monthly spending cap. Every department must have one.
+        builder.Property(d => d.MonthlyLimit).IsRequired().HasColumnType("numeric(18,2)");
 
         // Nullable. Notifications fail-loud and stay pending when missing —
         // see NotificationOutboxProcessor for the routing logic.

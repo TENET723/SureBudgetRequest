@@ -7,7 +7,6 @@
 @using SureBudgetRequest.Application.Departments.Commands.CreateDepartment
 @using SureBudgetRequest.Application.Departments.Commands.UpdateDepartment
 @using SureBudgetRequest.Application.Departments.Commands.DeactivateDepartment
-@using SureBudgetRequest.Application.Departments.Commands.SetDepartmentBudgetPeriod
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
@@ -53,7 +52,7 @@
                         <th>Name</th>
                         <th>Department Head</th>
                         <th class="text-end">Budget Limit (MMK)</th>
-                        <th>Spending cap</th>
+                        <th class="text-end">Monthly Limit (MMK)</th>
                         <th>Slack</th>
                         <th>Status</th>
                         <th></th>
@@ -77,33 +76,7 @@
                                 }
                             </td>
                             <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
-                            <td>
-                                <div>
-                                    <span class="small">FY@(d.CurrentFinancialYear): </span>
-                                    @if (d.CurrentPeriodType == BudgetPeriodType.None)
-                                    {
-                                        <span class="text-muted small">no cap</span>
-                                    }
-                                    else
-                                    {
-                                        <span>@PeriodLabel(d.CurrentPeriodType) @d.CurrentPeriodLimit.ToString("N0") MMK</span>
-                                    }
-                                </div>
-                                @if (d.PendingPeriodType.HasValue)
-                                {
-                                    <div class="small text-info">
-                                        → FY@(d.PendingFinancialYear):
-                                        @if (d.PendingPeriodType.Value == BudgetPeriodType.None)
-                                        {
-                                            <span>no cap</span>
-                                        }
-                                        else
-                                        {
-                                            <span>@PeriodLabel(d.PendingPeriodType.Value) @((d.PendingPeriodLimit ?? 0m).ToString("N0")) MMK</span>
-                                        }
-                                    </div>
-                                }
-                            </td>
+                            <td class="text-end">@d.MonthlyLimit.ToString("N2")</td>
                             <td>
                                 @if (!string.IsNullOrWhiteSpace(d.SlackWebhookUrl))
                                 {
@@ -181,56 +154,15 @@
                         <input class="form-control form-control-sm" type="number" min="0" @bind="_formBudgetLimit" />
                         <div class="form-text small">Per-request threshold. Requests above this go to the Management Team.</div>
                     </div>
-
-                    @* ── Cumulative spending cap ─────────────────────────────── *@
-                    <hr class="my-3" />
-                    @if (_editingId.HasValue)
-                    {
-                        <p class="small fw-semibold mb-1">Cumulative spending cap</p>
-                        <div class="alert alert-light border small py-2 mb-2">
-                            <span class="text-muted">Current (FY@(_currentFinancialYear)):</span>
-                            @if (_currentPeriodType == BudgetPeriodType.None)
-                            {
-                                <strong>No cap</strong>
-                            }
-                            else
-                            {
-                                <strong>@PeriodLabel(_currentPeriodType) — @_currentPeriodLimit.ToString("N2") MMK</strong>
-                            }
-                            <div class="text-muted mt-1" style="font-size:0.75rem">
-                                The current-year configuration is locked. Changes below take effect from
-                                <strong>FY@(_currentFinancialYear + 1)</strong>.
-                            </div>
-                        </div>
-                        <label class="form-label small fw-semibold">Scheduled change — from FY@(_currentFinancialYear + 1)</label>
-                    }
-                    else
-                    {
-                        <p class="small fw-semibold mb-1">Cumulative spending cap (effective immediately, FY@(_currentFinancialYear))</p>
-                    }
-
-                    <div class="row g-2">
-                        <div class="col-5">
-                            <select class="form-select form-select-sm" @bind="_formPeriodType">
-                                <option value="@BudgetPeriodType.None">No cap</option>
-                                <option value="@BudgetPeriodType.Monthly">Monthly</option>
-                                <option value="@BudgetPeriodType.Quarterly">Quarterly</option>
-                                <option value="@BudgetPeriodType.Yearly">Yearly</option>
-                            </select>
-                        </div>
-                        <div class="col-7">
-                            <input class="form-control form-control-sm" type="number" min="0" step="0.01"
-                                   @bind="_formPeriodAmount"
-                                   disabled="@(_formPeriodType == BudgetPeriodType.None)"
-                                   placeholder="Amount (MMK)" />
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Monthly Limit (MMK)</label>
+                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_formMonthlyLimit" />
+                        <div class="form-text small">
+                            Cumulative monthly spending cap. When a new request would push the department's
+                            finance-approved spend for the current calendar month over this amount,
+                            the requester must supply a justification. Routing is unchanged.
                         </div>
                     </div>
-                    <div class="form-text small">
-                        Soft cap: when a new request would push the department's finance-approved
-                        spending over this amount within the @( _formPeriodType == BudgetPeriodType.None ? "period" : PeriodLabel(_formPeriodType).ToLower()),
-                        the requester must supply a justification. Routing is unchanged.
-                    </div>
-
                     <hr class="my-3" />
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">
@@ -298,27 +230,11 @@
     private string _formName = "";
     private string _formHeadUserId = "";
     private decimal _formBudgetLimit;
+    private decimal _formMonthlyLimit;
     private string _formSlackWebhookUrl = "";
-
-    // Cumulative-cap editor state
-    private int _currentFinancialYear;
-    private BudgetPeriodType _formPeriodType = BudgetPeriodType.None;
-    private decimal _formPeriodAmount;
-    // Current (locked) config captured when opening the edit modal, so we can tell
-    // whether the editor actually changed anything (→ schedule a next-FY change).
-    private BudgetPeriodType _currentPeriodType = BudgetPeriodType.None;
-    private decimal _currentPeriodLimit;
 
     // Deactivate confirm
     private DepartmentDto? _deactivatingDept;
-
-    private static string PeriodLabel(BudgetPeriodType t) => t switch
-    {
-        BudgetPeriodType.Monthly => "Monthly",
-        BudgetPeriodType.Quarterly => "Quarterly",
-        BudgetPeriodType.Yearly => "Yearly",
-        _ => "No cap"
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -368,13 +284,8 @@
         _formName = "";
         _formHeadUserId = "";
         _formBudgetLimit = 0;
+        _formMonthlyLimit = 0;
         _formSlackWebhookUrl = "";
-        // New departments configure their initial cap immediately (current FY).
-        _currentFinancialYear = _departments.FirstOrDefault()?.CurrentFinancialYear ?? 0;
-        _formPeriodType = BudgetPeriodType.None;
-        _formPeriodAmount = 0;
-        _currentPeriodType = BudgetPeriodType.None;
-        _currentPeriodLimit = 0;
         _formError = null;
         _showForm = true;
     }
@@ -385,16 +296,8 @@
         _formName = d.Name;
         _formHeadUserId = d.HeadUserId?.ToString() ?? "";
         _formBudgetLimit = d.BudgetLimit;
+        _formMonthlyLimit = d.MonthlyLimit;
         _formSlackWebhookUrl = d.SlackWebhookUrl ?? "";
-
-        _currentFinancialYear = d.CurrentFinancialYear;
-        _currentPeriodType = d.CurrentPeriodType;
-        _currentPeriodLimit = d.CurrentPeriodLimit;
-        // Pre-fill the next-FY editor with the pending change if one exists,
-        // otherwise carry the current config forward as the starting point.
-        _formPeriodType = d.PendingPeriodType ?? d.CurrentPeriodType;
-        _formPeriodAmount = d.PendingPeriodLimit ?? d.CurrentPeriodLimit;
-
         _formError = null;
         _showForm = true;
     }
@@ -410,10 +313,8 @@
         _formError = null;
         if (string.IsNullOrWhiteSpace(_formName)) { _formError = "Name is required."; return; }
         if (_formBudgetLimit < 0) { _formError = "Budget limit cannot be negative."; return; }
-        if (_formPeriodType != BudgetPeriodType.None && _formPeriodAmount < 0)
-        { _formError = "Spending cap cannot be negative."; return; }
+        if (_formMonthlyLimit < 0) { _formError = "Monthly limit cannot be negative."; return; }
 
-        // Empty selection = no head assigned (allowed).
         Guid? headId = null;
         if (!string.IsNullOrWhiteSpace(_formHeadUserId))
         {
@@ -425,12 +326,9 @@
             headId = parsed;
         }
 
-        // Empty string = clear the webhook. Domain layer handles format validation.
         var webhookUrl = string.IsNullOrWhiteSpace(_formSlackWebhookUrl)
             ? null
             : _formSlackWebhookUrl.Trim();
-
-        var amount = _formPeriodType == BudgetPeriodType.None ? 0m : _formPeriodAmount;
 
         _saving = true;
         try
@@ -438,24 +336,13 @@
             if (_editingId.HasValue)
             {
                 var result = await Mediator.Send(new UpdateDepartmentCommand(
-                    _editingId.Value, _formName, headId, _formBudgetLimit, webhookUrl));
+                    _editingId.Value, _formName, headId, _formBudgetLimit, _formMonthlyLimit, webhookUrl));
                 if (result.IsFailure) { _formError = result.Error.Message; return; }
-
-                // Schedule a next-FY cap change only when the editor differs from the
-                // current (locked) config — avoids creating a redundant pending row.
-                var changed = _formPeriodType != _currentPeriodType
-                    || (_formPeriodType != BudgetPeriodType.None && amount != _currentPeriodLimit);
-                if (changed)
-                {
-                    var periodResult = await Mediator.Send(new SetDepartmentBudgetPeriodCommand(
-                        _editingId.Value, _formPeriodType, amount));
-                    if (periodResult.IsFailure) { _formError = periodResult.Error.Message; return; }
-                }
             }
             else
             {
                 var result = await Mediator.Send(new CreateDepartmentCommand(
-                    _formName, headId, _formBudgetLimit, _formPeriodType, amount, webhookUrl));
+                    _formName, headId, _formBudgetLimit, _formMonthlyLimit, webhookUrl));
                 if (result.IsFailure) { _formError = result.Error.Message; return; }
             }
 

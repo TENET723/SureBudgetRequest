@@ -93,15 +93,6 @@
                         <label class="form-label small fw-semibold">Value</label>
                         <input class="form-control form-control-sm" @bind="_formValue"
                                placeholder="Value" maxlength="500" />
-                        @if (_formKey == FinancialYearStartMonthKey)
-                        {
-                            <div class="form-text small">
-                                <strong>Financial-year start month.</strong> Enter a number 1-12
-                                (1 = January … 12 = December). All department spending-cap windows
-                                (monthly / quarterly / yearly) are anchored to this month. Changing it
-                                shifts how the current and future financial years are bucketed.
-                            </div>
-                        }
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">
@@ -125,9 +116,6 @@
 }
 
 @code {
-    // Keep in sync with FinancialYearProvider.StartMonthSettingKey.
-    private const string FinancialYearStartMonthKey = "FinancialYear.StartMonth";
-
     private List<AppSettingDto> _settings = new();
     private bool _loading = true;
     private string? _errorMessage;

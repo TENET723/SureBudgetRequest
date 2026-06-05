@@ -13,6 +13,15 @@ public class Department
     public decimal BudgetLimit { get; private set; }
 
     /// <summary>
+    /// Cumulative monthly spending cap in MMK. When a new request would push
+    /// the department's finance-approved spend for the current calendar month
+    /// over this amount, the requester must supply a justification.
+    /// Routing is unchanged — only the per-request BudgetLimit triggers the
+    /// Management stage.
+    /// </summary>
+    public decimal MonthlyLimit { get; private set; }
+
+    /// <summary>
     /// Slack incoming webhook URL for this department's channel. Notifications
     /// for budget requests originating from this department are POSTed here.
     /// Nullable — when not configured the outbox processor logs a warning and
@@ -30,17 +39,21 @@ public class Department
         string name,
         Guid? headUserId,
         decimal budgetLimit,
+        decimal monthlyLimit,
         string? slackWebhookUrl = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Department name is required.", nameof(name));
         if (budgetLimit < 0)
             throw new ArgumentException("Budget limit cannot be negative.", nameof(budgetLimit));
+        if (monthlyLimit < 0)
+            throw new ArgumentException("Monthly limit cannot be negative.", nameof(monthlyLimit));
 
         //Id = Guid.NewGuid();
         Name = name;
         HeadUserId = headUserId;
         BudgetLimit = budgetLimit;
+        MonthlyLimit = monthlyLimit;
         SlackWebhookUrl = NormalizeAndValidateWebhook(slackWebhookUrl);
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
@@ -60,6 +73,13 @@ public class Department
         if (newLimit < 0)
             throw new ArgumentException("Budget limit cannot be negative.", nameof(newLimit));
         BudgetLimit = newLimit;
+    }
+
+    public void ChangeMonthlyLimit(decimal newLimit)
+    {
+        if (newLimit < 0)
+            throw new ArgumentException("Monthly limit cannot be negative.", nameof(newLimit));
+        MonthlyLimit = newLimit;
     }
 
     /// <summary>

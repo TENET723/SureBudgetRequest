@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
-@using SureBudgetRequest.Application.BudgetRequests.Queries.GetPeriodSpend
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
 @using SureBudgetRequest.Application.Currencies.Queries
@@ -68,12 +68,12 @@
             <div class="alert alert-warning d-flex align-items-start gap-2">
                 <span style="font-size:1.25rem; line-height:1">⚠</span>
                 <div class="small">
-                    <strong>This request would push the department over its @PeriodAdjective limit.</strong>
+                    <strong>This request would push the department over its monthly limit.</strong>
                     <div class="mt-1">
-                        This @PeriodWord: <strong>@_periodSpent.ToString("N2")</strong> MMK used
-                        of <strong>@_periodLimit!.Value.ToString("N2")</strong> MMK.
+                        This month: <strong>@_monthlySpent.ToString("N2")</strong> MMK used
+                        of <strong>@_monthlyLimit.ToString("N2")</strong> MMK.
                         This request adds <strong>@AmountInMmk.ToString("N2")</strong> MMK
-                        (total would be <strong>@((_periodSpent + AmountInMmk).ToString("N2"))</strong> MMK).
+                        (total would be <strong>@((_monthlySpent + AmountInMmk).ToString("N2"))</strong> MMK).
                     </div>
                     <div class="mt-1 text-muted">
                         A written justification will be required when you save or submit.
@@ -143,12 +143,12 @@
                         <span class="text-muted">Current rate: 1 @_currencyCode = @_selectedRate.ToString("N2") MMK</span>
                     }
                     </div>
-                @if (_periodLimit.HasValue && !WouldOverflowPeriod)
+                @if (!WouldOverflowPeriod)
                 {
                     <div class="form-text small mb-3 text-muted">
-                        This @PeriodWord's spending so far: @_periodSpent.ToString("N2") /
-                        @_periodLimit.Value.ToString("N2") MMK
-                        (@((_periodLimit.Value - _periodSpent).ToString("N2")) MMK remaining this @PeriodWord).
+                        This month's spending so far: @_monthlySpent.ToString("N2") /
+                        @_monthlyLimit.ToString("N2") MMK
+                        (@((_monthlyLimit - _monthlySpent).ToString("N2")) MMK remaining this month).
                     </div>
                 }
 
@@ -301,10 +301,10 @@
                 <div class="modal-body">
                     <p class="small mb-3">
                         This request of <strong>@AmountInMmk.ToString("N2") MMK</strong> would bring
-                        your department's @PeriodAdjective total to
-                        <strong>@((_periodSpent + AmountInMmk).ToString("N2")) MMK</strong>,
-                        exceeding the configured @PeriodAdjective limit of
-                        <strong>@_periodLimit!.Value.ToString("N2") MMK</strong>.
+                        your department's monthly total to
+                        <strong>@((_monthlySpent + AmountInMmk).ToString("N2")) MMK</strong>,
+                        exceeding the monthly limit of
+                        <strong>@_monthlyLimit.ToString("N2") MMK</strong>.
                     </p>
                     <label class="form-label small fw-semibold" for="overrunJustificationEdit">
                         Please justify why this overrun is necessary.
@@ -357,27 +357,10 @@
     private string? _partialDetail;
     private string? _lastSendBackComment;
 
-    // Period (cumulative-cap) state
-    private BudgetPeriodType _periodType = BudgetPeriodType.None;
-    private decimal? _periodLimit;
-    private decimal _periodSpent;
+    // Monthly spending cap state
+    private decimal _monthlyLimit;
+    private decimal _monthlySpent;
     private string _monthlyOverrunJustification = "";
-
-    // Lowercase noun ("month") and adjective ("monthly") for the active cadence.
-    private string PeriodWord => _periodType switch
-    {
-        BudgetPeriodType.Monthly => "month",
-        BudgetPeriodType.Quarterly => "quarter",
-        BudgetPeriodType.Yearly => "year",
-        _ => "period"
-    };
-    private string PeriodAdjective => _periodType switch
-    {
-        BudgetPeriodType.Monthly => "monthly",
-        BudgetPeriodType.Quarterly => "quarterly",
-        BudgetPeriodType.Yearly => "yearly",
-        _ => "budget-period"
-    };
 
     // Overrun modal state
     private bool _showOverrunModal;
@@ -398,7 +381,7 @@
 
     private decimal AmountInMmk => _amount * _selectedRate;
     private bool WouldOverflowPeriod =>
-        _periodLimit.HasValue && (_periodSpent + AmountInMmk) > _periodLimit.Value;
+        (_monthlySpent + AmountInMmk) > _monthlyLimit;
 
     private bool SelectedMethodRequiresAttachment =>
         !string.IsNullOrEmpty(_withdrawMethodId)
@@ -485,16 +468,13 @@
             var headResult = await Mediator.Send(new GetUserQuery(_request.DeptHeadIdAtSubmission));
             if (headResult.IsSuccess) _deptHeadName = headResult.Value.FullName;
 
-            // Pull current monthly position. Use the requester's CURRENT department
-            // (CurrentUser.DepartmentId), matching Submit/Resubmit which always re-fetch
-            // the current dept. If the user changed dept since first submission, the
-            // monthly check applies to the new one — same rule the backend uses.
-            var spendResult = await Mediator.Send(new GetPeriodSpendQuery(CurrentUser.DepartmentId));
+            // Pull the current monthly approved spend + the dept's cap. Uses the
+            // requester's CURRENT department, matching Submit/Resubmit — same rule the backend uses.
+            var spendResult = await Mediator.Send(new GetMonthlySpendQuery(CurrentUser.DepartmentId));
             if (spendResult.IsSuccess)
             {
-                _periodType = spendResult.Value.PeriodType;
-                _periodLimit = spendResult.Value.PeriodLimit;
-                _periodSpent = spendResult.Value.SpentInMmk;
+                _monthlyLimit = spendResult.Value.MonthlyLimit;
+                _monthlySpent = spendResult.Value.SpentInMmk;
             }
 
             if (_request.Status == RequestStatus.SentBack)

@@ -16,4 +16,9 @@
     <ProjectReference Include="..\SureBudgetRequest.Domain\SureBudgetRequest.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="BudgetRequests\Queries\GetPeriodSpend\" />
+    <Folder Include="Departments\Commands\SetDepartmentBudgetPeriod\" />
+  </ItemGroup>
+
 </Project>

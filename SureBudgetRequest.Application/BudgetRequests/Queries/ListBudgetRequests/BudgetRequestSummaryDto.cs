@@ -14,11 +14,10 @@ public sealed record BudgetRequestSummaryDto(
     decimal ApprovedAmount,
     decimal TotalPaid,
     decimal RequestedAmountInMmkAtSubmission,
-    // Period (cumulative-cap) snapshot fields. PeriodType = None when no cap was
-    // configured for the dept at submission; limit/spend are then null.
-    BudgetPeriodType PeriodTypeAtSubmission,
-    decimal? PeriodLimitAtSubmission,
-    decimal? PeriodSpendBeforeAtSubmission,
+    // Monthly cap snapshot fields. Null for request types that do not
+    // participate in the monthly cap check.
+    decimal? MonthlyLimitAtSubmission,
+    decimal? MonthlySpendBeforeAtSubmission,
     string Reasons,
     RequestStatus Status,
     DateTime CreatedAt,
@@ -88,9 +87,8 @@ public sealed record BudgetRequestSummaryDto(
         e.ApprovedAmount,
         e.TotalPaid,
         e.RequestedAmountInMmkAtSubmission,
-        e.PeriodTypeAtSubmission,
-        e.PeriodLimitAtSubmission,
-        e.PeriodSpendBeforeAtSubmission,
+        e.MonthlyLimitAtSubmission,
+        e.MonthlySpendBeforeAtSubmission,
         e.Reasons,
         e.Status,
         e.CreatedAt,

@@ -51,7 +51,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequest
 /// <param name="PeriodOverrunOnly">
 /// <c>null</c> = no filter. <c>true</c> = only requests that crossed their
 /// department's cumulative (period) cap at submission — i.e. those that
-/// would render the <c>PeriodOverrunBadge</c>. <c>false</c> = only requests
+/// would render the <c>MonthlyLimitBadge</c>. <c>false</c> = only requests
 /// that did not.
 /// </param>
 public sealed record ListBudgetRequestsQuery(

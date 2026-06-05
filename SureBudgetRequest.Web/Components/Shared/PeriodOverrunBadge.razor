@@ -28,25 +28,17 @@
 }
 
 @code {
-    [Parameter] public BudgetPeriodType PeriodType { get; set; } = BudgetPeriodType.None;
     [Parameter] public decimal? PeriodLimitAtSubmission { get; set; }
     [Parameter] public decimal? PeriodSpendBeforeAtSubmission { get; set; }
     [Parameter] public decimal RequestedAmountInMmkAtSubmission { get; set; }
     [Parameter] public bool Compact { get; set; }
 
     private bool IsOver =>
-        PeriodType != BudgetPeriodType.None
-        && PeriodLimitAtSubmission.HasValue
+         PeriodLimitAtSubmission.HasValue
         && PeriodSpendBeforeAtSubmission.HasValue
         && (PeriodSpendBeforeAtSubmission.Value + RequestedAmountInMmkAtSubmission) > PeriodLimitAtSubmission.Value;
 
-    private string PeriodLabel => PeriodType switch
-    {
-        BudgetPeriodType.Monthly => "Monthly",
-        BudgetPeriodType.Quarterly => "Quarterly",
-        BudgetPeriodType.Yearly => "Yearly",
-        _ => "Period"
-    };
+    private string PeriodLabel => "Monthly";
 
     private string TooltipText
     {

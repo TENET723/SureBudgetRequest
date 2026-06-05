@@ -141,21 +141,19 @@ public partial class BudgetRequest
     // Management member's own over-limit request requires peer review by another Management
     // member. This mirrors how Finance works.
     //
-    // Period limit (soft cap): if the department has a cumulative cap configured
-    // (periodType != None) AND (periodSpendBeforeInMmk + amountInMmk) > periodLimit,
+    // Monthly limit (soft cap): if (monthlySpendBeforeInMmk + amountInMmk) > monthlyLimit,
     // the requester must have supplied a non-empty MonthlyOverrunJustification. The
-    // period check does NOT alter routing — only the per-request limit triggers
-    // the Management stage. Period enforcement is independent.
+    // monthly check does NOT alter routing — only the per-request limit triggers
+    // the Management stage. Monthly enforcement is independent.
     //
     // The MMK-equivalent of the requested amount is compared against both limits.
     public Result Submit(
         Guid departmentId,
-        decimal departmentLimit,             // in MMK
-        BudgetPeriodType periodType,         // None = no cumulative cap for this dept
-        decimal? periodLimit,                // in MMK; null when periodType == None
-        decimal? periodSpendBeforeInMmk,     // in MMK; null when periodType == None
-        DateTime? periodStartUtc,            // inclusive UTC start of the active window; null when None
-        DateTime? periodEndUtc,              // exclusive UTC end of the active window; null when None
+        decimal departmentLimit,             // in MMK (per-request routing threshold)
+        decimal monthlyLimit,                // in MMK (department's monthly cap)
+        decimal monthlySpendBeforeInMmk,     // in MMK; approved spend this month before this request
+        DateTime monthlyWindowStartUtc,      // inclusive UTC start of the current month window
+        DateTime monthlyWindowEndUtc,        // exclusive UTC end of the current month window
         decimal exchangeRateToMmk,           // current system rate for this.CurrencyCode
         Guid deptHeadId,
         string deptHeadName,
@@ -188,48 +186,31 @@ public partial class BudgetRequest
                 "Please upload at least one banking file before submitting.");
         }
 
-        // Consistency check: a cap means a window + limit + spend; "None" means none of them.
-        var hasCap = periodType != BudgetPeriodType.None;
-        if (hasCap != periodLimit.HasValue
-            || hasCap != periodSpendBeforeInMmk.HasValue
-            || hasCap != periodStartUtc.HasValue
-            || hasCap != periodEndUtc.HasValue)
-            return Result.Failure(
-                "Period type, limit, spend snapshot, and window must all be supplied together, or all be null.");
-
         // Convert to MMK for the limit comparisons
         var amountInMmk = RequestedAmount * effectiveRate;
         var isOverPerRequestLimit = amountInMmk > departmentLimit;
 
-        // Period check — only when the department has a cumulative cap configured.
-        var isOverPeriod = hasCap
-                        && (periodSpendBeforeInMmk!.Value + amountInMmk) > periodLimit!.Value;
+        // Monthly cap check — always runs (every dept now has a monthly limit).
+        var isOverMonthly = (monthlySpendBeforeInMmk + amountInMmk) > monthlyLimit;
 
-        if (isOverPeriod && string.IsNullOrWhiteSpace(MonthlyOverrunJustification))
+        if (isOverMonthly && string.IsNullOrWhiteSpace(MonthlyOverrunJustification))
             return Result.Failure(
-                "This request would push the department over its budget-period limit. " +
+                "This request would push the department over its monthly budget limit. " +
                 "A justification is required.");
 
         // Snapshot the routing context (R7, R12, R15, R16)
         DepartmentIdAtSubmission = departmentId;
         DepartmentLimitAtSubmission = departmentLimit;
-        PeriodTypeAtSubmission = periodType;
-        PeriodLimitAtSubmission = periodLimit;
-        PeriodSpendBeforeAtSubmission = periodSpendBeforeInMmk;
-        PeriodStartAtSubmission = periodStartUtc;
-        PeriodEndAtSubmission = periodEndUtc;
+        MonthlyLimitAtSubmission = monthlyLimit;
+        MonthlySpendBeforeAtSubmission = monthlySpendBeforeInMmk;
+        MonthlyWindowStartAtSubmission = monthlyWindowStartUtc;
+        MonthlyWindowEndAtSubmission = monthlyWindowEndUtc;
         ExchangeRateAtSubmission = effectiveRate;
         RequestedAmountInMmkAtSubmission = amountInMmk;
         DeptHeadIdAtSubmission = deptHeadId;
         DeptHeadNameAtSubmission = deptHeadName;
         RequesterNameAtSubmission = requesterName;
         SubmittedAt = DateTime.UtcNow;
-
-        // Clear the justification snapshot if it ended up not being needed.
-        // We intentionally do NOT clear it — keeping it preserves the requester's
-        // pre-submission expectation in the audit trail. Comment kept for future
-        // reviewers who might wonder. (If you change your mind, set it to null here
-        // when !isOverPeriod.)
 
         // Generate the human-friendly reference number.
         // Only set on first submission — resubmission after SendBack keeps the same Reference.
@@ -256,7 +237,7 @@ public partial class BudgetRequest
 
         // Stage 2: Management (only if over per-request limit) — never auto-approves.
         // Any Management member can approve; identity is checked by role in Application.
-        // Note: period overrun does NOT route here — only the per-request limit does.
+        // Note: monthly overrun does NOT route here — only the per-request limit does.
         if (isOverPerRequestLimit)
         {
             Status = RequestStatus.PendingManagement;

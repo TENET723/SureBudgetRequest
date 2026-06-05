@@ -92,9 +92,8 @@
                                 <div class="text-truncate me-3">
                                     <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
                                     <span class="badge @TypeBadgeClass(r.Type) me-2">@TypeLabel(r.Type)</span>
-                                    <PeriodOverrunBadge Compact="true"
-                                        PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                        PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                     <span class="me-2">@RequesterName(r.RequesterId)</span>
                                     <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
@@ -137,9 +136,8 @@
                                 <div class="text-truncate me-3">
                                     <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
                                     <span class="badge @TypeBadgeClass(r.Type) me-2">@TypeLabel(r.Type)</span>
-                                    <PeriodOverrunBadge Compact="true"
-                                        PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                        PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                     <span class="me-2">@RequesterName(r.RequesterId)</span>
                                     <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
@@ -181,9 +179,8 @@
                                 <div class="text-truncate me-3">
                                     <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
                                     <span class="badge @StatusBadgeClass(r.Status) me-2">@StatusLabel(r.Status)</span>
-                                    <PeriodOverrunBadge Compact="true"
-                                        PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                        PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                     <span class="me-2">@RequesterName(r.RequesterId)</span>
                                     <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
@@ -222,9 +219,8 @@
                             @onclick="() => OpenRequestEdit(r)">
                             <div class="text-truncate me-3">
                                 <span class="badge @StatusBadgeClass(r.Status) me-2">@StatusLabel(r.Status)</span>
-                                <PeriodOverrunBadge Compact="true"
-                                    PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                    PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                 <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
                                 <span class="text-muted small">@Truncate(r.Reasons, 50)</span>
@@ -261,9 +257,8 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
                                         <div>
-                                            <PeriodOverrunBadge Compact="true"
-                                                PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                                PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                            <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                                MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                                 RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                             <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                         </div>
@@ -301,9 +296,8 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
                                         <div>
-                                            <PeriodOverrunBadge Compact="true"
-                                                PeriodType="@r.PeriodTypeAtSubmission" PeriodLimitAtSubmission="@r.PeriodLimitAtSubmission"
-                                                PeriodSpendBeforeAtSubmission="@r.PeriodSpendBeforeAtSubmission"
+                                            <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
+                                                MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                                 RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                                             <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                         </div>

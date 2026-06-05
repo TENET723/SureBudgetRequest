@@ -9,11 +9,11 @@ using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Infrastructure.Notifications;
 using SureBudgetRequest.Infrastructure.Persistence;
 using SureBudgetRequest.Infrastructure.Persistence.Repositories;
-using SureBudgetRequest.Infrastructure.Persistence.Services;
 using SureBudgetRequest.Infrastructure.Security;
 using SureBudgetRequest.Infrastructure.Time;
 using SureBudgetRequest.Infrastructure.Seeding;
 using SureBudgetRequest.Infrastructure.Storage;
+using SureBudgetRequest.Infrastructure.Persistence.Services;
 
 namespace SureBudgetRequest.Infrastructure;
 
@@ -44,7 +44,6 @@ public static class DependencyInjection
         services.AddScoped<IBudgetRequestRepository, BudgetRequestRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
-        services.AddScoped<IDepartmentBudgetPeriodRepository, DepartmentBudgetPeriodRepository>();
         services.AddScoped<ICurrencyRepository, CurrencyRepository>();
         services.AddScoped<ICoaRepository, CoaRepository>();
         services.AddScoped<IWithdrawMethodRepository, WithdrawMethodRepository>();
@@ -54,18 +53,15 @@ public static class DependencyInjection
         services.AddScoped<IBudgetRequestModificationRepository, BudgetRequestModificationRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-        // ── Financial-year / period services ──────────────────────────────────
-        // Clock is stateless and thread-safe → singleton. The FY provider reads an
-        // app setting per call (scoped, alongside the DbContext-bound repository).
+        // ── Clock ─────────────────────────────────────────────────────────────
+        // Stateless and thread-safe → singleton.
         services.AddSingleton<IDateTimeProvider, SystemDateTimeProvider>();
-        services.AddScoped<IFinancialYearProvider, FinancialYearProvider>();
 
         // ── Security ──────────────────────────────────────────────────────────
         // Singleton: stateless and thread-safe.
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         // ── Reporting / exports ───────────────────────────────────────────────
-        // Stateless formatter → singleton, matching IPasswordHasher / IDateTimeProvider.
         services.AddSingleton<IReportExporter, ClosedXmlReportExporter>();
 
         // ── Notifications (outbox pattern) ────────────────────────────────────
@@ -75,9 +71,6 @@ public static class DependencyInjection
         services.AddHostedService<NotificationOutboxProcessor>();
 
         // ── File Storage ──────────────────────────────────────────────────────
-        // Provider is selected by the "Storage:Provider" config value.
-        //   "Supabase" (default) → SupabaseFileStorage
-        //   "Local"              → LocalFileStorage  (dev fallback)
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         services.Configure<SupabaseStorageOptions>(configuration.GetSection(SupabaseStorageOptions.SectionName));
 
@@ -89,8 +82,6 @@ public static class DependencyInjection
         }
         else
         {
-            // Supabase storage talks REST. Use a named HttpClient with the project URL
-            // as BaseAddress and the service-role key as a bearer token on every call.
             services.AddHttpClient("SupabaseStorage", (sp, client) =>
             {
                 var opts = sp.GetRequiredService<IOptions<SupabaseStorageOptions>>().Value;
@@ -104,7 +95,6 @@ public static class DependencyInjection
                 client.BaseAddress = new Uri(opts.Url.TrimEnd('/') + "/");
                 client.DefaultRequestHeaders.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", opts.ServiceRoleKey);
-                // Supabase also looks at the apikey header for some calls.
                 client.DefaultRequestHeaders.Add("apikey", opts.ServiceRoleKey);
             });
 
