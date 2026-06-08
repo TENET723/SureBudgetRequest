@@ -32,27 +32,27 @@
 
 @if (_loading)
 {
-    <div class="text-center py-5"><div class="spinner-border"></div></div>
+    <div class="spinner-wrap"><div class="spinner"></div></div>
 }
 else if (_request is null)
 {
-    <div class="container py-4"><div class="alert alert-warning">Request not found.</div></div>
+    <div class="page-wrap alert alert-warning">Request not found.</div>
 }
 else
 {
-    <div class="container py-3" style="max-width:800px">
+    <div class="page-wrap" style="max-width:800px">
 
         @* ── Header ── *@
-        <div class="d-flex align-items-start justify-content-between mb-3">
+        <div class="flex items-start justify-content-between mb-4">
             <div>
-                <a href="requests/mine" class="text-muted small">← Back</a>
-                <div class="d-flex align-items-center gap-2 mt-1">
-                    <h5 class="mb-0">Budget Request</h5>
-                    <button class="btn btn-xs btn-outline-secondary p-1 py-0 small" style="font-size:0.7rem" @onclick="OpenHistory">History</button>
+                <a href="requests/mine" class="text-muted text-sm">← Back</a>
+                <div class="flex items-center gap-2 mt-1">
+                    <h5>Budget Request</h5>
+                    <button class="btn btn-xs btn-outline-secondary p-1 py-0 text-sm" style="font-size:0.7rem" @onclick="OpenHistory">History</button>
                 </div>
-                <span class="text-muted small font-monospace">@_request.Reference</span>
+                <span class="text-muted text-sm font-mono">@_request.Reference</span>
             </div>
-            <span class="badge fs-6 @StatusBadge(_request.Status)">@StatusLabel(_request.Status)</span>
+            <span class="badge badge-role">@StatusLabel(_request.Status)</span>
             <MonthlyLimitBadge
                 MonthlyLimitAtSubmission="@_request.MonthlyLimitAtSubmission"
                 MonthlySpendBeforeAtSubmission="@_request.MonthlySpendBeforeAtSubmission"
@@ -61,11 +61,11 @@ else
 
         @if (!string.IsNullOrEmpty(_actionError))
         {
-            <div class="alert alert-danger alert-dismissible">@_actionError <button class="btn-close" @onclick="() => _actionError = null"></button></div>
+            <div class="alert alert-error">@_actionError <button class="btn btn-icon modal-close" @onclick="() => _actionError = null"></button></div>
         }
         @if (!string.IsNullOrEmpty(_actionSuccess))
         {
-            <div class="alert alert-success alert-dismissible">@_actionSuccess <button class="btn-close" @onclick="() => _actionSuccess = null"></button></div>
+            <div class="alert alert-success">@_actionSuccess <button class="btn btn-icon modal-close" @onclick="() => _actionSuccess = null"></button></div>
         }
 
         @* ── Monthly overrun warning (headline) ──
@@ -76,9 +76,9 @@ else
              && _request.MonthlySpendBeforeAtSubmission.HasValue
              && (_request.MonthlySpendBeforeAtSubmission.Value + _request.RequestedAmountInMmkAtSubmission) > _request.MonthlyLimitAtSubmission.Value)
         {
-            <div class="alert alert-warning d-flex align-items-start gap-2">
+            <div class="alert alert-warning">
                 <span style="font-size:1.25rem; line-height:1">⚠</span>
-                <div class="small">
+                <div class="text-sm">
                     <strong>This request exceeded the department's monthly limit at submission.</strong>
                     <div class="mt-1">
                         Already spent this month: <strong>@_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2")</strong> MMK
@@ -96,27 +96,27 @@ else
         }
 
         @* ── Request summary card ── *@
-        <div class="card border-0 shadow-sm mb-3">
+        <div class="card mb-4">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-sm-6">
-                        <div class="small text-muted">Requester</div>
+                <div class="form-grid-3">
+                    <div>
+                        <div class="text-sm text-muted">Requester</div>
                         <div>@(_userNames.TryGetValue(_request.RequesterId, out var rn) ? rn : "—")</div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="small text-muted">Request Date</div>
+                    <div>
+                        <div class="text-sm text-muted">Request Date</div>
                         <div>@_request.RequestDate.ToString("dd MMM yyyy")</div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="small text-muted">Type</div>
-                        <div><span class="badge @TypeBadge(_request.Type)">@TypeLabel(_request.Type)</span></div>
+                    <div>
+                        <div class="text-sm text-muted">Type</div>
+                        <div><span class="badge badge-role">@TypeLabel(_request.Type)</span></div>
                     </div>
-                    <div class="col-sm-6">
-                        <div class="small text-muted">Amount Requested</div>
-                        <div class="fw-semibold">@_request.RequestedAmount.ToString("N2") @_request.CurrencyCode</div>
+                    <div>
+                        <div class="text-sm text-muted">Amount Requested</div>
+                        <div class="font-semibold">@_request.RequestedAmount.ToString("N2") @_request.CurrencyCode</div>
                         @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
                         {
-                            <div class="small text-muted">
+                            <div class="text-sm text-muted">
                                 ≈ @_request.RequestedAmountInMmkAtSubmission.ToString("N2") MMK
                                 <span class="text-muted">(at @_request.ExchangeRateAtSubmission.ToString("N2") MMK/@_request.CurrencyCode)</span>
                             </div>
@@ -124,32 +124,32 @@ else
                     </div>
                     @if (_request.ApprovedAmount > 0)
                     {
-                        <div class="col-sm-6">
-                            <div class="small text-muted">Approved Amount</div>
-                            <div class="fw-semibold text-success">@_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode</div>
+                        <div>
+                            <div class="text-sm text-muted">Approved Amount</div>
+                            <div class="font-semibold text-success">@_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode</div>
                             @if (_request.CurrencyCode != "MMK" && _request.ExchangeRateAtSubmission > 0)
                             {
-                                <div class="small text-muted">
+                                <div class="text-sm text-muted">
                                     ≈ @((_request.ApprovedAmount * _request.ExchangeRateAtSubmission).ToString("N2")) MMK
                                 </div>
                             }
                         </div>
                     }
-                    <div class="col-12">
-                        <div class="small text-muted">Reason</div>
+                    <div>
+                        <div class="text-sm text-muted">Reason</div>
                         <div>@_request.Reasons</div>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
                     {
-                        <div class="col-12">
-                            <div class="small text-muted">Budget overrun justification</div>
+                        <div>
+                            <div class="text-sm text-muted">Budget overrun justification</div>
                             <div class="border-start border-warning border-3 ps-2">
                                 @_request.MonthlyOverrunJustification
                             </div>
                             @if (_request.MonthlyLimitAtSubmission.HasValue
                                 && _request.MonthlySpendBeforeAtSubmission.HasValue)
                             {
-                                <div class="small text-muted mt-1">
+                                <div class="text-sm text-muted mt-1">
                                     At submission:
                                     @_request.MonthlySpendBeforeAtSubmission.Value.ToString("N2") MMK already
                                     spent this month against a
@@ -160,45 +160,45 @@ else
                     }
                     @if (!string.IsNullOrWhiteSpace(_request.CoaCode))
                     {
-                        <div class="col-sm-6">
-                            <div class="small text-muted">Chart of Account</div>
+                        <div>
+                            <div class="text-sm text-muted">Chart of Account</div>
                             <div><strong>@_request.CoaCode</strong> — @_request.CoaName</div>
                         </div>
                     }
-                    <div class="col-sm-6">
-                        <div class="small text-muted">Withdrawer</div>
+                    <div>
+                        <div class="text-sm text-muted">Withdrawer</div>
                         <div>@_request.WithdrawerName</div>
-                        <div class="small text-muted">@_request.WithdrawerJobTitle</div>
+                        <div class="text-sm text-muted">@_request.WithdrawerJobTitle</div>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(_request.WithdrawMethodName))
                     {
-                        <div class="col-sm-6">
-                            <div class="small text-muted">Withdraw Method</div>
+                        <div>
+                            <div class="text-sm text-muted">Withdraw Method</div>
                             <div>@_request.WithdrawMethodName</div>
                         </div>
                     }
                     @if (!string.IsNullOrWhiteSpace(_request.BudgetCategoryName))
                     {
-                        <div class="col-sm-6">
-                            <div class="small text-muted">Budget Category</div>
+                        <div>
+                            <div class="text-sm text-muted">Budget Category</div>
                             <div>@_request.BudgetCategoryName</div>
                         </div>
                     }
                     @if (_request.SubmittedAt.HasValue)
                     {
-                        <div class="col-sm-6">
-                            <div class="small text-muted">Submitted</div>
+                        <div>
+                            <div class="text-sm text-muted">Submitted</div>
                             <div>@_request.SubmittedAt.Value.ToLocalTime().ToString("g")</div>
                         </div>
                     }
-                    <div class="col-12">
-                        <div class="small text-muted">Partial Payment</div>
+                    <div>
+                        <div class="text-sm text-muted">Partial Payment</div>
                         @if (_request.AllowsPartialPayment)
                         {
                             <div>Allowed (installments)</div>
                             @if (!string.IsNullOrWhiteSpace(_request.PartialPaymentDetail))
                             {
-                                <div class="small text-muted fst-italic">@_request.PartialPaymentDetail</div>
+                                <div class="text-sm text-muted fst-italic">@_request.PartialPaymentDetail</div>
                             }
                         }
                         else
@@ -217,9 +217,9 @@ else
 
         @if (hasBanking)
         {
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Banking info</h6>
+                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Banking info</h6>
                     <AttachmentList BudgetRequestId="_request.Id"
                                     Attachments="_request.Attachments"
                                     Category="AttachmentCategory.WithdrawMethod"
@@ -228,9 +228,9 @@ else
             </div>
         }
 
-        <div class="card border-0 shadow-sm mb-3">
+        <div class="card mb-4">
             <div class="card-body">
-                <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Supporting documents</h6>
+                <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Supporting documents</h6>
                 <AttachmentList BudgetRequestId="_request.Id"
                                 Attachments="_request.Attachments"
                                 Category="AttachmentCategory.General"
@@ -242,21 +242,21 @@ else
         @{ var actions = GetAvailableActions(); }
         @if (actions.Any())
         {
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Your Action</h6>
-                    <div class="d-flex flex-wrap gap-2">
+                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Your Action</h6>
+                    <div class="flex gap-2">
 
                         @* Submit (Draft) *@
                         @if (actions.Contains("submit"))
                         {
-                            <button class="btn btn-sm btn-primary" @onclick="DoSubmit" disabled="@_actioning">Submit for Approval</button>
+                            <button class="btn btn-primary btn-sm" @onclick="DoSubmit" disabled="@_actioning">Submit for Approval</button>
                         }
 
                         @* Edit (Draft / SentBack, requester only) *@
                         @if (actions.Contains("edit"))
                         {
-                            <a href="requests/@Id/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+                            <a href="requests/@Id/edit" class="btn btn-outline btn-sm">Edit</a>
                         }
 
                         @* Approve *@
@@ -265,15 +265,15 @@ else
                             @if (_request.Status == RequestStatus.PendingFinance)
                             {
                                 @* Finance approval needs a COA — opens the picker modal. *@
-                                <button class="btn btn-sm btn-success" @onclick="OpenFinanceApproveModal" disabled="@_actioning">
+                                <button class="btn btn-success btn-sm" @onclick="OpenFinanceApproveModal" disabled="@_actioning">
                                     Approve
                                 </button>
                             }
                             else
                             {
                                 @* DeptHead and Management approvals are one-click. *@
-                                <button class="btn btn-sm btn-success" @onclick="DoApprove" disabled="@_actioning">
-                                    @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                <button class="btn btn-success btn-sm" @onclick="DoApprove" disabled="@_actioning">
+                                    @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm mr-1"></span> }
                                     Approve
                                 </button>
                             }
@@ -282,25 +282,25 @@ else
                         @* Reject *@
                         @if (actions.Contains("reject"))
                         {
-                            <button class="btn btn-sm btn-danger" @onclick="() => _showRejectModal = true">Reject</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => _showRejectModal = true">Reject</button>
                         }
 
                         @* Send Back (Finance only) *@
                         @if (actions.Contains("sendback"))
                         {
-                            <button class="btn btn-sm btn-warning" @onclick="() => _showSendBackModal = true">Send Back to Requester</button>
+                            <button class="btn btn-warning btn-sm" @onclick="() => _showSendBackModal = true">Send Back to Requester</button>
                         }
 
                         @* Record Payment (Finance) *@
                         @if (actions.Contains("recordpayment"))
                         {
-                            <button class="btn btn-sm btn-outline-success" @onclick="OpenPaymentModal">Record Payment</button>
+                            <button class="btn btn-success btn-sm" @onclick="OpenPaymentModal">Record Payment</button>
                         }
 
                         @* Cancel (Requester, PendingDeptHead) *@
                         @if (actions.Contains("cancel"))
                         {
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => _showCancelModal = true">Cancel Request</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => _showCancelModal = true">Cancel Request</button>
                         }
 
                     </div>
@@ -311,34 +311,34 @@ else
         @* ── Approval Timeline ── *@
         @if (_request.ApprovalActions.Any())
         {
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Approval History</h6>
+                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Approval History</h6>
                     <div class="timeline">
                         @foreach (var a in _request.ApprovalActions.OrderBy(x => x.ActionedAt))
                         {
-                            <div class="d-flex gap-3 mb-3">
+                            <div class="flex gap-3 mb-4">
                                 <div class="flex-shrink-0 mt-1">
                                     @if (a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved)
-                                    { <span class="badge rounded-pill bg-success">✓</span> }
+                                    { <span class="badge badge-role">✓</span> }
                                     else if (a.Decision == ApprovalDecision.Rejected)
-                                    { <span class="badge rounded-pill bg-danger">✗</span> }
+                                    { <span class="badge badge-role">✗</span> }
                                     else
-                                    { <span class="badge rounded-pill bg-info text-dark">↩</span> }
+                                    { <span class="badge badge-role">↩</span> }
                                 </div>
                                 <div>
-                                    <div class="small fw-semibold">
+                                    <div class="text-sm font-semibold">
                                         @a.Stage
                                         @if (a.Decision == ApprovalDecision.AutoApproved)
                                         { <span class="text-muted fw-normal">(auto-approved)</span> }
                                     </div>
-                                    <div class="small text-muted">
+                                    <div class="text-sm text-muted">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
                                         · @a.ActionedAt.ToLocalTime().ToString("g")
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
                                     {
-                                        <div class="small mt-1 text-muted fst-italic">"@a.Comment"</div>
+                                        <div class="text-sm mt-1 text-muted fst-italic">"@a.Comment"</div>
                                     }
                                 </div>
                             </div>
@@ -351,13 +351,13 @@ else
         @* ── Payments ── *@
         @if (_request.Payments.Any() || _request.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid or RequestStatus.Paid)
         {
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title small fw-semibold text-uppercase text-muted mb-3">Payments</h6>
+                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Payments</h6>
                     @if (_request.Payments.Any())
                     {
                         <table class="table table-sm mb-2">
-                            <thead class="table-light">
+                            <thead >
                                 <tr>
                                     <th>Date</th>
                                     <th class="text-end">Amount (@_request.CurrencyCode)</th>
@@ -371,21 +371,21 @@ else
                                 @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
                                 {
                                     <tr>
-                                        <td class="small">@p.PaidAt.ToLocalTime().ToString("g")</td>
+                                        <td class="text-sm">@p.PaidAt.ToLocalTime().ToString("g")</td>
                                         <td class="text-end">@p.Amount.ToString("N2")</td>
-                                        <td class="small">
+                                        <td class="text-sm">
                                             @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
                                             {
                                                 <div>@p.SourceBankName</div>
-                                                <div class="text-muted font-monospace" style="font-size:0.75rem">@p.SourceAccountNumber</div>
+                                                <div class="text-muted font-mono" style="font-size:0.75rem">@p.SourceAccountNumber</div>
                                             }
                                             else
                                             {
                                                 <span class="text-muted">—</span>
                                             }
                                         </td>
-                                        <td class="small text-muted">@(p.Reference ?? "—")</td>
-                                        <td class="small">
+                                        <td class="text-sm text-muted">@(p.Reference ?? "—")</td>
+                                        <td class="text-sm">
                                             @if (p.AttachmentId.HasValue)
                                             {
                                                 var receipt = FindAttachment(p.AttachmentId);
@@ -409,12 +409,12 @@ else
                                                 <span class="text-muted">—</span>
                                             }
                                         </td>
-                                        <td class="small">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
+                                        <td class="text-sm">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
-                        <div class="d-flex justify-content-between small text-muted">
+                        <div class="flex justify-content-between text-sm text-muted">
                             <span>Total paid: <strong>@_request.TotalPaid.ToString("N2") @_request.CurrencyCode</strong></span>
                             @if (_request.RemainingBalance > 0)
                             {
@@ -424,7 +424,7 @@ else
                     }
                     else
                     {
-                        <p class="small text-muted mb-0">No payments recorded yet.</p>
+                        <p class="text-sm text-muted ">No payments recorded yet.</p>
                     }
                 </div>
             </div>
@@ -437,44 +437,44 @@ else
                  or RequestStatus.AwaitingReimbursement
                  or RequestStatus.Reconciled)
         {
-            <div class="card border-0 shadow-sm mb-3">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <h6 class="card-title small fw-semibold text-uppercase text-muted mb-0">
+                    <div class="flex items-center justify-between mb-4">
+                        <h6 class="card-title text-sm font-semibold text-uppercase text-muted ">
                             Advance Reconciliation
                         </h6>
                         @if (_request.IsOverdue)
                         {
-                            <span class="badge bg-danger">OVERDUE</span>
+                            <span class="badge badge-role">OVERDUE</span>
                         }
                     </div>
 
                     @if (_request.ReconciliationDeadline.HasValue)
                     {
-                        <div class="row g-3 mb-3">
-                            <div class="col-sm-6">
-                                <div class="small text-muted">Reconciliation deadline</div>
-                                <div class="fw-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
+                        <div class="form-grid-3 mb-4">
+                            <div>
+                                <div class="text-sm text-muted">Reconciliation deadline</div>
+                                <div class="font-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
                                 @if (!string.IsNullOrEmpty(CountdownText()))
                                 {
-                                    <div class="small @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
+                                    <div class="text-sm @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
                                 }
                             </div>
-                            <div class="col-sm-6">
-                                <div class="small text-muted">Recorded usage / Advance</div>
-                                <div class="fw-semibold">
+                            <div>
+                                <div class="text-sm text-muted">Recorded usage / Advance</div>
+                                <div class="font-semibold">
                                     @_request.TotalUsageRecorded.ToString("N2") /
                                     @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode
                                 </div>
                                 @if (_request.RemainingAdvance >= 0)
                                 {
-                                    <div class="small text-muted">
+                                    <div class="text-sm text-muted">
                                         Remaining: @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode
                                     </div>
                                 }
                                 else
                                 {
-                                    <div class="small text-muted">
+                                    <div class="text-sm text-muted">
                                         Over-spent: @((-_request.RemainingAdvance).ToString("N2")) @_request.CurrencyCode
                                     </div>
                                 }
@@ -484,7 +484,7 @@ else
 
                     @if (_request.Status == RequestStatus.AwaitingRefund)
                     {
-                        <div class="alert alert-warning small py-2">
+                        <div class="alert alert-warning">
                             Awaiting refund of
                             <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong>
                             — the unspent balance of this advance.
@@ -492,7 +492,7 @@ else
                     }
                     else if (_request.Status == RequestStatus.AwaitingReimbursement)
                     {
-                        <div class="alert alert-info small py-2">
+                        <div class="alert alert-info">
                             Awaiting reimbursement of
                             <strong>@_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode</strong>
                             — the over-spent amount the company owes the requester.
@@ -500,7 +500,7 @@ else
                     }
                     else if (_request.Status == RequestStatus.Reconciled)
                     {
-                        <div class="alert alert-success small py-2">
+                        <div class="alert alert-success">
                             This advance has been fully reconciled.
                             @if (_request.RefundReceivedAt.HasValue)
                             {
@@ -522,7 +522,7 @@ else
                     @if (_request.AdvanceUsages.Any())
                     {
                         <table class="table table-sm align-middle mb-2">
-                            <thead class="table-light">
+                            <thead >
                                 <tr>
                                     <th>Spent On</th>
                                     <th class="text-end">Amount (@_request.CurrencyCode)</th>
@@ -535,10 +535,10 @@ else
                                 @foreach (var u in _request.AdvanceUsages.OrderBy(x => x.SpentOn))
                                 {
                                     <tr>
-                                        <td class="small">@u.SpentOn.ToString("dd MMM yyyy")</td>
+                                        <td class="text-sm">@u.SpentOn.ToString("dd MMM yyyy")</td>
                                         <td class="text-end">@u.Amount.ToString("N2")</td>
-                                        <td class="small">@u.Description</td>
-                                        <td class="small">
+                                        <td class="text-sm">@u.Description</td>
+                                        <td class="text-sm">
                                             @if (u.AttachmentId.HasValue)
                                             {
                                                
@@ -566,8 +566,8 @@ else
                                         @if (CanEditUsage)
                                         {
                                             <td class="text-end text-nowrap">
-                                                <button class="btn btn-sm btn-link p-0 me-2" @onclick="() => OpenEditUsageModal(u)">Edit</button>
-                                                <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
+                                                <button class="btn btn-ghost btn-sm" @onclick="() => OpenEditUsageModal(u)">Edit</button>
+                                                <button class="btn btn-ghost btn-sm" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
                                             </td>
                                         }
                                     </tr>
@@ -577,17 +577,17 @@ else
                     }
                     else
                     {
-                        <p class="small text-muted">No usage recorded yet.</p>
+                        <p class="text-sm text-muted">No usage recorded yet.</p>
                     }
 
                     @* Requester actions — only while reconciliation is pending. *@
                     @if (CanEditUsage)
                     {
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button class="btn btn-sm btn-outline-primary" @onclick="OpenAddUsageModal" disabled="@_actioning">+ Add usage</button>
+                        <div class="flex gap-2 mt-2">
+                            <button class="btn btn-outline btn-sm" @onclick="OpenAddUsageModal" disabled="@_actioning">+ Add usage</button>
                             @if (_request.AdvanceUsages.Any())
                             {
-                                <button class="btn btn-sm btn-success" @onclick="() => _showSubmitReconModal = true" disabled="@_actioning">Submit reconciliation</button>
+                                <button class="btn btn-success btn-sm" @onclick="() => _showSubmitReconModal = true" disabled="@_actioning">Submit reconciliation</button>
                             }
                         </div>
                     }
@@ -595,20 +595,20 @@ else
                     @* Finance actions. *@
                     @if (IsFinance && _request.Status == RequestStatus.PendingReconciliation)
                     {
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button class="btn btn-sm btn-outline-secondary" @onclick="OpenExtendModal" disabled="@_actioning">Extend deadline</button>
+                        <div class="flex gap-2 mt-2">
+                            <button class="btn btn-outline btn-sm" @onclick="OpenExtendModal" disabled="@_actioning">Extend deadline</button>
                         </div>
                     }
                     @if (IsFinance && _request.Status == RequestStatus.AwaitingRefund)
                     {
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button class="btn btn-sm btn-success" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
+                        <div class="flex gap-2 mt-2">
+                            <button class="btn btn-success btn-sm" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
                         </div>
                     }
                     @if (IsFinance && _request.Status == RequestStatus.AwaitingReimbursement)
                     {
-                        <div class="d-flex flex-wrap gap-2 mt-2">
-                            <button class="btn btn-sm btn-success" @onclick="OpenReimbursementModal" disabled="@_actioning">Record reimbursement paid</button>
+                        <div class="flex gap-2 mt-2">
+                            <button class="btn btn-success btn-sm" @onclick="OpenReimbursementModal" disabled="@_actioning">Record reimbursement paid</button>
                         </div>
                     }
                 </div>
@@ -621,30 +621,30 @@ else
 @* ── Finance Approve Modal (COA picker) ─────────────────────────────────────── *@
 @if (_showFinanceApproveModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-success">Approve Request</h6>
-                    <button class="btn-close" @onclick="CancelFinanceApproveModal"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CancelFinanceApproveModal"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_approveError))
                     {
-                        <div class="alert alert-danger small py-2">@_approveError</div>
+                        <div class="alert alert-error">@_approveError</div>
                     }
-                    <p class="small text-muted mb-3">
+                    <p class="text-sm text-muted mb-4">
                         Select the Chart of Account this expense will be booked against.
                         Only active accounts are shown.
                     </p>
-                    <label class="form-label small fw-semibold">Chart of Account</label>
+                    <label class="form-label text-sm font-semibold">Chart of Account</label>
                     @if (_coasLoading)
                     {
-                        <div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>
+                        <div class="text-center py-2"><div class="spinner spinner-sm"></div></div>
                     }
                     else
                     {
-                        <select class="form-select form-select-sm" @bind="_selectedCoaId">
+                        <select class="select" @bind="_selectedCoaId">
                             <option value="">— select an account —</option>
                             @foreach (var c in _availableCoas)
                             {
@@ -653,14 +653,14 @@ else
                         </select>
                         @if (!_availableCoas.Any())
                         {
-                            <div class="form-text small text-warning">
+                            <div class="form-text text-sm text-warning">
                                 No active Chart of Accounts found. Add one under
                                 <a href="coas">Chart of accounts</a> before approving.
                             </div>
                         }
                         else if (_request?.CoaId.HasValue == true)
                         {
-                            <div class="form-text small text-muted">
+                            <div class="form-hint">
                                 Pre-filled with the previously selected account. You can change it.
                             </div>
                         }
@@ -670,9 +670,9 @@ else
                     @if (_request?.Type == BudgetRequestType.Advance)
                     {
                         <div class="mt-3">
-                            <label class="form-label small fw-semibold">Reconciliation deadline</label>
-                            <input class="form-control form-control-sm" type="date" @bind="_reconciliationDeadline" />
-                            <div class="form-text small text-muted">
+                            <label class="form-label text-sm font-semibold">Reconciliation deadline</label>
+                            <input class="input" type="date" @bind="_reconciliationDeadline" />
+                            <div class="form-hint">
                                 The requester must report how this advance was spent by this date.
                                 Must be a future date.
                             </div>
@@ -680,11 +680,11 @@ else
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CancelFinanceApproveModal" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-sm btn-success"
+                    <button class="btn btn-outline btn-sm" @onclick="CancelFinanceApproveModal" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-success btn-sm"
                             @onclick="DoApproveAsFinance"
                             disabled="@(_actioning || string.IsNullOrWhiteSpace(_selectedCoaId))">
-                        @if (_actioning) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @if (_actioning) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Confirm Approval
                     </button>
                 </div>
@@ -696,20 +696,20 @@ else
 @* ── Reject Modal ─────────────────────────────────────────────────────────────── *@
 @if (_showRejectModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-danger">Reject Request</h6>
-                    <button class="btn-close" @onclick="() => _showRejectModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showRejectModal = false"></button>
                 </div>
                 <div class="modal-body">
-                    <label class="form-label small fw-semibold">Reason for rejection</label>
-                    <textarea class="form-control form-control-sm" rows="3" @bind="_rejectComment" placeholder="Explain why this request is being rejected…"></textarea>
+                    <label class="form-label text-sm font-semibold">Reason for rejection</label>
+                    <textarea class="input" rows="3" @bind="_rejectComment" placeholder="Explain why this request is being rejected…"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showRejectModal = false">Cancel</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoReject" disabled="@_actioning">Reject</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showRejectModal = false">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoReject" disabled="@_actioning">Reject</button>
                 </div>
             </div>
         </div>
@@ -719,21 +719,21 @@ else
 @* ── Send Back Modal ──────────────────────────────────────────────────────────── *@
 @if (_showSendBackModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Send Back to Requester</h6>
-                    <button class="btn-close" @onclick="() => _showSendBackModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showSendBackModal = false"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small text-muted">The request will return to Draft status. The requester can edit and resubmit.</p>
-                    <label class="form-label small fw-semibold">Comment</label>
-                    <textarea class="form-control form-control-sm" rows="3" @bind="_sendBackComment" placeholder="What needs to be fixed?"></textarea>
+                    <p class="text-sm text-muted">The request will return to Draft status. The requester can edit and resubmit.</p>
+                    <label class="form-label text-sm font-semibold">Comment</label>
+                    <textarea class="input" rows="3" @bind="_sendBackComment" placeholder="What needs to be fixed?"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showSendBackModal = false">Cancel</button>
-                    <button class="btn btn-sm btn-warning" @onclick="DoSendBack" disabled="@_actioning">Send Back</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showSendBackModal = false">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoSendBack" disabled="@_actioning">Send Back</button>
                 </div>
             </div>
         </div>
@@ -743,75 +743,75 @@ else
 @* ── Record Payment Modal ─────────────────────────────────────────────────────── *@
 @if (_showPaymentModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Record Payment</h6>
-                    <button class="btn-close" @onclick="() => _showPaymentModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showPaymentModal = false"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_paymentError))
                     {
-                        <div class="alert alert-danger small py-2">@_paymentError</div>
+                        <div class="alert alert-error">@_paymentError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
-                        <input class="form-control form-control-sm" type="number" min="1"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
+                        <input class="input" type="number" min="1"
                                @bind="_paymentAmount"
                                readonly="@(_request is not null && !_request.AllowsPartialPayment)" />
                         @if (_request is not null)
                         {
                             @if (_request.AllowsPartialPayment)
                             {
-                                <div class="form-text small">Remaining: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode</div>
+                                <div class="form-hint">Remaining: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode</div>
                             }
                             else
                             {
-                                <div class="form-text small text-warning">
+                                <div class="form-text text-sm text-warning">
                                     Full payment required: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode
                                     (this request does not allow installments)
                                 </div>
                             }
                         }
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Payment Date</label>
-                        <input class="form-control form-control-sm" type="date" @bind="_paymentDate" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Payment Date</label>
+                        <input class="input" type="date" @bind="_paymentDate" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">
                             Source bank account <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <select class="form-select form-select-sm" @bind="_selectedBankAccountId">
+                        <select class="select" @bind="_selectedBankAccountId">
                             <option value="">— none (e.g. cash) —</option>
                             @foreach (var ba in _bankAccounts)
                             {
                                 <option value="@ba.Id">@ba.BankName — @ba.AccountNumber (@ba.AccountHolderName)</option>
                             }
                         </select>
-                        <div class="form-text small">Pick the company account the money was paid from. Leave blank for cash.</div>
+                        <div class="form-hint">Pick the company account the money was paid from. Leave blank for cash.</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Reference <span class="text-muted fw-normal">(optional)</span></label>
-                        <input class="form-control form-control-sm" @bind="_paymentRef" placeholder="Bank ref, voucher no…" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Reference <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" @bind="_paymentRef" placeholder="Bank ref, voucher no…" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
-                        <input class="form-control form-control-sm" @bind="_paymentNote" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" @bind="_paymentNote" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">
                             Receipt <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <InputFile OnChange="OnPaymentReceiptSelected" class="form-control form-control-sm" />
-                        <div class="form-text small">
+                        <InputFile OnChange="OnPaymentReceiptSelected" class="input" />
+                        <div class="form-hint">
                             Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
                         </div>
                         @if (!string.IsNullOrEmpty(_paymentPreviewUrl))
                         {
                             <div class="mt-2">
-                                <span class="small d-block mb-1 text-muted">Preview:</span>
+                                <span class="text-sm d-block mb-1 text-muted">Preview:</span>
                                 <img src="@_paymentPreviewUrl" alt="Payment Receipt Preview"
                                      style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
                             </div>
@@ -819,8 +819,8 @@ else
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showPaymentModal = false">Cancel</button>
-                    <button class="btn btn-sm btn-success" @onclick="DoRecordPayment" disabled="@_actioning">Record Payment</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showPaymentModal = false">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@_actioning">Record Payment</button>
                 </div>
             </div>
         </div>
@@ -830,17 +830,17 @@ else
 @* ── Cancel Confirm ───────────────────────────────────────────────────────────── *@
 @if (_showCancelModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-danger">Cancel Request</h6>
-                    <button class="btn-close" @onclick="() => _showCancelModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showCancelModal = false"></button>
                 </div>
-                <div class="modal-body small">Are you sure you want to cancel this request? This cannot be undone.</div>
+                <div class="modal-body text-sm">Are you sure you want to cancel this request? This cannot be undone.</div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showCancelModal = false">No</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoCancel" disabled="@_actioning">Yes, Cancel</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showCancelModal = false">No</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoCancel" disabled="@_actioning">Yes, Cancel</button>
                 </div>
             </div>
         </div>
@@ -850,41 +850,41 @@ else
 @* ── Add / Edit Usage Modal ───────────────────────────────────────────────────── *@
 @if (_showUsageModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_editingUsageId.HasValue ? "Edit Usage" : "Add Usage")</h6>
-                    <button class="btn-close" @onclick="CloseUsageModal"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseUsageModal"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_usageError))
                     {
-                        <div class="alert alert-danger small py-2">@_usageError</div>
+                        <div class="alert alert-error">@_usageError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Spent On</label>
-                        <input class="form-control form-control-sm" type="date" @bind="_usageSpentOn" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Spent On</label>
+                        <input class="input" type="date" @bind="_usageSpentOn" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
-                        <input class="form-control form-control-sm" type="number" min="1" step="0.01" @bind="_usageAmount" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
+                        <input class="input" type="number" min="1" step="0.01" @bind="_usageAmount" />
                         @if (_request is not null)
                         {
-                            <div class="form-text small">
+                            <div class="form-hint">
                                 Advance: @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode ·
                                 Recorded so far: @_request.TotalUsageRecorded.ToString("N2") @_request.CurrencyCode.
                                 Over-spending is allowed and will be reimbursed.
                             </div>
                         }
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Description</label>
-                        <textarea class="form-control form-control-sm" rows="2" @bind="_usageDescription"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Description</label>
+                        <textarea class="input" rows="2" @bind="_usageDescription"
                                   placeholder="What was this spent on?"></textarea>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">
                             Receipt <span class="text-muted fw-normal">(optional)</span>
                         </label>
                         @if (_editingUsageId.HasValue && _usageExistingAttachmentId.HasValue)
@@ -893,7 +893,7 @@ else
                                 var currentReceipt = FindAttachment(_usageExistingAttachmentId);
                                 var currentReceiptUrl = $"/api/attachments/{_usageExistingAttachmentId.Value}";
                             
-                            <div class="small mb-1">
+                            <div class="text-sm mb-1">
                                 @if (currentReceipt is not null && IsImage(currentReceipt.ContentType))
                                 {
                                     <div class="mb-1">Current receipt:</div>
@@ -912,14 +912,14 @@ else
                                 }
                             </div>
                         }
-                        <InputFile OnChange="OnUsageReceiptSelected" class="form-control form-control-sm" />
-                        <div class="form-text small">
+                        <InputFile OnChange="OnUsageReceiptSelected" class="input" />
+                        <div class="form-hint">
                             Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
                         </div>
                         @if (!string.IsNullOrEmpty(_usagePreviewUrl))
                         {
                             <div class="mt-2">
-                                <span class="small d-block mb-1 text-muted">Preview:</span>
+                                <span class="text-sm d-block mb-1 text-muted">Preview:</span>
                                 <img src="@(_usagePreviewUrl)" alt="Usage Receipt Preview"
                                      style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
                             </div>
@@ -927,9 +927,9 @@ else
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="DoSaveUsage" disabled="@_usageBusy">
-                        @if (_usageBusy) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@_usageBusy">
+                        @if (_usageBusy) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -941,18 +941,18 @@ else
 @* ── Submit Reconciliation Confirm ────────────────────────────────────────────── *@
 @if (_showSubmitReconModal && _request is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Submit Reconciliation</h6>
-                    <button class="btn-close" @onclick="() => _showSubmitReconModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showSubmitReconModal = false"></button>
                 </div>
-                <div class="modal-body small">
+                <div class="modal-body text-sm">
                     After submitting, you can't change the rows. Continue?
                     @if (_request.RemainingAdvance > 0)
                     {
-                        <div class="alert alert-warning small mt-2 mb-0">
+                        <div class="alert alert-warning">
                             Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
                             @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
                             You will need to refund the unspent
@@ -961,7 +961,7 @@ else
                     }
                     else if (_request.RemainingAdvance < 0)
                     {
-                        <div class="alert alert-info small mt-2 mb-0">
+                        <div class="alert alert-info">
                             Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
                             @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
                             The company will reimburse the over-spent
@@ -970,8 +970,8 @@ else
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showSubmitReconModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-sm btn-success" @onclick="DoSubmitReconciliation" disabled="@_actioning">Continue</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showSubmitReconModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoSubmitReconciliation" disabled="@_actioning">Continue</button>
                 </div>
             </div>
         </div>
@@ -981,34 +981,34 @@ else
 @* ── Record Refund Modal ──────────────────────────────────────────────────────── *@
 @if (_showRefundModal && _request is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Record Refund Received</h6>
-                    <button class="btn-close" @onclick="() => _showRefundModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showRefundModal = false"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_refundError))
                     {
-                        <div class="alert alert-danger small py-2">@_refundError</div>
+                        <div class="alert alert-error">@_refundError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Refund amount (@_request.CurrencyCode)</label>
-                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_refundAmount" />
-                        <div class="form-text small">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Refund amount (@_request.CurrencyCode)</label>
+                        <input class="input" type="number" min="0" step="0.01" @bind="_refundAmount" />
+                        <div class="form-hint">
                             Must match the outstanding refund of
                             @_request.RefundAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Date received</label>
-                        <input class="form-control form-control-sm" type="date" @bind="_refundDate" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Date received</label>
+                        <input class="input" type="date" @bind="_refundDate" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-sm btn-success" @onclick="DoRecordRefund" disabled="@_actioning">Record Refund</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoRecordRefund" disabled="@_actioning">Record Refund</button>
                 </div>
             </div>
         </div>
@@ -1018,34 +1018,34 @@ else
 @* ── Record Reimbursement Modal ───────────────────────────────────────────────── *@
 @if (_showReimbursementModal && _request is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Record Reimbursement Paid</h6>
-                    <button class="btn-close" @onclick="() => _showReimbursementModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showReimbursementModal = false"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_reimbursementError))
                     {
-                        <div class="alert alert-danger small py-2">@_reimbursementError</div>
+                        <div class="alert alert-error">@_reimbursementError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Reimbursement amount (@_request.CurrencyCode)</label>
-                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_reimbursementAmount" />
-                        <div class="form-text small">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Reimbursement amount (@_request.CurrencyCode)</label>
+                        <input class="input" type="number" min="0" step="0.01" @bind="_reimbursementAmount" />
+                        <div class="form-hint">
                             Must match the outstanding reimbursement of
                             @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Date paid</label>
-                        <input class="form-control form-control-sm" type="date" @bind="_reimbursementDate" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Date paid</label>
+                        <input class="input" type="date" @bind="_reimbursementDate" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showReimbursementModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-sm btn-success" @onclick="DoRecordReimbursement" disabled="@_actioning">Record Reimbursement</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showReimbursementModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoRecordReimbursement" disabled="@_actioning">Record Reimbursement</button>
                 </div>
             </div>
         </div>
@@ -1055,29 +1055,29 @@ else
 @* ── Extend Deadline Modal ────────────────────────────────────────────────────── *@
 @if (_showExtendModal && _request is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Extend Reconciliation Deadline</h6>
-                    <button class="btn-close" @onclick="() => _showExtendModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showExtendModal = false"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_extendError))
                     {
-                        <div class="alert alert-danger small py-2">@_extendError</div>
+                        <div class="alert alert-error">@_extendError</div>
                     }
-                    <p class="small text-muted">
+                    <p class="text-sm text-muted">
                         Current deadline:
                         <strong>@(_request.ReconciliationDeadline?.ToString("dd MMM yyyy") ?? "—")</strong>.
                         The new deadline must be later than the current one.
                     </p>
-                    <label class="form-label small fw-semibold">New deadline</label>
-                    <input class="form-control form-control-sm" type="date" @bind="_newDeadline" />
+                    <label class="form-label text-sm font-semibold">New deadline</label>
+                    <input class="input" type="date" @bind="_newDeadline" />
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showExtendModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="DoExtendDeadline" disabled="@_actioning">Extend</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showExtendModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="DoExtendDeadline" disabled="@_actioning">Extend</button>
                 </div>
             </div>
         </div>
@@ -1087,27 +1087,27 @@ else
 @* ── Modification History Modal ─────────────────────────────────────────────── *@
 @if (_showHistoryModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Modification History</h6>
-                    <button class="btn-close" @onclick="() => _showHistoryModal = false"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showHistoryModal = false"></button>
                 </div>
                 <div class="modal-body p-0">
                     @if (_historyLoading)
                     {
-                        <div class="text-center py-5"><div class="spinner-border spinner-border-sm"></div></div>
+                        <div class="text-center py-5"><div class="spinner spinner-sm"></div></div>
                     }
                     else if (!_history.Any())
                     {
-                        <div class="p-4 text-center text-muted small">No modification logs found for this request.</div>
+                        <div class="p-4 text-center text-muted text-sm">No modification logs found for this request.</div>
                     }
                     else
                     {
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead class="table-light">
+                        <div class="table-wrapper">
+                            <table class="table table-sm table-hover ">
+                                <thead >
                                     <tr>
                                         <th class="ps-3">When</th>
                                         <th>Updated By</th>
@@ -1118,9 +1118,9 @@ else
                                     @foreach (var h in _history)
                                     {
                                         <tr>
-                                            <td class="ps-3 small">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                            <td class="small">@h.ModifiedByUserName</td>
-                                            <td class="small">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
+                                            <td class="ps-3 text-sm">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td class="text-sm">@h.ModifiedByUserName</td>
+                                            <td class="text-sm">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -1129,7 +1129,7 @@ else
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _showHistoryModal = false">Close</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showHistoryModal = false">Close</button>
                 </div>
             </div>
         </div>

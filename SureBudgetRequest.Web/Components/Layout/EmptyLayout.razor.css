@@ -1,0 +1,9 @@
+.login-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(ellipse at 20% 50%, #E8EEFF 0%, #F5F5FF 40%, #FFFFFF 70%),
+        radial-gradient(ellipse at 80% 80%, #EDE8FF 0%, #F8F5FF 50%, transparent 70%);
+}

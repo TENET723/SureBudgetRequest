@@ -11,96 +11,96 @@
 
 <PageTitle>My Requests</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">My Requests</h5>
-        <a href="requests/new" class="btn btn-sm btn-primary">+ New Request</a>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>My Requests</h5>
+        <a href="requests/new" class="btn btn-primary btn-sm">+ New Request</a>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger">@_errorMessage</div>
+        <div class="alert alert-error">@_errorMessage</div>
     }
 
-    <div class="d-flex align-items-center gap-2 mb-2">
-        <button class="btn btn-sm btn-outline-secondary" @onclick="() => _showFilters = !_showFilters">
+    <div class="flex items-center gap-2 mb-2">
+        <button class="btn btn-outline btn-sm" @onclick="() => _showFilters = !_showFilters">
             Filters @(_showFilters ? "▲" : "▼")
         </button>
     </div>
 
     @if (_showFilters)
     {
-        <div class="card card-body bg-light mb-3">
-            <div class="row g-3">
+        <div class="filter-panel">
+            <div class="form-grid-3">
                 <div class="col-12 col-md-6 col-lg-4">
-                    <label class="form-label small mb-1">Search</label>
+                    <label class="form-label text-sm mb-1">Search</label>
                     <ListSearchBox @bind-Value="_search" OnEnter="() => LoadPageAsync(1)" Placeholder="Search reference or reason" />
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">
-                    <label class="form-label small mb-1">From date</label>
-                    <input type="date" class="form-control form-control-sm" @bind="_fromDate" />
+                    <label class="form-label text-sm mb-1">From date</label>
+                    <input type="date" class="input" @bind="_fromDate" />
                 </div>
                 <div class="col-6 col-md-3 col-lg-2">
-                    <label class="form-label small mb-1">To date</label>
-                    <input type="date" class="form-control form-control-sm" @bind="_toDate" />
+                    <label class="form-label text-sm mb-1">To date</label>
+                    <input type="date" class="input" @bind="_toDate" />
                 </div>
             </div>
 
             <div class="row g-3 mt-1">
                 <div class="col-12 col-lg-8">
-                    <label class="form-label small mb-1">Status</label>
-                    <div class="d-flex flex-wrap gap-1 mb-2">
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_openStatuses))">Open</button>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_needsAttentionStatuses))">Needs attention</button>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(_closedStatuses))">Closed</button>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="@(() => ApplyStatusPreset(Array.Empty<RequestStatus>()))">Clear</button>
+                    <label class="form-label text-sm mb-1">Status</label>
+                    <div class="flex gap-1 mb-2">
+                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_openStatuses))">Open</button>
+                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_needsAttentionStatuses))">Needs attention</button>
+                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_closedStatuses))">Closed</button>
+                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(Array.Empty<RequestStatus>()))">Clear</button>
                     </div>
-                    <div class="d-flex flex-wrap gap-3">
+                    <div class="flex gap-3">
                         @foreach (var s in _allStatuses)
                         {
                             <div class="form-check form-check-inline m-0">
                                 <input class="form-check-input" type="checkbox" id="status-@s"
                                        checked="@_selectedStatuses.Contains(s)"
                                        @onchange="e => ToggleStatus(s, (bool)e.Value!)" />
-                                <label class="form-check-label small" for="status-@s">@StatusLabel(s)</label>
+                                <label class="form-label" for="status-@s">@StatusLabel(s)</label>
                             </div>
                         }
                     </div>
                 </div>
                 <div class="col-12 col-lg-4">
-                    <label class="form-label small mb-1">Type</label>
-                    <div class="d-flex flex-wrap gap-3">
+                    <label class="form-label text-sm mb-1">Type</label>
+                    <div class="flex gap-3">
                         @foreach (var t in _allTypes)
                         {
                             <div class="form-check form-check-inline m-0">
                                 <input class="form-check-input" type="checkbox" id="type-@t"
                                        checked="@_selectedTypes.Contains(t)"
                                        @onchange="e => ToggleType(t, (bool)e.Value!)" />
-                                <label class="form-check-label small" for="type-@t">@TypeLabel(t)</label>
+                                <label class="form-label" for="type-@t">@TypeLabel(t)</label>
                             </div>
                         }
                     </div>
                 </div>
             </div>
 
-            <div class="d-flex gap-2 mt-3">
-                <button class="btn btn-sm btn-primary" @onclick="() => LoadPageAsync(1)" disabled="@_loading">Apply</button>
-                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters" disabled="@_loading">Clear</button>
+            <div class="flex gap-2 mt-3">
+                <button class="btn btn-primary btn-sm" @onclick="() => LoadPageAsync(1)" disabled="@_loading">Apply</button>
+                <button class="btn btn-outline btn-sm" @onclick="ClearFilters" disabled="@_loading">Clear</button>
             </div>
         </div>
     }
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Reference</th>
                         <th>Date</th>
                         <th>Reason</th>
@@ -116,27 +116,27 @@
                         var r = Items[i];
                         var rowNo = (_result!.Page - 1) * _result.PageSize + i + 1;
                         <tr>
-                            <td class="text-muted small">@rowNo</td>
+                            <td class="text-muted text-sm">@rowNo</td>
                             <td><strong>@r.Reference</strong></td>
-                            <td class="small">@r.RequestDate.ToString("dd MMM yyyy")</td>
+                            <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
-                            <td class="text-end">@r.RequestedAmount.ToString("N2") <span class="text-muted small">@r.CurrencyCode</span></td>
+                            <td class="text-end">@r.RequestedAmount.ToString("N2") <span class="text-muted text-sm">@r.CurrencyCode</span></td>
                             <td>
-                                <span class="badge @StatusBadge(r.Status)">@StatusLabel(r.Status)</span>
+                                <span class="badge badge-role">@StatusLabel(r.Status)</span>
                                 <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                     MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
-                            <td class="small text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
+                            <td class="text-sm text-muted">@(r.SubmittedAt.HasValue ? r.SubmittedAt.Value.ToString("dd MMM") : "—")</td>
                             <td class="text-end">
-                                <a href="requests/@r.Id" class="btn btn-sm btn-outline-secondary">View</a>
+                                <a href="requests/@r.Id" class="btn btn-outline btn-sm">View</a>
                                 @if (r.Status is RequestStatus.Draft or RequestStatus.SentBack)
                                 {
-                                    <a href="requests/@r.Id/edit" class="btn btn-sm btn-outline-primary ms-1">Edit</a>
+                                    <a href="requests/@r.Id/edit" class="btn btn-sm btn-outline-primary ml-1">Edit</a>
                                 }
                                 @if (r.Status == RequestStatus.PendingDeptHead)
                                 {
-                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmCancel(r)">Cancel</button>
+                                    <button class="btn btn-sm btn-outline-danger ml-1" @onclick="() => ConfirmCancel(r)">Cancel</button>
                                 }
                             </td>
                         </tr>
@@ -145,31 +145,31 @@
                     {
                         @if (_result is not null && _result.TotalCount == 0 && !_appliedHasFilters)
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-4">No requests yet. <a href="requests/new">Create one.</a></td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No requests yet. <a href="requests/new">Create one.</a></td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-4">No requests match your search/filters.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No requests match your search/filters.</td></tr>
                         }
                     }
                 </tbody>
             </table>
         </div>
 
-        <div class="d-flex align-items-center justify-content-between mt-2">
-            <span class="small text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
-            <div class="d-flex align-items-center gap-2">
-                <label class="small text-muted mb-0">Page size</label>
-                <select class="form-select form-select-sm" style="width:auto" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
+        <div class="flex items-center justify-between mt-2">
+            <span class="text-sm text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-muted ">Page size</label>
+                <select class="select" style="width:auto" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
                     <option value="20">20</option>
                     <option value="50">50</option>
                     <option value="100">100</option>
                 </select>
-                <button class="btn btn-sm btn-outline-secondary"
+                <button class="btn btn-outline btn-sm"
                         disabled="@(!(_result?.HasPrev ?? false))"
                         @onclick="() => LoadPageAsync(_currentPage - 1)">Prev</button>
-                <span class="small">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
-                <button class="btn btn-sm btn-outline-secondary"
+                <span class="text-sm">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
+                <button class="btn btn-outline btn-sm"
                         disabled="@(!(_result?.HasNext ?? false))"
                         @onclick="() => LoadPageAsync(_currentPage + 1)">Next</button>
             </div>
@@ -179,19 +179,19 @@
 
 @if (_cancellingRequest is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Cancel Request</h6>
-                    <button class="btn-close" @onclick="() => _cancellingRequest = null"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _cancellingRequest = null"></button>
                 </div>
-                <div class="modal-body small">
+                <div class="modal-body text-sm">
                     Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _cancellingRequest = null">No</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoCancel" disabled="@_saving">Yes, Cancel</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _cancellingRequest = null">No</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoCancel" disabled="@_saving">Yes, Cancel</button>
                 </div>
             </div>
         </div>

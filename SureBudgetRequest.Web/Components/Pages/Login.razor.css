@@ -1,0 +1,25 @@
+.login-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    width: 440px;
+    padding: 48px;
+}
+.login-logo {
+    font-size: 20px;
+    color: #1D2433;
+    margin-bottom: 32px;
+    letter-spacing: -0.2px;
+}
+.login-heading {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1D2433;
+    margin: 0 0 8px;
+    line-height: 1.2;
+}
+.login-sub {
+    font-size: 14px;
+    color: var(--color-text-muted);
+    margin: 0 0 32px;
+}

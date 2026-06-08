@@ -16,50 +16,64 @@
 
 <PageTitle>Sign in — aSure Budget</PageTitle>
 
-<div class="container-fluid py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-5 col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-4">
-                    <h4 class="mb-1">aSure Budget</h4>
-                    <p class="text-muted small mb-4">Please sign in to continue.</p>
-
-                    <EditForm Model="Input" method="post" OnValidSubmit="HandleLogin"
-                              FormName="login" Enhance="false">
-                        <DataAnnotationsValidator />
-                       @*  <AntiforgeryToken /> *@
-
-                        @if (!string.IsNullOrEmpty(_errorMessage))
-                        {
-                            <div class="alert alert-danger py-2 small">@_errorMessage</div>
-                        }
-
-                        <div class="mb-3">
-                            <label class="form-label small">Email</label>
-                            <InputText @bind-Value="Input.Email"
-                                       class="form-control"
-                                       autocomplete="username"
-                                      
-                                       autofocus />
-                            <ValidationMessage For="@(() => Input.Email)" class="text-danger small" />
-                        </div>
-
-                        <div class="mb-4">
-                            <label class="form-label small">Password</label>
-                            <InputText @bind-Value="Input.Password"
-                                       type="password"
-
-                                       class="form-control"
-                                       autocomplete="current-password" />
-                            <ValidationMessage For="@(() => Input.Password)" class="text-danger small" />
-                        </div>
-
-                        <button type="submit" class="btn btn-primary w-100">Sign in</button>
-                    </EditForm>
-                </div>
-            </div>
-        </div>
+<div class="login-card">
+    <div class="login-logo">
+        a <span style="font-weight:800">Sure</span> company
     </div>
+
+    <h1 class="login-heading">Welcome Back</h1>
+    <p class="login-sub">Enter your credentials to access your account</p>
+
+    <EditForm Model="Input" method="post" OnValidSubmit="HandleLogin"
+              FormName="login" Enhance="false">
+        <DataAnnotationsValidator />
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-error" style="margin-bottom:16px">@_errorMessage</div>
+        }
+
+        <div class="form-field" style="margin-bottom:20px">
+            <label class="form-label" for="login-email">Name</label>
+            <InputText id="login-email"
+                       @bind-Value="Input.Email"
+                       class="input"
+                       placeholder="Enter name"
+                       autocomplete="username"
+                       autofocus />
+            <ValidationMessage For="@(() => Input.Email)" class="validation-message" />
+        </div>
+
+        <div class="form-field" style="margin-bottom:24px">
+            <label class="form-label" for="login-password">Password</label>
+            <div style="position:relative">
+                <InputText id="login-password"
+                           @bind-Value="Input.Password"
+                           type="password"
+                           class="input"
+                           placeholder="Enter password"
+                           autocomplete="current-password" />
+                <button type="button" tabindex="-1"
+                        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+                               background:none;border:none;cursor:pointer;color:var(--color-text-muted);
+                               padding:0;display:flex;align-items:center;">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path d="M1 9C2.5 5 5.5 3 9 3s6.5 2 8 6c-1.5 4-4.5 6-8 6S2.5 13 1 9Z"
+                              stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="9" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                </button>
+            </div>
+            <ValidationMessage For="@(() => Input.Password)" class="validation-message" />
+        </div>
+
+        <button type="submit"
+                style="width:100%;height:44px;border-radius:8px;background:white;
+                       border:1px solid var(--color-border-strong);color:var(--color-text-dark);
+                       font-size:15px;font-weight:500;cursor:pointer;font-family:var(--font-sans);">
+            Sign in
+        </button>
+    </EditForm>
 </div>
 
 @code {

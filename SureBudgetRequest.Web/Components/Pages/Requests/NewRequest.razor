@@ -15,19 +15,19 @@
 
 <PageTitle>New Budget Request</PageTitle>
 
-<div class="container py-3" style="max-width:640px">
+<div class="page-wrap""max-width:640px">
     <h5 class="mb-4">New Budget Request</h5>
 
     @if (!string.IsNullOrEmpty(_error))
     {
-        <div class="alert alert-danger">@_error</div>
+        <div class="alert alert-error">@_error</div>
     }
 
     @if (WouldOverflowPeriod)
     {
-        <div class="alert alert-warning d-flex align-items-start gap-2">
+        <div class="alert alert-warning">
             <span style="font-size:1.25rem; line-height:1">⚠</span>
-            <div class="small">
+            <div class="text-sm">
                 <strong>This request would push the department over its monthly limit.</strong>
                 <div class="mt-1">
                     This month: <strong>@_monthlySpent.ToString("N2")</strong> MMK used
@@ -42,12 +42,12 @@
         </div>
     }
 
-    <div class="card border-0 shadow-sm">
+    <div class="card">
         <div class="card-body">
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Request Type</label>
-                <select class="form-select form-select-sm" @bind="_type" @bind:after="OnTypeChanged">
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Request Type</label>
+                <select class="select" @bind="_type" @bind:after="OnTypeChanged">
                     <option value="@BudgetRequestType.Standard">Standard</option>
                     <option value="@BudgetRequestType.Urgent">Urgent</option>
                     <option value="@BudgetRequestType.ProjectProposal">Project Proposal</option>
@@ -55,7 +55,7 @@
                 </select>
                 @if (_type == BudgetRequestType.Advance)
                 {
-                    <div class="form-text small text-muted">
+                    <div class="form-hint">
                         An advance is drawn before the spend is known. Finance will set a
                         reconciliation deadline when they approve; you report how the money
                         was spent after it is paid out.
@@ -63,38 +63,38 @@
                 }
             </div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Request Date</label>
-                <input class="form-control form-control-sm" type="date" @bind="_requestDate" />
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Request Date</label>
+                <input class="input" type="date" @bind="_requestDate" />
             </div>
 
-            <div class="row g-2 mb-1">
-                <div class="col-4">
-                    <label class="form-label small fw-semibold">Currency</label>
-                    <select class="form-select form-select-sm" @bind="_currencyCode" @bind:after="OnCurrencyChanged">
+            <div class="form-grid-2">
+                <div>
+                    <label class="form-label text-sm font-semibold">Currency</label>
+                    <select class="select" @bind="_currencyCode" @bind:after="OnCurrencyChanged">
                         @foreach (var c in _currencies)
                         {
                             <option value="@c.Code">@c.Code</option>
                         }
                     </select>
                 </div>
-                <div class="col-8">
-                    <label class="form-label small fw-semibold">Amount</label>
-                    <input class="form-control form-control-sm" type="number" min="1" step="0.01" @bind="_amount" @bind:after="OnAmountChanged" />
+                <div>
+                    <label class="form-label text-sm font-semibold">Amount</label>
+                    <input class="input" type="number" min="1" step="0.01" @bind="_amount" @bind:after="OnAmountChanged" />
                 </div>
             </div>
 
             @if (_currencyCode != "MMK")
             {
-                <div class="mb-3">
-                    <label class="form-label small fw-semibold">Exchange Rate (MMK per @_currencyCode)</label>
-                    <input class="form-control form-control-sm" type="number" step="0.01" 
+                <div class="mb-4">
+                    <label class="form-label text-sm font-semibold">Exchange Rate (MMK per @_currencyCode)</label>
+                    <input class="input" type="number" step="0.01" 
                            @bind="_selectedRate" @bind:after="OnAmountChanged" />
-                    <div class="form-text small text-muted">Default system rate: @_systemRate.ToString("N2")</div>
+                    <div class="form-hint">Default system rate: @_systemRate.ToString("N2")</div>
                 </div>
             }
 
-            <div class="form-text small mb-3">
+            <div class="form-text text-sm mb-4">
                 @if (_currencyCode == "MMK")
                 {
                     <span>Department limit comparison is in MMK.</span>
@@ -114,35 +114,35 @@
 
             @if (!WouldOverflowPeriod)
             {
-                <div class="form-text small mb-3 text-muted">
+                <div class="form-text text-sm mb-4 text-muted">
                     This month's spending so far: @_monthlySpent.ToString("N2") /
                     @_monthlyLimit.ToString("N2") MMK
                     (@((_monthlyLimit - _monthlySpent).ToString("N2")) MMK remaining this month).
                 </div>
             }
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Reason / Purpose</label>
-                <textarea class="form-control form-control-sm" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Reason / Purpose</label>
+                <textarea class="input" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Department Head (approver)</label>
-                <input class="form-control form-control-sm"
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Department Head (approver)</label>
+                <input class="input"
                        value="@(string.IsNullOrEmpty(_deptHeadName) ? "— not assigned —" : _deptHeadName)"
                        disabled />
                 @if (_deptHeadId == Guid.Empty)
                 {
-                    <div class="form-text small text-danger">
+                    <div class="form-text text-sm text-danger">
                         Your department has no head assigned. Contact admin before submitting a request.
                     </div>
                 }
             </div>
 
-            <div class="mb-3">
+            <div class="mb-4">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="allowsPartialNew" @bind="_allowsPartial" />
-                    <label class="form-check-label small" for="allowsPartialNew">
+                    <label class="form-label" for="allowsPartialNew">
                         Accept partial payment (installments)
                     </label>
                 </div>
@@ -153,27 +153,27 @@
                 }
                 else
                 {
-                    <div class="form-text small">Finance must pay the full approved amount in one transaction.</div>
+                    <div class="form-hint">Finance must pay the full approved amount in one transaction.</div>
                 }
             </div>
 
             <hr class="my-3" />
-            <p class="small text-muted mb-2">Withdrawer details (who will collect the money)</p>
+            <p class="text-sm text-muted mb-2">Withdrawer details (who will collect the money)</p>
 
-            <div class="row g-2 mb-3">
-                <div class="col-sm-6">
-                    <label class="form-label small fw-semibold">Full Name</label>
-                    <input class="form-control form-control-sm" @bind="_withdrawerName" />
+            <div class="form-grid-2 mb-4">
+                <div>
+                    <label class="form-label text-sm font-semibold">Full Name</label>
+                    <input class="input" @bind="_withdrawerName" />
                 </div>
-                <div class="col-sm-6">
-                    <label class="form-label small fw-semibold">Job Title</label>
-                    <input class="form-control form-control-sm" @bind="_withdrawerTitle" />
+                <div>
+                    <label class="form-label text-sm font-semibold">Job Title</label>
+                    <input class="input" @bind="_withdrawerTitle" />
                 </div>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Withdraw Method</label>
-                <select class="form-select form-select-sm" @bind="_withdrawMethodId">
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Withdraw Method</label>
+                <select class="select" @bind="_withdrawMethodId">
                     <option value="">— select a method —</option>
                     @foreach (var m in _withdrawMethods)
                     {
@@ -182,13 +182,13 @@
                 </select>
                 @if (!_withdrawMethods.Any())
                 {
-                    <div class="form-text small text-danger">
+                    <div class="form-text text-sm text-danger">
                         No active withdraw methods configured. Ask Finance or Admin to add one.
                     </div>
                 }
                 @if (SelectedMethodRequiresAttachment)
                 {
-                    <div class="form-text small text-warning mt-1">
+                    <div class="form-text text-sm text-warning mt-1">
                         ⚠ This method requires a banking-info attachment. You'll be able to
                         upload it after saving the draft. Submission will be blocked until
                         at least one banking file is attached.
@@ -196,31 +196,31 @@
                 }
             </div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Budget Category <span class="text-muted fw-normal">(optional)</span></label>
-                <select class="form-select form-select-sm" @bind="_budgetCategoryId">
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Budget Category <span class="text-muted fw-normal">(optional)</span></label>
+                <select class="select" @bind="_budgetCategoryId">
                     <option value="">— none —</option>
                     @foreach (var c in _budgetCategories)
                     {
                         <option value="@c.Id">@c.Name</option>
                     }
                 </select>
-                <div class="form-text small">e.g. Asset or Expense. Your department head can change this during review.</div>
+                <div class="form-hint">e.g. Asset or Expense. Your department head can change this during review.</div>
             </div>
 
         </div>
-        <div class="card-footer bg-transparent d-flex gap-2 justify-content-end">
-            <a href="requests/mine" class="btn btn-sm btn-link text-muted">Cancel</a>
-            <button class="btn btn-sm btn-outline-secondary"
+        <div class="card-footer">
+            <a href="requests/mine" class="btn btn-ghost btn-sm">Cancel</a>
+            <button class="btn btn-outline btn-sm"
                     @onclick="() => OnSaveClicked(submit: false)"
                     disabled="@(_saving || _deptHeadId == Guid.Empty)">
-                @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                 Save Draft
             </button>
-            <button class="btn btn-sm btn-primary"
+            <button class="btn btn-primary btn-sm"
                     @onclick="() => OnSaveClicked(submit: true)"
                     disabled="@(_saving || _deptHeadId == Guid.Empty)">
-                @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                 Submit
             </button>
         </div>
@@ -230,34 +230,34 @@
 @* ── Monthly overrun justification modal ────────────────────────────────────── *@
 @if (_showOverrunModal)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Budget limit overrun — justification required</h6>
-                    <button class="btn-close" @onclick="CancelOverrunModal"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CancelOverrunModal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="small mb-3">
+                    <p class="text-sm mb-4">
                         This request of <strong>@AmountInMmk.ToString("N2") MMK</strong> would bring
                         your department's monthly total to
                         <strong>@((_monthlySpent + AmountInMmk).ToString("N2")) MMK</strong>,
                         exceeding the monthly limit of
                         <strong>@_monthlyLimit.ToString("N2") MMK</strong>.
                     </p>
-                    <label class="form-label small fw-semibold" for="overrunJustification">
+                    <label class="form-label text-sm font-semibold" for="overrunJustification">
                         Please justify why this overrun is necessary.
                     </label>
-                    <textarea id="overrunJustification" class="form-control form-control-sm" rows="4"
+                    <textarea id="overrunJustification" class="input" rows="4"
                               @bind="_monthlyOverrunJustification" @bind:event="oninput"
                               placeholder="e.g. Quarter-end software license renewal that cannot be deferred…"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CancelOverrunModal" disabled="@_saving">Cancel</button>
-                    <button class="btn btn-sm btn-primary"
+                    <button class="btn btn-outline btn-sm" @onclick="CancelOverrunModal" disabled="@_saving">Cancel</button>
+                    <button class="btn btn-primary btn-sm"
                             @onclick="ConfirmOverrunAndSave"
                             disabled="@(_saving || string.IsNullOrWhiteSpace(_monthlyOverrunJustification))">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         @(_pendingSubmit ? "Confirm and Submit" : "Confirm and Save Draft")
                     </button>
                 </div>

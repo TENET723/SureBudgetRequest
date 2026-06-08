@@ -12,42 +12,42 @@
 
 <PageTitle>Bank Accounts</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">Company Bank Accounts</h5>
-        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Account</button>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Company Bank Accounts</h5>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Account</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
     <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" id="showInactiveAccounts" @bind="_showInactive" @bind:after="LoadData" />
-        <label class="form-check-label small" for="showInactiveAccounts">Show inactive</label>
+        <label class="form-label" for="showInactiveAccounts">Show inactive</label>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-4">
         <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
                        Placeholder="Search bank, number, or holder" Width="260px" />
     </div>
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Bank</th>
                         <th>Account number</th>
                         <th>Account holder</th>
@@ -60,23 +60,23 @@
                     {
                         var a = _filtered[i];
                         <tr class="@(!a.IsActive ? "text-muted" : "")">
-                            <td class="text-muted small">@(i + 1)</td>
+                            <td class="text-muted text-sm">@(i + 1)</td>
                             <td><strong>@a.BankName</strong></td>
-                            <td class="font-monospace small">@a.AccountNumber</td>
+                            <td class="font-mono text-sm">@a.AccountNumber</td>
                             <td>@a.AccountHolderName</td>
                             <td>
-                                @if (a.IsActive) { <span class="badge bg-success">Active</span> }
-                                else             { <span class="badge bg-secondary">Inactive</span> }
+                                @if (a.IsActive) { <span class="badge badge-role">Active</span> }
+                                else             { <span class="badge badge-role">Inactive</span> }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(a)">Edit</button>
+                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(a)">Edit</button>
                                 @if (a.IsActive)
                                 {
-                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(a)">Deactivate</button>
+                                    <button class="btn btn-sm btn-outline-danger ml-1" @onclick="() => ConfirmDeactivate(a)">Deactivate</button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-outline-success ms-1" @onclick="() => DoReactivate(a)" disabled="@_saving">Reactivate</button>
+                                    <button class="btn btn-sm btn-outline-success ml-1" @onclick="() => DoReactivate(a)" disabled="@_saving">Reactivate</button>
                                 }
                             </td>
                         </tr>
@@ -85,11 +85,11 @@
                     {
                         @if (!string.IsNullOrWhiteSpace(_search))
                         {
-                            <tr><td colspan="6" class="text-center text-muted py-3">No bank accounts match your search.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted ">No bank accounts match your search.</td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="6" class="text-center text-muted py-3">No bank accounts found.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted ">No bank accounts found.</td></tr>
                         }
                     }
                 </tbody>
@@ -101,45 +101,45 @@
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
 @if (_showForm)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_editingId.HasValue ? "Edit Bank Account" : "New Bank Account")</h6>
-                    <button class="btn-close" @onclick="CloseForm"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Bank name</label>
-                        <input class="form-control form-control-sm" @bind="_formBankName"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Bank name</label>
+                        <input class="input" @bind="_formBankName"
                                placeholder="e.g. KBZ Bank" maxlength="200" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Account number</label>
-                        <input class="form-control form-control-sm" @bind="_formAccountNumber"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Account number</label>
+                        <input class="input" @bind="_formAccountNumber"
                                placeholder="e.g. 0012-3456-7890-1234" maxlength="100" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Account holder name</label>
-                        <input class="form-control form-control-sm" @bind="_formAccountHolderName"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Account holder name</label>
+                        <input class="input" @bind="_formAccountHolderName"
                                placeholder="e.g. aSure Co., Ltd." maxlength="200" />
                     </div>
                     @if (_editingId.HasValue)
                     {
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="accountFormActive" @bind="_formIsActive" />
-                            <label class="form-check-label small" for="accountFormActive">Active</label>
+                            <label class="form-label" for="accountFormActive">Active</label>
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -151,23 +151,23 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingAccount is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-danger">Deactivate Bank Account</h6>
-                    <button class="btn-close" @onclick="() => _deactivatingAccount = null"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingAccount = null"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0 small">
+                    <p class=" text-sm">
                         Deactivate <strong>@_deactivatingAccount.BankName</strong>
                         (@_deactivatingAccount.AccountNumber)?
                         It won't appear when recording a payment. Existing payments keep their snapshot.
                     </p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingAccount = null">Cancel</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingAccount = null">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
                 </div>
             </div>
         </div>

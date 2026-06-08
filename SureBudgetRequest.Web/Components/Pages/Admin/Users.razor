@@ -13,28 +13,28 @@
 
 <PageTitle>Users</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">Users</h5>
-        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New User</button>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Users</h5>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New User</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
-    <div class="row g-2 mb-3">
-        <div class="col-auto">
+    <div class="form-grid-2 mb-4">
+        <div>
             <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
                            Placeholder="Search name, email, or username" Width="260px" />
         </div>
-        <div class="col-auto">
-            <select class="form-select form-select-sm" @bind="_filterDept" @bind:after="ApplyFilter">
+        <div>
+            <select class="select" @bind="_filterDept" @bind:after="ApplyFilter">
                 <option value="">All Departments</option>
                 @foreach (var d in _departments)
                 {
@@ -42,8 +42,8 @@
                 }
             </select>
         </div>
-        <div class="col-auto">
-            <select class="form-select form-select-sm" @bind="_filterRole" @bind:after="ApplyFilter">
+        <div>
+            <select class="select" @bind="_filterRole" @bind:after="ApplyFilter">
                 <option value="">All Roles</option>
                 @foreach (var r in Enum.GetValues<UserRole>())
                 {
@@ -51,25 +51,25 @@
                 }
             </select>
         </div>
-        <div class="col-auto">
+        <div>
             <div class="form-check mt-1">
                 <input class="form-check-input" type="checkbox" id="showInactiveUsers" @bind="_showInactive" @bind:after="LoadUsers" />
-                <label class="form-check-label small" for="showInactiveUsers">Show inactive</label>
+                <label class="form-label" for="showInactiveUsers">Show inactive</label>
             </div>
         </div>
     </div>
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Full Name</th>
                         <th>Email</th>
                         <th>Username</th>
@@ -85,45 +85,45 @@
                     {
                         var u = _filtered[i];
                         <tr class="@(!u.IsActive ? "text-muted" : "")">
-                            <td class="text-muted small">@(i + 1)</td>
+                            <td class="text-muted text-sm">@(i + 1)</td>
                             <td>@u.FullName</td>
-                            <td class="small">@u.Email</td>
-                            <td class="text-muted small">@u.Username</td>
+                            <td class="text-sm">@u.Email</td>
+                            <td class="text-muted text-sm">@u.Username</td>
                             <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
                             <td>
-                                <span class="badge @RoleBadge(u.Role)">@u.Role</span>
+                                <span class="badge badge-role">@u.Role</span>
                                 @if (u.Role == UserRole.Finance)
                                 {
                                     @if (u.IsFinanceApprover)
                                     {
-                                        <span class="badge bg-success ms-1" title="Can approve, reject, send back, and record payments.">Approver</span>
+                                        <span class="badge badge-role" title="Can approve, reject, send back, and record payments.">Approver</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-secondary ms-1" title="Can only record payments.">Payer only</span>
+                                        <span class="badge badge-role" title="Can only record payments.">Payer only</span>
                                     }
                                 }
                             </td>
                             <td>
                                 @if (u.IsActive)
                                 {
-                                    <span class="badge bg-success">Active</span>
+                                    <span class="badge badge-role">Active</span>
                                 }
                                 else
                                 {
 
-                                    <span class="badge bg-secondary">Inactive</span>
+                                    <span class="badge badge-role">Inactive</span>
                                 }
                             </td>
 
-                            <td class="small">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
+                            <td class="text-sm">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
                             
                             <td class="text-end">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(u)">Edit</button>
+                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(u)">Edit</button>
                                 @if (u.IsActive)
                                 {
-                                    <button class="btn btn-sm btn-outline-warning ms-1" @onclick="() => OpenReset(u)">Reset password</button>
-                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => ConfirmDeactivate(u)">Deactivate</button>
+                                    <button class="btn btn-sm btn-outline-warning ml-1" @onclick="() => OpenReset(u)">Reset password</button>
+                                    <button class="btn btn-sm btn-outline-danger ml-1" @onclick="() => ConfirmDeactivate(u)">Deactivate</button>
                                 }
                             </td>
                         </tr>
@@ -132,11 +132,11 @@
                     {
                         @if (!string.IsNullOrWhiteSpace(_search))
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-3">No users match your search.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No users match your search.</td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-3">No users found.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No users found.</td></tr>
                         }
                     }
                 </tbody>
@@ -148,48 +148,48 @@
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
 @if (_showForm)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_editingId.HasValue ? "Edit User" : "New User")</h6>
-                    <button class="btn-close" @onclick="CloseForm"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
-                    <div class="row g-2">
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Full Name</label>
-                            <input class="form-control form-control-sm" @bind="_formFullName" />
+                    <div class="form-grid-2">
+                        <div>
+                            <label class="form-label text-sm font-semibold">Full Name</label>
+                            <input class="input" @bind="_formFullName" />
                         </div>
                         @if (!_editingId.HasValue)
                         {
-                            <div class="col-12">
-                                <label class="form-label small fw-semibold">Username</label>
-                                <input class="form-control form-control-sm" @bind="_formUsername" />
+                            <div>
+                                <label class="form-label text-sm font-semibold">Username</label>
+                                <input class="input" @bind="_formUsername" />
                             </div>
                         }
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Email</label>
-                            <input class="form-control form-control-sm" type="email" @bind="_formEmail" placeholder="user@example.com" />
+                        <div>
+                            <label class="form-label text-sm font-semibold">Email</label>
+                            <input class="input" type="email" @bind="_formEmail" placeholder="user@example.com" />
                         </div>
                         @if (!_editingId.HasValue)
                         {
-                            <div class="col-12">
-                                <label class="form-label small fw-semibold">Initial Password</label>
-                                <input class="form-control form-control-sm" type="text" @bind="_formInitialPassword" />
-                                <div class="form-text small">
+                            <div>
+                                <label class="form-label text-sm font-semibold">Initial Password</label>
+                                <input class="input" type="text" @bind="_formInitialPassword" />
+                                <div class="form-hint">
                                     Min @CreateUserCommandHandler.MinimumPasswordLength characters.
                                     User will be required to change this on first login.
                                 </div>
                             </div>
                         }
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Department</label>
-                            <select class="form-select form-select-sm" @bind="_formDeptId">
+                        <div>
+                            <label class="form-label text-sm font-semibold">Department</label>
+                            <select class="select" @bind="_formDeptId">
                                 <option value="">— select —</option>
                                 @foreach (var d in _departments.Where(d => d.IsActive))
                                 {
@@ -197,9 +197,9 @@
                                 }
                             </select>
                         </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Role</label>
-                            <select class="form-select form-select-sm" @bind="_formRole" @bind:after="OnRoleChanged">
+                        <div>
+                            <label class="form-label text-sm font-semibold">Role</label>
+                            <select class="select" @bind="_formRole" @bind:after="OnRoleChanged">
                                 @foreach (var r in Enum.GetValues<UserRole>()
                                     .Where(r => CurrentUser.Role == UserRole.Admin || r != UserRole.Admin))
                                 {
@@ -209,16 +209,16 @@
                         </div>
                         @if (_formRole == (int)UserRole.Finance)
                         {
-                            <div class="col-12">
+                            <div>
                                 <div class="border rounded p-2 bg-light-subtle">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="isFinanceApproverCheck"
                                                @bind="_formIsFinanceApprover" />
-                                        <label class="form-check-label small fw-semibold" for="isFinanceApproverCheck">
+                                        <label class="form-check-label text-sm font-semibold" for="isFinanceApproverCheck">
                                             Finance Approver
                                         </label>
                                     </div>
-                                    <div class="form-text small mt-1">
+                                    <div class="form-text text-sm mt-1">
                                         @if (_formIsFinanceApprover)
                                         {
                                             <span><strong>Approver:</strong> can approve, reject, send back, and record payments.</span>
@@ -231,18 +231,18 @@
                                 </div>
                             </div>
                         }
-                        <div class="col-12">
-                            <label class="form-label small fw-semibold">Slack User ID <span class="text-muted fw-normal">(optional)</span></label>
-                            <input class="form-control form-control-sm" @bind="_formSlackId" placeholder="U0123ABCDEF" />
+                        <div>
+                            <label class="form-label text-sm font-semibold">Slack User ID <span class="text-muted fw-normal">(optional)</span></label>
+                            <input class="input" @bind="_formSlackId" placeholder="U0123ABCDEF" />
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
                         @if (_saving)
                         {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span class="spinner-border spinner-border-sm mr-1"></span>
                         }
                         Save
                     </button>
@@ -255,34 +255,34 @@
 @* ── Reset Password Modal ──────────────────────────────────────────────────── *@
 @if (_resettingUser is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Reset Password</h6>
-                    <button class="btn-close" @onclick="CloseReset"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseReset"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_resetError))
                     {
-                        <div class="alert alert-danger small py-2">@_resetError</div>
+                        <div class="alert alert-error">@_resetError</div>
                     }
-                    <p class="small mb-2">
+                    <p class="text-sm mb-2">
                         Set a new initial password for <strong>@_resettingUser.FullName</strong>.
                         They will be required to change it on next login.
                     </p>
-                    <label class="form-label small fw-semibold">New Password</label>
-                    <input class="form-control form-control-sm" type="text" @bind="_resetPassword" />
-                    <div class="form-text small">
+                    <label class="form-label text-sm font-semibold">New Password</label>
+                    <input class="input" type="text" @bind="_resetPassword" />
+                    <div class="form-hint">
                         Min @ResetUserPasswordCommandHandler.MinimumPasswordLength characters.
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseReset">Cancel</button>
-                    <button class="btn btn-sm btn-warning" @onclick="DoReset" disabled="@_saving">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseReset">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoReset" disabled="@_saving">
                         @if (_saving)
                         {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span class="spinner-border spinner-border-sm mr-1"></span>
                         }
                         Reset
                     </button>
@@ -295,19 +295,19 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingUser is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-danger">Deactivate User</h6>
-                    <button class="btn-close" @onclick="() => _deactivatingUser = null"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingUser = null"></button>
                 </div>
-                <div class="modal-body small">
+                <div class="modal-body text-sm">
                     Deactivate <strong>@_deactivatingUser.FullName</strong>? They won't be able to submit new requests.
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingUser = null">Cancel</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingUser = null">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
                 </div>
             </div>
         </div>

@@ -10,30 +10,30 @@
 
 <PageTitle>Dashboard</PageTitle>
 
-<div class="container-fluid py-3 dashboard">
+<div class="  dashboard">
 
-    <div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="flex items-center justify-between mb-4">
         <div>
             <h4 class="mb-1">Welcome, @CurrentUser.FullName</h4>
-            <p class="text-muted small mb-0">Signed in as @CurrentUser.Role.</p>
+            <p class="text-muted text-sm ">Signed in as @CurrentUser.Role.</p>
         </div>
-        <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary"
+        <div class="flex gap-2">
+            <button class="btn btn-outline btn-sm"
                     @onclick="RefreshAsync" disabled="@_loading">
                 @(_loading ? "Refreshing…" : "Refresh")
             </button>
-            <a href="requests/new" class="btn btn-sm btn-primary">+ New request</a>
+            <a href="requests/new" class="btn btn-primary btn-sm">+ New request</a>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger">@_errorMessage</div>
+        <div class="alert alert-error">@_errorMessage</div>
     }
 
     @if (_loading && _data is null)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else if (_data is not null)
     {
@@ -41,23 +41,23 @@
 
         @if (_data.FinanceMetrics is not null)
         {
-            <div class="row g-3 mb-3">
-                <div class="col-md-4">
-                    <div class="card h-100"><div class="card-body py-3">
-                        <div class="small text-muted">Pending approval</div>
-                        <div class="fs-4 fw-semibold">@_data.FinanceMetrics.PendingApprovalCount</div>
+            <div class="form-grid-3 mb-4">
+                <div>
+                    <div class="card h-100"><div class="card-body ">
+                        <div class="text-sm text-muted">Pending approval</div>
+                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.PendingApprovalCount</div>
                     </div></div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card h-100"><div class="card-body py-3">
-                        <div class="small text-muted">Awaiting payment</div>
-                        <div class="fs-4 fw-semibold">@_data.FinanceMetrics.AwaitingPaymentCount</div>
+                <div>
+                    <div class="card h-100"><div class="card-body ">
+                        <div class="text-sm text-muted">Awaiting payment</div>
+                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.AwaitingPaymentCount</div>
                     </div></div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card h-100"><div class="card-body py-3">
-                        <div class="small text-muted">Outstanding total</div>
-                        <div class="fs-4 fw-semibold">@_data.FinanceMetrics.OutstandingTotalMmk.ToString("N2") <span class="small text-muted">MMK</span></div>
+                <div>
+                    <div class="card h-100"><div class="card-body ">
+                        <div class="text-sm text-muted">Outstanding total</div>
+                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.OutstandingTotalMmk.ToString("N2") <span class="text-sm text-muted">MMK</span></div>
                     </div></div>
                 </div>
             </div>
@@ -65,40 +65,40 @@
 
         @if (_data.MyApprovalQueue is not null)
         {
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-4">
+                <div class="card-header flex justify-content-between align-items-center">
                     <div>
                         <strong>Pending my approval</strong>
-                        <span class="badge @(HasStaleItem(_data.MyApprovalQueue.TopItems) ? "bg-danger" : "bg-primary") ms-2">
+                        <span class="badge badge-role"bg-danger" : "bg-primary") ml-2">
                             @_data.MyApprovalQueue.TotalCount
                         </span>
                     </div>
                     @if (_data.MyApprovalQueue.TotalCount > 0)
                     {
-                        <a href="requests/inbox" class="small">View all →</a>
+                        <a href="requests/inbox" class="text-sm">View all →</a>
                     }
                 </div>
                 @if (_data.MyApprovalQueue.TopItems.Count == 0)
                 {
-                    <div class="card-body text-center text-muted py-4">Nothing pending your approval. 🎉</div>
+                    <div class="card-body text-center text-muted ">Nothing pending your approval. 🎉</div>
                 }
                 else
                 {
                     <ul class="list-group list-group-flush">
                         @foreach (var r in _data.MyApprovalQueue.TopItems)
                         {
-                            <li class="list-group-item d-flex justify-content-between align-items-center request-row"
+                            <li class="list-group-item flex justify-content-between align-items-center request-row"
                                 @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate me-3">
-                                    <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge @TypeBadgeClass(r.Type) me-2">@TypeLabel(r.Type)</span>
+                                <div class="text-truncate mr-3">
+                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
+                                    <span class="badge badge-role">@TypeLabel(r.Type)</span>
                                     <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                         MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="me-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
+                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
+                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
                                 </div>
-                                <div class="text-end small flex-shrink-0">
+                                <div class="text-end text-sm flex-shrink-0">
                                     <div>@r.RequestedAmount.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></div>
                                     <div class="text-muted @WaitingClass(r.SubmittedAt)">@WaitingLabel(r.SubmittedAt)</div>
                                 </div>
@@ -111,39 +111,39 @@
 
         @if (_data.PaymentQueue is not null)
         {
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-4">
+                <div class="card-header flex justify-content-between align-items-center">
                     <div>
                         <strong>Approved — awaiting payment</strong>
-                        <span class="badge bg-warning text-dark ms-2">@_data.PaymentQueue.TotalCount</span>
+                        <span class="badge badge-role">@_data.PaymentQueue.TotalCount</span>
                     </div>
                     @if (_data.PaymentQueue.TotalCount > 0)
                     {
-                        <a href="requests/outstanding" class="small">View all →</a>
+                        <a href="requests/outstanding" class="text-sm">View all →</a>
                     }
                 </div>
                 @if (_data.PaymentQueue.TopItems.Count == 0)
                 {
-                    <div class="card-body text-center text-muted py-4">Nothing outstanding. 🎉</div>
+                    <div class="card-body text-center text-muted ">Nothing outstanding. 🎉</div>
                 }
                 else
                 {
                     <ul class="list-group list-group-flush">
                         @foreach (var r in _data.PaymentQueue.TopItems)
                         {
-                            <li class="list-group-item d-flex justify-content-between align-items-center request-row"
+                            <li class="list-group-item flex justify-content-between align-items-center request-row"
                                 @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate me-3">
-                                    <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge @TypeBadgeClass(r.Type) me-2">@TypeLabel(r.Type)</span>
+                                <div class="text-truncate mr-3">
+                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
+                                    <span class="badge badge-role">@TypeLabel(r.Type)</span>
                                     <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                         MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="me-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
+                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
+                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
                                 </div>
-                                <div class="text-end small flex-shrink-0">
-                                    <div class="fw-semibold">@r.RemainingBalance.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></div>
+                                <div class="text-end text-sm flex-shrink-0">
+                                    <div class="font-semibold">@r.RemainingBalance.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></div>
                                     <div class="text-muted">remaining of @r.ApprovedAmount.ToString("N2")</div>
                                 </div>
                             </li>
@@ -155,37 +155,37 @@
 
         @if (_data.StuckRequests is not null)
         {
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-4">
+                <div class="card-header flex justify-content-between align-items-center">
                     <div>
                         <strong>Stuck requests</strong>
-                        <span class="text-muted small ms-1">(no movement in 7+ days)</span>
-                        <span class="badge @(_data.StuckRequests.TotalCount > 0 ? "bg-danger" : "bg-secondary") ms-2">
+                        <span class="text-muted text-sm ml-1">(no movement in 7+ days)</span>
+                        <span class="badge badge-role"bg-danger" : "bg-secondary") ml-2">
                             @_data.StuckRequests.TotalCount
                         </span>
                     </div>
                 </div>
                 @if (_data.StuckRequests.TopItems.Count == 0)
                 {
-                    <div class="card-body text-center text-muted py-4">No stuck requests.</div>
+                    <div class="card-body text-center text-muted ">No stuck requests.</div>
                 }
                 else
                 {
                     <ul class="list-group list-group-flush">
                         @foreach (var r in _data.StuckRequests.TopItems)
                         {
-                            <li class="list-group-item d-flex justify-content-between align-items-center request-row"
+                            <li class="list-group-item flex justify-content-between align-items-center request-row"
                                 @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate me-3">
-                                    <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge @StatusBadgeClass(r.Status) me-2">@StatusLabel(r.Status)</span>
+                                <div class="text-truncate mr-3">
+                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
+                                    <span class="badge badge-role">@StatusLabel(r.Status)</span>
                                     <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                         MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="me-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted small">@Truncate(r.Reasons, 40)</span>
+                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
+                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
                                 </div>
-                                <div class="text-end small text-danger flex-shrink-0">
+                                <div class="text-end text-sm text-danger flex-shrink-0">
                                     @WaitingLabel(r.SubmittedAt)
                                 </div>
                             </li>
@@ -197,35 +197,35 @@
 
         @* ====== Base section — every user sees these ====== *@
 
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card mb-4">
+            <div class="card-header flex justify-content-between align-items-center">
                 <div>
                     <strong>Action required from you</strong>
-                    <span class="badge @(_data.Employee.ActionRequired.Count > 0 ? "bg-warning text-dark" : "bg-secondary") ms-2">
+                    <span class="badge badge-role"bg-warning text-dark" : "bg-secondary") ml-2">
                         @_data.Employee.ActionRequired.Count
                     </span>
                 </div>
             </div>
             @if (_data.Employee.ActionRequired.Count == 0)
             {
-                <div class="card-body text-center text-muted py-3 small">Nothing to do here.</div>
+                <div class="card-body text-center text-muted  text-sm">Nothing to do here.</div>
             }
             else
             {
                 <ul class="list-group list-group-flush">
                     @foreach (var r in _data.Employee.ActionRequired)
                     {
-                        <li class="list-group-item d-flex justify-content-between align-items-center request-row"
+                        <li class="list-group-item flex justify-content-between align-items-center request-row"
                             @onclick="() => OpenRequestEdit(r)">
-                            <div class="text-truncate me-3">
-                                <span class="badge @StatusBadgeClass(r.Status) me-2">@StatusLabel(r.Status)</span>
+                            <div class="text-truncate mr-3">
+                                <span class="badge badge-role">@StatusLabel(r.Status)</span>
                                 <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                     MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                <span class="text-muted small me-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                <span class="text-muted small">@Truncate(r.Reasons, 50)</span>
+                                <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
+                                <span class="text-muted text-sm">@Truncate(r.Reasons, 50)</span>
                             </div>
-                            <div class="text-end small text-muted flex-shrink-0">
+                            <div class="text-end text-sm text-muted flex-shrink-0">
                                 @r.RequestedAmount.ToString("N2") <span>@r.CurrencyCode</span>
                             </div>
                         </li>
@@ -234,37 +234,37 @@
             }
         </div>
 
-        <div class="row g-3">
-            <div class="col-md-6">
+        <div class="form-grid-3">
+            <div>
                 <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header flex justify-content-between align-items-center">
                         <strong>My requests in flight</strong>
                         @if (_data.Employee.InFlight.Count > 0)
                         {
-                            <a href="requests/mine" class="small">View all →</a>
+                            <a href="requests/mine" class="text-sm">View all →</a>
                         }
                     </div>
                     @if (_data.Employee.InFlight.Count == 0)
                     {
-                        <div class="card-body text-center text-muted py-3 small">No requests in flight.</div>
+                        <div class="card-body text-center text-muted  text-sm">No requests in flight.</div>
                     }
                     else
                     {
                         <ul class="list-group list-group-flush">
                             @foreach (var r in _data.Employee.InFlight)
                             {
-                                <li class="list-group-item small request-row" @onclick="() => OpenRequest(r.Id)">
-                                    <div class="d-flex justify-content-between align-items-center">
+                                <li class="list-group-item text-sm request-row" @onclick="() => OpenRequest(r.Id)">
+                                    <div class="flex justify-content-between align-items-center">
                                         <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
                                         <div>
                                             <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                                 MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                                 RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                            <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
+                                            <span class="badge badge-role">@StatusLabel(r.Status)</span>
                                         </div>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                        <span class="text-truncate me-2">@Truncate(r.Reasons, 35)</span>
+                                    <div class="flex justify-content-between align-items-center mt-1">
+                                        <span class="text-truncate mr-2">@Truncate(r.Reasons, 35)</span>
                                         <span class="text-nowrap">@r.RequestedAmount.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></span>
                                     </div>
                                 </li>
@@ -274,36 +274,36 @@
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div>
                 <div class="card h-100">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header flex justify-content-between align-items-center">
                         <strong>Recently completed</strong>
                         @if (_data.Employee.RecentlyCompleted.Count > 0)
                         {
-                            <a href="requests/mine" class="small">View all →</a>
+                            <a href="requests/mine" class="text-sm">View all →</a>
                         }
                     </div>
                     @if (_data.Employee.RecentlyCompleted.Count == 0)
                     {
-                        <div class="card-body text-center text-muted py-3 small">Nothing completed yet.</div>
+                        <div class="card-body text-center text-muted  text-sm">Nothing completed yet.</div>
                     }
                     else
                     {
                         <ul class="list-group list-group-flush">
                             @foreach (var r in _data.Employee.RecentlyCompleted)
                             {
-                                <li class="list-group-item small request-row" @onclick="() => OpenRequest(r.Id)">
-                                    <div class="d-flex justify-content-between align-items-center">
+                                <li class="list-group-item text-sm request-row" @onclick="() => OpenRequest(r.Id)">
+                                    <div class="flex justify-content-between align-items-center">
                                         <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
                                         <div>
                                             <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                                 MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                                 RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                            <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
+                                            <span class="badge badge-role">@StatusLabel(r.Status)</span>
                                         </div>
                                     </div>
-                                    <div class="d-flex justify-content-between align-items-center mt-1">
-                                        <span class="text-truncate me-2">@Truncate(r.Reasons, 35)</span>
+                                    <div class="flex justify-content-between align-items-center mt-1">
+                                        <span class="text-truncate mr-2">@Truncate(r.Reasons, 35)</span>
                                         <span class="text-nowrap text-muted">@(r.FinalizedAt?.ToString("dd MMM") ?? "—")</span>
                                     </div>
                                 </li>

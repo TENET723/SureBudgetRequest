@@ -13,42 +13,42 @@
 
 <PageTitle>Departments</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">Departments</h5>
-        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Department</button>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Departments</h5>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Department</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
     <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" id="showInactive" @bind="_showInactive" @bind:after="LoadData" />
-        <label class="form-check-label small" for="showInactive">Show inactive</label>
+        <label class="form-label" for="showInactive">Show inactive</label>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-4">
         <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
                        Placeholder="Search name or head" Width="260px" />
     </div>
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Name</th>
                         <th>Department Head</th>
                         <th class="text-end">Budget Limit (MMK)</th>
@@ -63,7 +63,7 @@
                     {
                         var d = _filtered[i];
                         <tr class="@(!d.IsActive ? "text-muted" : "")">
-                            <td class="text-muted small">@(i + 1)</td>
+                            <td class="text-muted text-sm">@(i + 1)</td>
                             <td>@d.Name</td>
                             <td>
                                 @if (d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var head))
@@ -72,7 +72,7 @@
                                 }
                                 else
                                 {
-                                    <span class="text-muted small">— none —</span>
+                                    <span class="text-muted text-sm">— none —</span>
                                 }
                             </td>
                             <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
@@ -80,24 +80,24 @@
                             <td>
                                 @if (!string.IsNullOrWhiteSpace(d.SlackWebhookUrl))
                                 {
-                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">✓ Configured</span>
+                                    <span class="badge badge-role">✓ Configured</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">— not set —</span>
+                                    <span class="badge badge-role">— not set —</span>
                                 }
                             </td>
                             <td>
                                 @if (d.IsActive)
-                                { <span class="badge bg-success">Active</span> }
+                                { <span class="badge badge-role">Active</span> }
                                 else
-                                { <span class="badge bg-secondary">Inactive</span> }
+                                { <span class="badge badge-role">Inactive</span> }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-xs btn-outline-secondary btn-sm" @onclick="() => OpenEdit(d)">Edit</button>
+                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(d)">Edit</button>
                                 @if (d.IsActive)
                                 {
-                                    <button class="btn btn-xs btn-outline-danger btn-sm ms-1" @onclick="() => ConfirmDeactivate(d)">Deactivate</button>
+                                    <button class="btn btn-xs btn-outline-danger btn-sm ml-1" @onclick="() => ConfirmDeactivate(d)">Deactivate</button>
                                 }
                             </td>
                         </tr>
@@ -106,11 +106,11 @@
                     {
                         @if (!string.IsNullOrWhiteSpace(_search))
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-3">No departments match your search.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No departments match your search.</td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="8" class="text-center text-muted py-3">No departments found.</td></tr>
+                            <tr><td colspan="8" class="text-center text-muted ">No departments found.</td></tr>
                         }
                     }
                 </tbody>
@@ -122,65 +122,65 @@
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
 @if (_showForm)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_editingId.HasValue ? "Edit Department" : "New Department")</h6>
-                    <button class="btn-close" @onclick="CloseForm"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Name</label>
-                        <input class="form-control form-control-sm" @bind="_formName" placeholder="e.g. Engineering" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Name</label>
+                        <input class="input" @bind="_formName" placeholder="e.g. Engineering" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Department Head <span class="text-muted fw-normal">(optional)</span></label>
-                        <select class="form-select form-select-sm" @bind="_formHeadUserId">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Department Head <span class="text-muted fw-normal">(optional)</span></label>
+                        <select class="select" @bind="_formHeadUserId">
                             <option value="">— no head —</option>
                             @foreach (var u in _activeUsers)
                             {
                                 <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
                             }
                         </select>
-                        <div class="form-text small">Leave empty if no head is assigned yet. Requests cannot be submitted until a head is set.</div>
+                        <div class="form-hint">Leave empty if no head is assigned yet. Requests cannot be submitted until a head is set.</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Budget Limit (MMK)</label>
-                        <input class="form-control form-control-sm" type="number" min="0" @bind="_formBudgetLimit" />
-                        <div class="form-text small">Per-request threshold. Requests above this go to the Management Team.</div>
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Budget Limit (MMK)</label>
+                        <input class="input" type="number" min="0" @bind="_formBudgetLimit" />
+                        <div class="form-hint">Per-request threshold. Requests above this go to the Management Team.</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Monthly Limit (MMK)</label>
-                        <input class="form-control form-control-sm" type="number" min="0" step="0.01" @bind="_formMonthlyLimit" />
-                        <div class="form-text small">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Monthly Limit (MMK)</label>
+                        <input class="input" type="number" min="0" step="0.01" @bind="_formMonthlyLimit" />
+                        <div class="form-hint">
                             Cumulative monthly spending cap. When a new request would push the department's
                             finance-approved spend for the current calendar month over this amount,
                             the requester must supply a justification. Routing is unchanged.
                         </div>
                     </div>
                     <hr class="my-3" />
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">
                             Slack Webhook URL <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <input class="form-control form-control-sm" type="text"
+                        <input class="input" type="text"
                                @bind="_formSlackWebhookUrl"
                                placeholder="https://hooks.slack.com/services/T000.../B000.../..." />
-                        <div class="form-text small">
+                        <div class="form-hint">
                             All notifications for requests from this department are posted to this channel.
                             Leave empty to disable — queued notifications will stay pending until a URL is set.
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -192,19 +192,19 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingDept is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-sm">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-danger">Deactivate Department</h6>
-                    <button class="btn-close" @onclick="() => _deactivatingDept = null"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingDept = null"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="mb-0 small">Deactivate <strong>@_deactivatingDept.Name</strong>? This won't affect in-flight requests.</p>
+                    <p class=" text-sm">Deactivate <strong>@_deactivatingDept.Name</strong>? This won't affect in-flight requests.</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="() => _deactivatingDept = null">Cancel</button>
-                    <button class="btn btn-sm btn-danger" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingDept = null">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
                 </div>
             </div>
         </div>

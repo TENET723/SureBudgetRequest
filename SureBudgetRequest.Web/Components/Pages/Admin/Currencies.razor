@@ -10,42 +10,42 @@
 
 <PageTitle>Currencies</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">Currencies</h5>
-        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Currency</button>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Currencies</h5>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Currency</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
     <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" id="showInactiveCurrencies" @bind="_showInactive" @bind:after="LoadData" />
-        <label class="form-check-label small" for="showInactiveCurrencies">Show inactive</label>
+        <label class="form-label" for="showInactiveCurrencies">Show inactive</label>
     </div>
 
-    <div class="mb-3">
+    <div class="mb-4">
         <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
                        Placeholder="Search code or name" Width="260px" />
     </div>
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Code</th>
                         <th>Name</th>
                         <th class="text-end">Rate to MMK</th>
@@ -59,18 +59,18 @@
                     {
                         var c = _filtered[i];
                         <tr class="@(!c.IsActive ? "text-muted" : "")">
-                            <td class="text-muted small">@(i + 1)</td>
+                            <td class="text-muted text-sm">@(i + 1)</td>
                             <td><strong>@c.Code</strong></td>
                             <td>@c.Name</td>
                             <td class="text-end">@c.RateToMmk.ToString("N2")</td>
-                            <td><span class="small text-muted">@c.RateUpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></td>
+                            <td><span class="text-sm text-muted">@c.RateUpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></td>
                             <td>
-                                @if (c.IsActive) { <span class="badge bg-success">Active</span> }
-                                else             { <span class="badge bg-secondary">Inactive</span> }
+                                @if (c.IsActive) { <span class="badge badge-role">Active</span> }
+                                else             { <span class="badge badge-role">Inactive</span> }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-xs btn-outline-secondary btn-sm" @onclick="() => OpenEdit(c)">Edit</button>
-                                <button class="btn btn-xs btn-outline-secondary btn-sm ms-1" @onclick="() => OpenHistory(c.Code)">History</button>
+                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(c)">Edit</button>
+                                <button class="btn btn-xs btn-outline-secondary btn-sm ml-1" @onclick="() => OpenHistory(c.Code)">History</button>
                             </td>
                         </tr>
                     }
@@ -78,11 +78,11 @@
                     {
                         @if (!string.IsNullOrWhiteSpace(_search))
                         {
-                            <tr><td colspan="7" class="text-center text-muted py-3">No currencies match your search.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted ">No currencies match your search.</td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="7" class="text-center text-muted py-3">No currencies found.</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted ">No currencies found.</td></tr>
                         }
                     }
                 </tbody>
@@ -94,43 +94,43 @@
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
 @if (_showForm)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_editingCode is null ? "New Currency" : $"Edit Currency — {_editingCode}")</h6>
-                    <button class="btn-close" @onclick="CloseForm"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
 
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Code</label>
-                        <input class="form-control form-control-sm"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Code</label>
+                        <input class="input"
                                @bind="_formCode"
                                placeholder="e.g. USD"
                                maxlength="10"
                                disabled="@(_editingCode is not null)" />
-                        <div class="form-text small">3-letter ISO code is conventional. Cannot be changed after creation.</div>
+                        <div class="form-hint">3-letter ISO code is conventional. Cannot be changed after creation.</div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Name</label>
-                        <input class="form-control form-control-sm" @bind="_formName" placeholder="e.g. US Dollar" />
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Name</label>
+                        <input class="input" @bind="_formName" placeholder="e.g. US Dollar" />
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Rate to MMK</label>
-                        <input class="form-control form-control-sm"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Rate to MMK</label>
+                        <input class="input"
                                type="number"
                                step="0.01"
                                min="0"
                                @bind="_formRate"
                                disabled="@(_editingCode == "MMK")" />
-                        <div class="form-text small">
+                        <div class="form-hint">
                             1 @(_formCode?.ToUpperInvariant() ?? "unit") = @(_formRate.ToString("N2")) MMK.
                             @if (_editingCode is not null && _originalRate.HasValue && _originalRate.Value != _formRate)
                             {
@@ -143,14 +143,14 @@
                     {
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="formActive" @bind="_formIsActive" />
-                            <label class="form-check-label small" for="formActive">Active</label>
+                            <label class="form-label" for="formActive">Active</label>
                         </div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -162,25 +162,25 @@
 @* ── Rate History Modal ─────────────────────────────────────────────────────── *@
 @if (_historyCode is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal modal-lg">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Rate History — @_historyCode</h6>
-                    <button class="btn-close" @onclick="() => _historyCode = null"></button>
+                    <button class="btn btn-icon modal-close" @onclick="() => _historyCode = null"></button>
                 </div>
                 <div class="modal-body">
                     @if (_historyLoading)
                     {
-                        <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                        <div class="text-center "><div class="spinner spinner-sm"></div></div>
                     }
                     else if (!_history.Any())
                     {
-                        <p class="text-muted small mb-0">No rate changes recorded.</p>
+                        <p class="text-muted text-sm ">No rate changes recorded.</p>
                     }
                     else
                     {
-                        <table class="table table-sm">
+                        <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>When</th>
@@ -194,7 +194,7 @@
                                 {
                                     var delta = h.NewRate - h.OldRate;
                                     <tr>
-                                        <td class="small">@h.ChangedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="text-sm">@h.ChangedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
                                         <td class="text-end">@h.OldRate.ToString("N2")</td>
                                         <td class="text-end">@h.NewRate.ToString("N2")</td>
                                         <td class="text-end @(delta >= 0 ? "text-success" : "text-danger")">

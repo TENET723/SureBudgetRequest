@@ -10,30 +10,30 @@
 
 <PageTitle>Application Settings</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <h5 class="mb-0">Application Settings</h5>
-        <button class="btn btn-sm btn-primary" @onclick="OpenCreate">+ New Setting</button>
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Application Settings</h5>
+        <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Setting</button>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
                         <th>Key</th>
                         <th>Value</th>
@@ -47,17 +47,17 @@
                         <tr>
                             <td><strong>@s.Key</strong></td>
                             <td class="text-break">@s.Value</td>
-                            <td class="small text-muted">
+                            <td class="text-sm text-muted">
                                 @(string.IsNullOrWhiteSpace(s.Description) ? "—" : s.Description)
                             </td>
                             <td class="text-end text-nowrap">
-                                <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEdit(s)">Edit</button>
+                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(s)">Edit</button>
                             </td>
                         </tr>
                     }
                     @if (!_settings.Any())
                     {
-                        <tr><td colspan="4" class="text-center text-muted py-3">No settings found.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted ">No settings found.</td></tr>
                     }
                 </tbody>
             </table>
@@ -68,45 +68,45 @@
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
 @if (_showForm)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">@(_isEditing ? "Edit Setting" : "New Setting")</h6>
-                    <button class="btn-close" @onclick="CloseForm"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Key</label>
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Key</label>
                         <input class="form-control form-control-sm @(_isEditing ? "bg-light" : "")" @bind="_formKey"
                                placeholder="e.g. AdvanceBlackoutDays" maxlength="100" readonly="@_isEditing" />
                         @if (!_isEditing)
                         {
-                            <div class="form-text small">Must be unique. Used by the system to identify the setting.</div>
+                            <div class="form-hint">Must be unique. Used by the system to identify the setting.</div>
                         }
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Value</label>
-                        <input class="form-control form-control-sm" @bind="_formValue"
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Value</label>
+                        <input class="input" @bind="_formValue"
                                placeholder="Value" maxlength="500" />
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">
                             Description <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <textarea class="form-control form-control-sm" rows="2" maxlength="1000"
+                        <textarea class="input" rows="2" maxlength="1000"
                                   @bind="_formDescription"
                                   placeholder="What is this setting used for?"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>

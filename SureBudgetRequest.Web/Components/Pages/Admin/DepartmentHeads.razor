@@ -10,39 +10,39 @@
 
 <PageTitle>Department Heads</PageTitle>
 
-<div class="container-fluid py-3">
-    <div class="d-flex align-items-center justify-content-between mb-3">
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
         <div>
-            <h5 class="mb-0">Department Heads</h5>
-            <div class="text-muted small">Reassign who leads each department without touching other settings.</div>
+            <h5>Department Heads</h5>
+            <div class="text-muted text-sm">Reassign who leads each department without touching other settings.</div>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-danger alert-dismissible">@_errorMessage <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button></div>
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
     }
     @if (!string.IsNullOrEmpty(_successMessage))
     {
-        <div class="alert alert-success alert-dismissible">@_successMessage <button type="button" class="btn-close" @onclick="() => _successMessage = null"></button></div>
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
-    <div class="mb-3">
+    <div class="mb-4">
         <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
                        Placeholder="Search department or head" Width="260px" />
     </div>
 
     @if (_loading)
     {
-        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        <div class="text-center "><div class="spinner spinner-sm"></div></div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle">
-                <thead class="table-light">
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead >
                     <tr>
-                        <th style="width:1%">#</th>
+                        <th class="col-no">#</th>
                         <th>Department</th>
                         <th class="text-end">Budget Limit (MMK)</th>
                         <th>Current Head</th>
@@ -55,7 +55,7 @@
                     {
                         var d = _filtered[i];
                         <tr class="@(!d.IsActive ? "text-muted" : "")">
-                            <td class="text-muted small">@(i + 1)</td>
+                            <td class="text-muted text-sm">@(i + 1)</td>
                             <td>@d.Name</td>
                             <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
                             <td>
@@ -65,23 +65,23 @@
                                 }
                                 else if (d.HeadUserId.HasValue)
                                 {
-                                    <span class="text-danger small">Unknown user</span>
+                                    <span class="validation-message">Unknown user</span>
                                 }
                                 else
                                 {
-                                    <span class="text-muted small">— none —</span>
+                                    <span class="text-muted text-sm">— none —</span>
                                 }
                             </td>
                             <td>
                                 @if (d.IsActive)
-                                { <span class="badge bg-success">Active</span> }
+                                { <span class="badge badge-role">Active</span> }
                                 else
-                                { <span class="badge bg-secondary">Inactive</span> }
+                                { <span class="badge badge-role">Inactive</span> }
                             </td>
                             <td class="text-end">
                                 @if (d.IsActive)
                                 {
-                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenAssign(d)">
+                                    <button class="btn btn-outline btn-sm" @onclick="() => OpenAssign(d)">
                                         @(d.HeadUserId.HasValue ? "Change Head" : "Assign Head")
                                     </button>
                                 }
@@ -92,11 +92,11 @@
                     {
                         @if (!string.IsNullOrWhiteSpace(_search))
                         {
-                            <tr><td colspan="6" class="text-center text-muted py-3">No departments match your search.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted ">No departments match your search.</td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="6" class="text-center text-muted py-3">No departments found.</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted ">No departments found.</td></tr>
                         }
                     }
                 </tbody>
@@ -108,22 +108,22 @@
 @* ── Assign Head Modal ───────────────────────────────────────────────────────── *@
 @if (_assigningDept is not null)
 {
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,.4)">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div >
                 <div class="modal-header">
                     <h6 class="modal-title">
                         @(_assigningDept.HeadUserId.HasValue ? "Change Head" : "Assign Head") — @_assigningDept.Name
                     </h6>
-                    <button class="btn-close" @onclick="CloseAssign"></button>
+                    <button class="btn btn-icon modal-close" @onclick="CloseAssign"></button>
                 </div>
                 <div class="modal-body">
                     @if (!string.IsNullOrEmpty(_formError))
                     {
-                        <div class="alert alert-danger small py-2">@_formError</div>
+                        <div class="alert alert-error">@_formError</div>
                     }
-                    <label class="form-label small fw-semibold">New Department Head</label>
-                    <select class="form-select form-select-sm" @bind="_formHeadUserId">
+                    <label class="form-label text-sm font-semibold">New Department Head</label>
+                    <select class="select" @bind="_formHeadUserId">
                         <option value="">— select —</option>
                         @foreach (var u in _activeUsers)
                         {
@@ -132,17 +132,17 @@
                     </select>
                     @if (_assigningDept.HeadUserId.HasValue && _userNames.TryGetValue(_assigningDept.HeadUserId.Value, out var currentHead))
                     {
-                        <div class="form-text small text-muted">Current: @currentHead</div>
+                        <div class="form-hint">Current: @currentHead</div>
                     }
                     else
                     {
-                        <div class="form-text small text-muted">Current: — none —</div>
+                        <div class="form-hint">Current: — none —</div>
                     }
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-sm btn-secondary" @onclick="CloseAssign">Cancel</button>
-                    <button class="btn btn-sm btn-primary" @onclick="SaveAssign" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <button class="btn btn-outline btn-sm" @onclick="CloseAssign">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveAssign" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
