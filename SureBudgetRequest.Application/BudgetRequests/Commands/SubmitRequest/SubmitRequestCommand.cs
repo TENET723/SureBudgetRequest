@@ -131,6 +131,11 @@ public sealed class SubmitRequestCommandHandler
 
         var previousStatus = budgetRequest.Status;
 
+        // Draw the global, ever-incrementing reference number (N) from the DB
+        // sequence. Only meaningful on first submission — Submit ignores it once
+        // Reference is already set (resubmit-after-send-back path).
+        var sequenceNumber = await _budgetRequestRepository.NextReferenceSequenceAsync(cancellationToken);
+
         var result = budgetRequest.Submit(
             department.Id,
             department.BudgetLimit,
@@ -142,7 +147,8 @@ public sealed class SubmitRequestCommandHandler
             department.HeadUserId.Value,
             headUser.FullName,
             requester.FullName,
-            methodRequiresAttachment);
+            methodRequiresAttachment,
+            sequenceNumber);
 
         if (result.IsFailure) return result;
 

@@ -158,7 +158,8 @@ public partial class BudgetRequest
         Guid deptHeadId,
         string deptHeadName,
         string requesterName,
-        bool withdrawMethodRequiresAttachment)
+        bool withdrawMethodRequiresAttachment,
+        long sequenceNumber)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
@@ -216,7 +217,7 @@ public partial class BudgetRequest
         // Only set on first submission — resubmission after SendBack keeps the same Reference.
         if (Reference is null)
         {
-            Reference = GenerateReference(Type, SubmittedAt.Value);
+            Reference = GenerateReference(Type, SubmittedAt.Value, sequenceNumber);
         }
 
         // Fast-forward through DeptHead if requester == dept head (R9)
@@ -336,22 +337,24 @@ public partial class BudgetRequest
     }
 
     // === Reference generation ===
-    // Format: BR-{TypeCode}-{yyyyMMdd}-{random4}  e.g. "BR-U-20260513-4521"
-    // 4-digit random keeps collision rate negligible at internal-app volume.
-    // A DB unique index + retry at the command-handler level should be added for safety.
-    private static string GenerateReference(BudgetRequestType type, DateTime submittedAtUtc)
+    // Format: {TypeCode}-{yyMMdd}-{N}  e.g. "BU-260604-1", "BS-260604-2", "BP-260605-3"
+    // TypeCode: BS Standard · BU Urgent · BA Advance · BP ProjectProposal.
+    // Date: submission date (UTC) in yyMMdd.
+    // N (sequenceNumber): a global, ever-incrementing integer sourced from the
+    // PostgreSQL sequence budget_request_ref_seq — no zero-padding, no reset.
+    // Gaps are acceptable (a failed Submit after nextval consumes a value).
+    private static string GenerateReference(BudgetRequestType type, DateTime submittedAtUtc, long sequenceNumber)
     {
         var typeCode = type switch
         {
-            BudgetRequestType.Urgent           => "U",
-            BudgetRequestType.Standard         => "S",
-            BudgetRequestType.ProjectProposal  => "P",
-            BudgetRequestType.Advance          => "A",
-            _ => "X"
+            BudgetRequestType.Standard         => "BS",
+            BudgetRequestType.Urgent           => "BU",
+            BudgetRequestType.Advance          => "BA",
+            BudgetRequestType.ProjectProposal  => "BP",
+            _ => "BX"
         };
-        var datePart = submittedAtUtc.ToString("yyyyMMdd");
-        var rand = Random.Shared.Next(1000, 10000); // 1000-9999 inclusive
-        return $"BR-{typeCode}-{datePart}-{rand}";
+        var datePart = submittedAtUtc.ToString("yyMMdd");
+        return $"{typeCode}-{datePart}-{sequenceNumber}";
     }
 
     // Normalize whitespace-only strings to null so the "is justification present?"

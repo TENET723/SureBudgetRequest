@@ -110,13 +110,13 @@ internal static class SlackMessageBuilder
         {
             // Intermediate approvals — ping the next stage, name the previous approver.
             NotificationTrigger.DeptHeadApprovedToManagement
-                => $"ID: {reference} is approved by {actor}. Waiting for Management approval. ✅",
+                => $"ID: {reference} is approved by {actor}.\n Waiting for Management approval. ✅",
 
             NotificationTrigger.DeptHeadApprovedToFinance
-                => $"ID: {reference} is approved by {actor}. Waiting for Finance approval. ✅",
+                => $"ID: {reference} is approved by {actor}.\n Waiting for Finance approval. ✅",
 
             NotificationTrigger.ManagementApprovedToFinance
-                => $"ID: {reference} is approved by {actor}. Waiting for Finance approval. ✅",
+                => $"ID: {reference} is approved by {actor}.\n Waiting for Finance approval. ✅",
 
             // Rejections — ping the requester.
             NotificationTrigger.DeptHeadRejectedToRequester
@@ -137,7 +137,7 @@ internal static class SlackMessageBuilder
 
             // ── Advance withdrawal — reconciliation phase ──────────────────
             NotificationTrigger.AdvanceApprovedToRequester
-                => $"ID: {reference} (advance) is approved by {actor}. ✅ "
+                => $"ID: {reference} (advance) is approved by {actor}.\n ✅ "
                  + $"Reconcile your spending by {DeadlineText(request)} — "
                  + "record how the advance was used on the request page.",
 
@@ -149,7 +149,7 @@ internal static class SlackMessageBuilder
                  + $"{RefundText(request)} is now due from the requester. 💵",
 
             NotificationTrigger.RefundRecordedToRequester
-                => $"ID: {reference}: refund received and recorded by {actor}. "
+                => $"ID: {reference}: refund received and recorded by {actor}.\n "
                  + "The advance is now fully reconciled. ✅",
 
             NotificationTrigger.AdvanceAwaitingReimbursement
@@ -157,7 +157,7 @@ internal static class SlackMessageBuilder
                  + $"{ReimbursementText(request)} is now owed to the requester. 💵",
 
             NotificationTrigger.ReimbursementRecordedToRequester
-                => $"ID: {reference}: reimbursement paid and recorded by {actor}. "
+                => $"ID: {reference}: reimbursement paid and recorded by {actor}.\n "
                  + "The advance is now fully reconciled. ✅",
 
             _ => $"ID: {reference} status updated."

@@ -35,5 +35,13 @@ public class AppDbContext : DbContext
     {
         // Apply all IEntityTypeConfiguration<T> classes from this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Global, ever-incrementing source for the BudgetRequest Reference number
+        // (the N in {TypeCode}-{yyMMdd}-{N}). Read via raw nextval() in
+        // BudgetRequestRepository.NextReferenceSequenceAsync. Registered here so EF
+        // emits CreateSequence in the migration and keeps the snapshot consistent.
+        modelBuilder.HasSequence<long>("budget_request_ref_seq")
+                    .StartsAt(10000)
+                    .IncrementsBy(1);
     }
 }

@@ -166,9 +166,13 @@ public partial class BudgetRequest
         // because amount/requester/limit/rate may have changed during the fix.
         // The monthly check also re-runs because the dept's cumulative position may
         // have changed since the original submission.
+        // sequenceNumber is unused here: Reference was already assigned at the first
+        // submission and the `if (Reference is null)` guard inside Submit skips
+        // regeneration. Pass 0 so we don't consume a sequence value on resubmit.
         return Submit(
             departmentId, departmentLimit, monthlyLimit, monthlySpendBeforeInMmk,
             monthlyWindowStartUtc, monthlyWindowEndUtc, exchangeRateToMmk,
-            deptHeadId, deptHeadName, requesterName, withdrawMethodRequiresAttachment);
+            deptHeadId, deptHeadName, requesterName, withdrawMethodRequiresAttachment,
+            sequenceNumber: 0);
     }
 }

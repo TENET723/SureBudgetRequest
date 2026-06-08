@@ -90,6 +90,15 @@ public interface IBudgetRequestRepository
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Draws the next value from the PostgreSQL sequence
+    /// <c>budget_request_ref_seq</c> via <c>nextval</c>. This is the global,
+    /// ever-incrementing <c>N</c> embedded in a request's human-friendly
+    /// Reference (format <c>{TypeCode}-{yyMMdd}-{N}</c>). Atomic and
+    /// race-condition safe; values are never reused and may have gaps.
+    /// </summary>
+    Task<long> NextReferenceSequenceAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Fetches a single attachment by its own Id, without loading the parent aggregate.
     /// Used by the download endpoint, which only knows the attachment Id.
     /// Returns null if no such attachment exists.

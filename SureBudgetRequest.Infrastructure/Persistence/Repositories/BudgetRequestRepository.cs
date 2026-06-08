@@ -252,6 +252,16 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
     public async Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default)
         => await _context.BudgetRequests.AddAsync(budgetRequest, cancellationToken);
 
+    public async Task<long> NextReferenceSequenceAsync(CancellationToken cancellationToken = default)
+    {
+        // nextval() is atomic and race-condition safe — no lock or counter table.
+        // SqlQueryRaw<long> requires the scalar column be aliased "Value".
+        var rows = await _context.Database
+            .SqlQueryRaw<long>("SELECT nextval('budget_request_ref_seq') AS \"Value\"")
+            .ToListAsync(cancellationToken);
+        return rows.Single();
+    }
+
     public async Task<Attachment?> GetAttachmentByIdAsync(Guid attachmentId, CancellationToken cancellationToken = default)
     {
         // AsNoTracking — this is read-only for download, no mutation.
