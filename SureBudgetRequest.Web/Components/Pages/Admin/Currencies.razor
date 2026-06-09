@@ -25,9 +25,13 @@
         <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
-    <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="showInactiveCurrencies" @bind="_showInactive" @bind:after="LoadData" />
-        <label class="form-label" for="showInactiveCurrencies">Show inactive</label>
+    <div class="flex items-center gap-2 mb-2">
+        <label class="toggle" title="Show inactive">
+            <input type="checkbox" @bind="_showInactive" @bind:after="LoadData" />
+            <span class="toggle-track"></span>
+            <span class="toggle-thumb"></span>
+        </label>
+        <span class="text-sm text-muted">Show inactive</span>
     </div>
 
     <div class="mb-4">
@@ -65,15 +69,18 @@
                             <td class="text-end">@c.RateToMmk.ToString("N2")</td>
                             <td><span class="text-sm text-muted">@c.RateUpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></td>
                             <td>
-                                <label class="toggle" title="@(c.IsActive ? "Active" : "Inactive")" style="cursor:default">
-                                    <input type="checkbox" checked="@c.IsActive" disabled style="opacity:0;width:0;height:0;position:absolute" />
-                                    <span class="toggle-track"></span>
-                                    <span class="toggle-thumb"></span>
-                                </label>
+                                @if (c.IsActive)
+                                {
+                                    <span class="badge badge-active">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-inactive">Inactive</span>
+                                }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-icon " @onclick="() => OpenEdit(c)" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></button>
-                                <button class="btn btn-icon " @onclick="() => OpenHistory(c.Code)" title="Rate history"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89l.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7s-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18m-1 5v5l4.28 2.54l.72-1.21l-3.5-2.08V8z"/></svg></button>
+                                <button class="btn btn-icon" @onclick="() => OpenEdit(c)" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></button>
+                                <button class="btn btn-icon" @onclick="() => OpenHistory(c.Code)" title="Rate history"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89l.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7s-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18m-1 5v5l4.28 2.54l.72-1.21l-3.5-2.08V8z"/></svg></button>
                             </td>
                         </tr>
                     }
@@ -227,12 +234,14 @@
     private bool _showForm;
     private bool _saving;
     private string? _formError;
-    private string? _editingCode;       // null = create mode
-    private decimal? _originalRate;     // captured on edit, used to flag a rate change
+    private string? _editingCode;
+    private decimal? _originalRate;
     private string _formCode = "";
     private string _formName = "";
     private decimal _formRate;
     private bool _formIsActive = true;
+
+    // Deactivate confirm - active state managed via Edit form (UpdateCurrencyCommand)
 
     // History state
     private string? _historyCode;

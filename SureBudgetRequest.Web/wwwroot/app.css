@@ -322,6 +322,10 @@ input, select, textarea { font-family: var(--font-sans); }
 .badge-info      { color: var(--color-info); background: var(--color-info-bg); border-color: var(--color-info); }
 .badge-warning   { color: var(--color-warning); background: var(--color-warning-bg); border-color: var(--color-warning); }
 .badge-sm { height: 22px; font-size: 11px; padding: 0 8px; }
+/* Clickable badge (used as button for active/inactive toggle) */
+button.badge { cursor: pointer; transition: filter 120ms, opacity 120ms; }
+button.badge:hover:not(:disabled) { filter: brightness(0.92); }
+button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Search clear button */
 .search-clear {

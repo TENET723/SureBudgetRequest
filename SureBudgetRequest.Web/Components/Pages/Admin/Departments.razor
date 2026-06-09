@@ -28,9 +28,13 @@
         <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
     }
 
-    <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="showInactive" @bind="_showInactive" @bind:after="LoadData" />
-        <label class="form-label" for="showInactive">Show inactive</label>
+    <div class="flex items-center gap-2 mb-2">
+        <label class="toggle" title="Show inactive">
+            <input type="checkbox" @bind="_showInactive" @bind:after="LoadData" />
+            <span class="toggle-track"></span>
+            <span class="toggle-thumb"></span>
+        </label>
+        <span class="text-sm text-muted">Show inactive</span>
     </div>
 
     <div class="mb-4">
@@ -88,18 +92,17 @@
                                 }
                             </td>
                             <td>
-                                <label class="toggle" title="@(d.IsActive ? "Active" : "Inactive")" style="cursor:default">
-                                    <input type="checkbox" checked="@d.IsActive" disabled style="opacity:0;width:0;height:0;position:absolute" />
-                                    <span class="toggle-track"></span>
-                                    <span class="toggle-thumb"></span>
-                                </label>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn btn-icon " @onclick="() => OpenEdit(d)" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></button>
                                 @if (d.IsActive)
                                 {
-                                    <button class="btn btn-icon text-danger" @onclick="() => ConfirmDeactivate(d)" title="Deactivate"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m5 11H7v-2h10z"/></svg></button>
+                                    <button class="badge badge-active" @onclick="() => ConfirmDeactivate(d)" title="Click to deactivate">Active</button>
                                 }
+                                else
+                                {
+                                    <span class="badge badge-inactive">Inactive</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-icon" @onclick="() => OpenEdit(d)" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></button>
                             </td>
                         </tr>
                     }
@@ -366,4 +369,6 @@
         if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = "Department deactivated."; await LoadData(); }
     }
+
+
 }
