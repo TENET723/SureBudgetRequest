@@ -10,309 +10,191 @@
 
 <PageTitle>Dashboard</PageTitle>
 
-<div class="  dashboard">
+<div class="page-wrap">
 
-    <div class="flex items-center justify-between mb-4">
-        <div>
-            <h4 class="mb-1">Welcome, @CurrentUser.FullName</h4>
-            <p class="text-muted text-sm ">Signed in as @CurrentUser.Role.</p>
-        </div>
-        <div class="flex gap-2">
-            <button class="btn btn-outline btn-sm"
-                    @onclick="RefreshAsync" disabled="@_loading">
-                @(_loading ? "Refreshing…" : "Refresh")
-            </button>
-            <a href="requests/new" class="btn btn-primary btn-sm">+ New request</a>
-        </div>
+    @* ── Header ────────────────────────────────────────────────────────── *@
+    <div class="flex items-center justify-between mb-6">
+        <h4 style="font-weight:700;text-transform:uppercase;letter-spacing:0.3px">
+            WELCOME @CurrentUser.FullName.ToUpper() !
+        </h4>
     </div>
 
     @if (!string.IsNullOrEmpty(_errorMessage))
     {
-        <div class="alert alert-error">@_errorMessage</div>
+        <div class="alert alert-error mb-4">@_errorMessage</div>
     }
 
     @if (_loading && _data is null)
     {
-        <div class="text-center "><div class="spinner spinner-sm"></div></div>
+        <div class="spinner-wrap"><div class="spinner"></div></div>
     }
     else if (_data is not null)
     {
-        @* ====== Role-specific sections (render only when present) ====== *@
-
-        @if (_data.FinanceMetrics is not null)
-        {
-            <div class="form-grid-3 mb-4">
-                <div>
-                    <div class="card h-100"><div class="card-body ">
-                        <div class="text-sm text-muted">Pending approval</div>
-                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.PendingApprovalCount</div>
-                    </div></div>
+        @* ── Stat cards ──────────────────────────────────────────────── *@
+        <div class="dash-stat-row">
+            <div class="dash-stat-card">
+                <div class="dash-stat-label">Pending Requests</div>
+                <div class="dash-stat-value">@_pendingCount</div>
+                <div class="dash-stat-icon dash-stat-icon-pending">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M3 9h18M8 4V2M16 4V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M8 13h4M8 16h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
                 </div>
-                <div>
-                    <div class="card h-100"><div class="card-body ">
-                        <div class="text-sm text-muted">Awaiting payment</div>
-                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.AwaitingPaymentCount</div>
-                    </div></div>
-                </div>
-                <div>
-                    <div class="card h-100"><div class="card-body ">
-                        <div class="text-sm text-muted">Outstanding total</div>
-                        <div class="fs-4 font-semibold">@_data.FinanceMetrics.OutstandingTotalMmk.ToString("N2") <span class="text-sm text-muted">MMK</span></div>
-                    </div></div>
+                <div class="dash-stat-trend">
+                    <span class="trend-up">↑ Pending</span> approvals in queue
                 </div>
             </div>
-        }
-
-        @if (_data.MyApprovalQueue is not null)
-        {
-            <div class="card mb-4">
-                <div class="card-header flex justify-content-between align-items-center">
-                    <div>
-                        <strong>Pending my approval</strong>
-                        <span class="badge badge-role"bg-danger" : "bg-primary") ml-2">
-                            @_data.MyApprovalQueue.TotalCount
-                        </span>
-                    </div>
-                    @if (_data.MyApprovalQueue.TotalCount > 0)
-                    {
-                        <a href="requests/inbox" class="text-sm">View all →</a>
-                    }
+            <div class="dash-stat-card">
+                <div class="dash-stat-label">Pending Actions</div>
+                <div class="dash-stat-value">@_data.Employee.ActionRequired.Count</div>
+                <div class="dash-stat-icon dash-stat-icon-action">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
                 </div>
-                @if (_data.MyApprovalQueue.TopItems.Count == 0)
-                {
-                    <div class="card-body text-center text-muted ">Nothing pending your approval. 🎉</div>
-                }
-                else
-                {
-                    <ul class="list-group list-group-flush">
-                        @foreach (var r in _data.MyApprovalQueue.TopItems)
-                        {
-                            <li class="list-group-item flex justify-content-between align-items-center request-row"
-                                @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate mr-3">
-                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge badge-role">@TypeLabel(r.Type)</span>
-                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                        RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
-                                </div>
-                                <div class="text-end text-sm flex-shrink-0">
-                                    <div>@r.RequestedAmount.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></div>
-                                    <div class="text-muted @WaitingClass(r.SubmittedAt)">@WaitingLabel(r.SubmittedAt)</div>
-                                </div>
-                            </li>
-                        }
-                    </ul>
-                }
-            </div>
-        }
-
-        @if (_data.PaymentQueue is not null)
-        {
-            <div class="card mb-4">
-                <div class="card-header flex justify-content-between align-items-center">
-                    <div>
-                        <strong>Approved — awaiting payment</strong>
-                        <span class="badge badge-role">@_data.PaymentQueue.TotalCount</span>
-                    </div>
-                    @if (_data.PaymentQueue.TotalCount > 0)
-                    {
-                        <a href="requests/outstanding" class="text-sm">View all →</a>
-                    }
-                </div>
-                @if (_data.PaymentQueue.TopItems.Count == 0)
-                {
-                    <div class="card-body text-center text-muted ">Nothing outstanding. 🎉</div>
-                }
-                else
-                {
-                    <ul class="list-group list-group-flush">
-                        @foreach (var r in _data.PaymentQueue.TopItems)
-                        {
-                            <li class="list-group-item flex justify-content-between align-items-center request-row"
-                                @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate mr-3">
-                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge badge-role">@TypeLabel(r.Type)</span>
-                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                        RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
-                                </div>
-                                <div class="text-end text-sm flex-shrink-0">
-                                    <div class="font-semibold">@r.RemainingBalance.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></div>
-                                    <div class="text-muted">remaining of @r.ApprovedAmount.ToString("N2")</div>
-                                </div>
-                            </li>
-                        }
-                    </ul>
-                }
-            </div>
-        }
-
-        @if (_data.StuckRequests is not null)
-        {
-            <div class="card mb-4">
-                <div class="card-header flex justify-content-between align-items-center">
-                    <div>
-                        <strong>Stuck requests</strong>
-                        <span class="text-muted text-sm ml-1">(no movement in 7+ days)</span>
-                        <span class="badge badge-role"bg-danger" : "bg-secondary") ml-2">
-                            @_data.StuckRequests.TotalCount
-                        </span>
-                    </div>
-                </div>
-                @if (_data.StuckRequests.TopItems.Count == 0)
-                {
-                    <div class="card-body text-center text-muted ">No stuck requests.</div>
-                }
-                else
-                {
-                    <ul class="list-group list-group-flush">
-                        @foreach (var r in _data.StuckRequests.TopItems)
-                        {
-                            <li class="list-group-item flex justify-content-between align-items-center request-row"
-                                @onclick="() => OpenRequest(r.Id)">
-                                <div class="text-truncate mr-3">
-                                    <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                    <span class="badge badge-role">@StatusLabel(r.Status)</span>
-                                    <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                        RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                    <span class="mr-2">@RequesterName(r.RequesterId)</span>
-                                    <span class="text-muted text-sm">@Truncate(r.Reasons, 40)</span>
-                                </div>
-                                <div class="text-end text-sm text-danger flex-shrink-0">
-                                    @WaitingLabel(r.SubmittedAt)
-                                </div>
-                            </li>
-                        }
-                    </ul>
-                }
-            </div>
-        }
-
-        @* ====== Base section — every user sees these ====== *@
-
-        <div class="card mb-4">
-            <div class="card-header flex justify-content-between align-items-center">
-                <div>
-                    <strong>Action required from you</strong>
-                    <span class="badge badge-role"bg-warning text-dark" : "bg-secondary") ml-2">
-                        @_data.Employee.ActionRequired.Count
-                    </span>
+                <div class="dash-stat-trend">
+                    <span class="trend-up">↑</span> Action required from you
                 </div>
             </div>
-            @if (_data.Employee.ActionRequired.Count == 0)
-            {
-                <div class="card-body text-center text-muted  text-sm">Nothing to do here.</div>
-            }
-            else
-            {
-                <ul class="list-group list-group-flush">
-                    @foreach (var r in _data.Employee.ActionRequired)
-                    {
-                        <li class="list-group-item flex justify-content-between align-items-center request-row"
-                            @onclick="() => OpenRequestEdit(r)">
-                            <div class="text-truncate mr-3">
-                                <span class="badge badge-role">@StatusLabel(r.Status)</span>
-                                <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                    MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                    RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                <span class="text-muted text-sm mr-2">@(r.Reference ?? ShortId(r.Id))</span>
-                                <span class="text-muted text-sm">@Truncate(r.Reasons, 50)</span>
-                            </div>
-                            <div class="text-end text-sm text-muted flex-shrink-0">
-                                @r.RequestedAmount.ToString("N2") <span>@r.CurrencyCode</span>
-                            </div>
-                        </li>
-                    }
-                </ul>
-            }
-        </div>
-
-        <div class="form-grid-3">
-            <div>
-                <div class="card h-100">
-                    <div class="card-header flex justify-content-between align-items-center">
-                        <strong>My requests in flight</strong>
-                        @if (_data.Employee.InFlight.Count > 0)
-                        {
-                            <a href="requests/mine" class="text-sm">View all →</a>
-                        }
-                    </div>
-                    @if (_data.Employee.InFlight.Count == 0)
-                    {
-                        <div class="card-body text-center text-muted  text-sm">No requests in flight.</div>
-                    }
-                    else
-                    {
-                        <ul class="list-group list-group-flush">
-                            @foreach (var r in _data.Employee.InFlight)
-                            {
-                                <li class="list-group-item text-sm request-row" @onclick="() => OpenRequest(r.Id)">
-                                    <div class="flex justify-content-between align-items-center">
-                                        <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
-                                        <div>
-                                            <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                                MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                                RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                            <span class="badge badge-role">@StatusLabel(r.Status)</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex justify-content-between align-items-center mt-1">
-                                        <span class="text-truncate mr-2">@Truncate(r.Reasons, 35)</span>
-                                        <span class="text-nowrap">@r.RequestedAmount.ToString("N2") <span class="text-muted">@r.CurrencyCode</span></span>
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    }
+            <div class="dash-stat-card">
+                <div class="dash-stat-label">Request In Flight</div>
+                <div class="dash-stat-value">@_data.Employee.InFlight.Count</div>
+                <div class="dash-stat-icon dash-stat-icon-flight">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M2 10h20" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M6 14h4M14 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="dash-stat-trend">
+                    <span class="trend-down">↓</span> Currently in progress
                 </div>
             </div>
-
-            <div>
-                <div class="card h-100">
-                    <div class="card-header flex justify-content-between align-items-center">
-                        <strong>Recently completed</strong>
-                        @if (_data.Employee.RecentlyCompleted.Count > 0)
-                        {
-                            <a href="requests/mine" class="text-sm">View all →</a>
-                        }
-                    </div>
-                    @if (_data.Employee.RecentlyCompleted.Count == 0)
-                    {
-                        <div class="card-body text-center text-muted  text-sm">Nothing completed yet.</div>
-                    }
-                    else
-                    {
-                        <ul class="list-group list-group-flush">
-                            @foreach (var r in _data.Employee.RecentlyCompleted)
-                            {
-                                <li class="list-group-item text-sm request-row" @onclick="() => OpenRequest(r.Id)">
-                                    <div class="flex justify-content-between align-items-center">
-                                        <span class="text-muted">@(r.Reference ?? ShortId(r.Id))</span>
-                                        <div>
-                                            <MonthlyLimitBadge Compact="true" MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                                MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                                RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                            <span class="badge badge-role">@StatusLabel(r.Status)</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex justify-content-between align-items-center mt-1">
-                                        <span class="text-truncate mr-2">@Truncate(r.Reasons, 35)</span>
-                                        <span class="text-nowrap text-muted">@(r.FinalizedAt?.ToString("dd MMM") ?? "—")</span>
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    }
+            <div class="dash-stat-card">
+                <div class="dash-stat-label">Completed</div>
+                <div class="dash-stat-value">@_data.Employee.RecentlyCompleted.Count</div>
+                <div class="dash-stat-icon dash-stat-icon-complete">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <div class="dash-stat-trend">
+                    <span class="trend-up">↑</span> Recently finalized
                 </div>
             </div>
         </div>
+
+        @* ── Tabs + table ─────────────────────────────────────────────── *@
+        <div class="dash-tab-bar">
+            <button class="dash-tab @(_activeTab == "pending"   ? "active" : "")" @onclick='() => SetTab("pending")'>Pending Requests</button>
+            <button class="dash-tab @(_activeTab == "actions"   ? "active" : "")" @onclick='() => SetTab("actions")'>Pending Actions</button>
+            <button class="dash-tab @(_activeTab == "inflight"  ? "active" : "")" @onclick='() => SetTab("inflight")'>Request in flight</button>
+            <button class="dash-tab @(_activeTab == "completed" ? "active" : "")" @onclick='() => SetTab("completed")'>Recently completed</button>
+            @if (_data.StuckRequests is not null && _data.StuckRequests.TotalCount > 0)
+            {
+                <button class="dash-tab @(_activeTab == "stuck" ? "active" : "")" @onclick='() => SetTab("stuck")'>
+                    No Movements In +7 Days
+                    <span class="topbar-count-badge ml-1">@_data.StuckRequests.TotalCount</span>
+                </button>
+            }
+            <span class="dash-tab-spacer"></span>
+            <div class="dash-tab-actions">
+                <button class="btn btn-icon btn-outline" @onclick="RefreshAsync" disabled="@_loading" title="Refresh">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M19 4v4h-4M5 20v-4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <a href="requests/new" class="btn btn-primary btn-sm">+ New Request</a>
+            </div>
+        </div>
+
+        @* ── Table body ───────────────────────────────────────────────── *@
+        <div class="dash-table-wrapper">
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">No</th>
+                        <th>Request ID</th>
+                        <th>Name</th>
+                        <th>Submitted At</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th style="width:40px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        var rows = GetActiveTabRows();
+                        var page = _page;
+                        var pageSize = 14;
+                        var paged = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+                        var totalPages = (int)Math.Ceiling(rows.Count / (double)pageSize);
+                        if (totalPages < 1) totalPages = 1;
+                    }
+                    @if (!paged.Any())
+                    {
+                        <tr><td colspan="7" class="empty-cell">Nothing here.</td></tr>
+                    }
+                    else
+                    {
+                        var globalIdx = (page - 1) * pageSize;
+                        @foreach (var r in paged)
+                        {
+                            globalIdx++;
+                            var idx = globalIdx;
+                            <tr @onclick="() => OpenRequestSmart(r)" class="clickable-row">
+                                <td class="col-no">@idx</td>
+                                <td class="text-sm"><strong>@(r.Reference ?? ShortId(r.Id))</strong></td>
+                                <td class="text-sm">@RequesterName(r.RequesterId)</td>
+                                <td class="text-sm text-muted">
+                                    @(r.SubmittedAt.HasValue
+                                        ? r.SubmittedAt.Value.ToLocalTime().ToString("dd MMM yyyy")
+                                        : "—")
+                                </td>
+                                <td class="text-sm text-muted">@Truncate(r.Reasons, 40)</td>
+                                <td><span class="@StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span></td>
+                                <td>
+                                    <button class="row-kebab" @onclick:stopPropagation="true"
+                                            @onclick="() => OpenRequest(r.Id)" title="View">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="12" cy="5"  r="1.5" fill="currentColor"/>
+                                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                                            <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* ── Pagination ───────────────────────────────────────────────── *@
+        @if (totalPages > 1)
+        {
+            <div class="dash-pagination">
+                <button class="dash-page-btn" @onclick="() => _page--" disabled="@(_page <= 1)">‹</button>
+                @for (var p = 1; p <= totalPages; p++)
+                {
+                    var pg = p;
+                    @if (p <= 2 || p >= totalPages - 1 || Math.Abs(p - _page) <= 1)
+                    {
+                        <button class="dash-page-btn @(_page == pg ? "active" : "")" @onclick="() => { _page = pg; }">@pg</button>
+                    }
+                    else if (p == 3 && _page > 4)
+                    {
+                        <span class="page-ellipsis">…</span>
+                    }
+                }
+                <button class="dash-page-btn" @onclick="() => _page++" disabled="@(_page >= totalPages)">›</button>
+            </div>
+        }
     }
 </div>
 
@@ -320,6 +202,13 @@
     private DashboardDto? _data;
     private bool _loading = true;
     private string? _errorMessage;
+    private string _activeTab = "pending";
+    private int _page = 1;
+
+    // Computed pending count: approval queue + payment queue
+    private int _pendingCount =>
+        (_data?.MyApprovalQueue?.TotalCount ?? 0) +
+        (_data?.PaymentQueue?.TotalCount ?? 0);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -343,20 +232,44 @@
         }
     }
 
-    // ── Navigation helpers ────────────────────────────────────────────────
+    private void SetTab(string tab)
+    {
+        _activeTab = tab;
+        _page = 1;
+    }
+
+    private IReadOnlyList<BudgetRequestSummaryDto> GetActiveTabRows()
+    {
+        if (_data is null) return Array.Empty<BudgetRequestSummaryDto>();
+
+        var empty = (IReadOnlyList<BudgetRequestSummaryDto>)Array.Empty<BudgetRequestSummaryDto>();
+        return _activeTab switch
+        {
+            "pending"   => (_data.MyApprovalQueue?.TopItems ?? empty)
+                           .Concat(_data.PaymentQueue?.TopItems ?? empty)
+                           .DistinctBy(r => r.Id).ToList(),
+            "actions"   => _data.Employee.ActionRequired,
+            "inflight"  => _data.Employee.InFlight,
+            "completed" => _data.Employee.RecentlyCompleted,
+            "stuck"     => _data.StuckRequests?.TopItems ?? empty,
+            _           => empty
+        };
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────
 
     private void OpenRequest(Guid id) => Nav.NavigateTo($"requests/{id}");
 
-    // Drafts/SentBack open the edit page; otherwise the detail view.
-    private void OpenRequestEdit(BudgetRequestSummaryDto r)
+    private void OpenRequestSmart(BudgetRequestSummaryDto r)
     {
-        var url = r.Status is RequestStatus.Draft or RequestStatus.SentBack
+        var url = (_activeTab == "actions" &&
+                   r.Status is RequestStatus.Draft or RequestStatus.SentBack)
             ? $"requests/{r.Id}/edit"
             : $"requests/{r.Id}";
         Nav.NavigateTo(url);
     }
 
-    // ── Display helpers ───────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────
 
     private string RequesterName(Guid id) =>
         _data is not null && _data.RequesterNames.TryGetValue(id, out var name) ? name : "—";
@@ -366,59 +279,32 @@
     private static string Truncate(string s, int max) =>
         string.IsNullOrEmpty(s) ? "" : (s.Length <= max ? s : s[..max] + "…");
 
-    private static string WaitingLabel(DateTime? submittedAt)
-    {
-        if (!submittedAt.HasValue) return "—";
-        var days = (int)(DateTime.UtcNow - submittedAt.Value).TotalDays;
-        return days switch
-        {
-            <= 0 => "today",
-            1    => "1 day",
-            _    => $"{days} days"
-        };
-    }
-
-    private static string WaitingClass(DateTime? submittedAt)
-    {
-        if (!submittedAt.HasValue) return "";
-        var days = (DateTime.UtcNow - submittedAt.Value).TotalDays;
-        return days > 3 ? "text-danger fw-semibold" : "";
-    }
-
-    private bool HasStaleItem(IReadOnlyList<BudgetRequestSummaryDto> items) =>
-        items.Any(r => r.SubmittedAt.HasValue
-                       && (DateTime.UtcNow - r.SubmittedAt.Value).TotalDays > 3);
-
-    // ── Labels / badges (matches conventions used in Inbox.razor) ────────
-
     private static string StatusLabel(RequestStatus s) => s switch
     {
         RequestStatus.Draft             => "Draft",
         RequestStatus.PendingDeptHead   => "Pending Head",
         RequestStatus.PendingManagement => "Pending Mgmt",
         RequestStatus.PendingFinance    => "Pending Finance",
-        RequestStatus.SentBack          => "Sent back",
+        RequestStatus.SentBack          => "Sent Back",
         RequestStatus.Approved          => "Approved",
-        RequestStatus.PartiallyPaid     => "Part. paid",
+        RequestStatus.PartiallyPaid     => "Part. Paid",
         RequestStatus.Paid              => "Paid",
         RequestStatus.Rejected          => "Rejected",
         RequestStatus.Cancelled         => "Cancelled",
-        _ => s.ToString()
+        _                               => s.ToString()
     };
 
     private static string StatusBadgeClass(RequestStatus s) => s switch
     {
-        RequestStatus.Draft             => "bg-light text-dark border",
+        RequestStatus.Draft                                   => "status-badge-draft",
         RequestStatus.PendingDeptHead
             or RequestStatus.PendingManagement
-            or RequestStatus.PendingFinance => "bg-warning text-dark",
-        RequestStatus.SentBack          => "bg-danger",
-        RequestStatus.Approved          => "bg-primary",
-        RequestStatus.PartiallyPaid     => "bg-info text-dark",
-        RequestStatus.Paid              => "bg-success",
-        RequestStatus.Rejected          => "bg-secondary",
-        RequestStatus.Cancelled         => "bg-secondary",
-        _ => "bg-secondary"
+            or RequestStatus.PendingFinance
+            or RequestStatus.SentBack                         => "status-badge-pending",
+        RequestStatus.Approved or RequestStatus.PartiallyPaid => "status-badge-approved",
+        RequestStatus.Paid or RequestStatus.Reconciled        => "status-badge-paid",
+        RequestStatus.Rejected or RequestStatus.Cancelled     => "status-badge-rejected",
+        _                                                     => "status-badge-draft"
     };
 
     private static string TypeLabel(BudgetRequestType t) => t switch
@@ -426,14 +312,6 @@
         BudgetRequestType.Urgent          => "Urgent",
         BudgetRequestType.Standard        => "Standard",
         BudgetRequestType.ProjectProposal => "Proposal",
-        _ => t.ToString()
-    };
-
-    private static string TypeBadgeClass(BudgetRequestType t) => t switch
-    {
-        BudgetRequestType.Urgent          => "bg-danger",
-        BudgetRequestType.Standard        => "bg-secondary",
-        BudgetRequestType.ProjectProposal => "bg-info text-dark",
-        _ => "bg-secondary"
+        _                                 => t.ToString()
     };
 }
