@@ -179,7 +179,7 @@
                                     }
                                 </td>
                                 <td>
-                                    <span class="badge badge-role">@StatusLabel(r.Status)</span>
+                                    <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                     <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                         MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                         RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
@@ -495,13 +495,17 @@
         _ => s.ToString()
     };
 
-    private static string StatusBadge(RequestStatus s) => s switch
+    private static string StatusBadgeClass(RequestStatus s) => s switch
     {
+        RequestStatus.Draft => "badge-draft",
         RequestStatus.PendingDeptHead or RequestStatus.PendingManagement
             or RequestStatus.PendingFinance or RequestStatus.PendingReconciliation
-            or RequestStatus.AwaitingRefund => "bg-warning text-dark",
-        RequestStatus.AwaitingReimbursement => "bg-info text-dark",
-        RequestStatus.Reconciled => "bg-success",
-        _ => "bg-secondary"
+            or RequestStatus.AwaitingRefund => "badge-warning",
+        RequestStatus.SentBack or RequestStatus.AwaitingReimbursement => "badge-info",
+        RequestStatus.Approved or RequestStatus.PartiallyPaid => "badge-approved",
+        RequestStatus.Reconciled or RequestStatus.Paid => "badge-paid",
+        RequestStatus.Rejected => "badge-rejected",
+        RequestStatus.Cancelled => "badge-inactive",
+        _ => "badge-draft"
     };
 }

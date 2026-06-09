@@ -285,10 +285,10 @@
                                 <td class="text-end">@r.RequestedAmount.ToString("N2")</td>
                                 <td class="text-end text-sm text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
                                 <td>
-                                    <span class="badge badge-role">@StatusLabel(r.Status)</span>
+                                    <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                     @if (r.IsOverLimit)
                                     {
-                                        <span class="badge badge-role" title="Routed through Management">Over-limit</span>
+                                        <span class="badge badge-warning" title="Routed through Management">Over-limit</span>
                                     }
                                 </td>
                                 <td class="text-sm">
@@ -773,23 +773,23 @@
         _                               => s.ToString()
     };
 
-    private static string StatusBadge(RequestStatus s) => s switch
+    private static string StatusBadgeClass(RequestStatus s) => s switch
     {
-        RequestStatus.Draft             => "bg-light text-dark border",
+        RequestStatus.Draft             => "badge-draft",
         RequestStatus.PendingDeptHead
             or RequestStatus.PendingManagement
-            or RequestStatus.PendingFinance => "bg-warning text-dark",
-        RequestStatus.SentBack          => "bg-warning text-dark",
-        RequestStatus.Approved          => "bg-primary",
-        RequestStatus.PartiallyPaid     => "bg-info text-dark",
-        RequestStatus.Paid              => "bg-success",
-        RequestStatus.Rejected          => "bg-danger",
-        RequestStatus.Cancelled         => "bg-secondary",
-        RequestStatus.PendingReconciliation => "bg-warning text-dark",
-        RequestStatus.AwaitingRefund        => "bg-warning text-dark",
-        RequestStatus.AwaitingReimbursement => "bg-info text-dark",
-        RequestStatus.Reconciled            => "bg-success",
-        _                               => "bg-secondary"
+            or RequestStatus.PendingFinance => "badge-warning",
+        RequestStatus.SentBack          => "badge-info",
+        RequestStatus.Approved          => "badge-approved",
+        RequestStatus.PartiallyPaid     => "badge-info",
+        RequestStatus.Paid              => "badge-paid",
+        RequestStatus.Rejected          => "badge-rejected",
+        RequestStatus.Cancelled         => "badge-inactive",
+        RequestStatus.PendingReconciliation => "badge-warning",
+        RequestStatus.AwaitingRefund        => "badge-warning",
+        RequestStatus.AwaitingReimbursement => "badge-info",
+        RequestStatus.Reconciled            => "badge-paid",
+        _                               => "badge-draft"
     };
 
     private static string TypeLabel(BudgetRequestType t) => t switch

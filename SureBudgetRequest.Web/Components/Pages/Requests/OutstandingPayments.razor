@@ -154,7 +154,7 @@
                             <td class="text-end">@r.ApprovedAmount.ToString("N2")</td>
                             <td class="text-end">@r.TotalPaid.ToString("N2")</td>
                             <td class="text-end font-semibold">@r.RemainingBalance.ToString("N2")</td>
-                            <td><span class="badge badge-role">@StatusLabel(r.Status)</span>
+                            <td><span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                 <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                     MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
@@ -425,10 +425,10 @@
         _ => s.ToString()
     };
 
-    private static string StatusBadge(RequestStatus s) => s switch
+    private static string StatusBadgeClass(RequestStatus s) => s switch
     {
-        RequestStatus.Approved      => "bg-primary",
-        RequestStatus.PartiallyPaid => "bg-info text-dark",
-        _ => "bg-secondary"
+        RequestStatus.Approved      => "badge-approved",
+        RequestStatus.PartiallyPaid => "badge-info",
+        _ => "badge-draft"
     };
 }
