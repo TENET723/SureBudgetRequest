@@ -62,8 +62,11 @@
                             <td class="text-muted text-sm">@(i + 1)</td>
                             <td><strong>@m.Name</strong></td>
                             <td>
-                                @if (m.IsActive) { <span class="badge badge-role">Active</span> }
-                                else             { <span class="badge badge-role">Inactive</span> }
+                                <label class="toggle" title="@(m.IsActive ? "Active" : "Inactive")" style="cursor:default">
+                                    <input type="checkbox" checked="@m.IsActive" disabled style="opacity:0;width:0;height:0;position:absolute" />
+                                    <span class="toggle-track"></span>
+                                    <span class="toggle-thumb"></span>
+                                </label>
                             </td>
                             <td>
                                 @if (m.RequiresAttachment)
@@ -76,14 +79,14 @@
                                 }
                             </td>
                             <td class="text-end">
-                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(m)">Edit</button>
+                                <button class="btn btn-icon " @onclick="() => OpenEdit(m)" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></button>
                                 @if (m.IsActive)
                                 {
-                                    <button class="btn btn-sm btn-outline-danger ml-1" @onclick="() => ConfirmDeactivate(m)">Deactivate</button>
+                                    <button class="btn btn-icon text-danger" @onclick="() => ConfirmDeactivate(m)" title="Deactivate"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m5 11H7v-2h10z"/></svg></button>
                                 }
                                 else
                                 {
-                                    <button class="btn btn-sm btn-outline-success ml-1" @onclick="() => DoReactivate(m)" disabled="@_saving">Reactivate</button>
+                                    <button class="btn btn-icon text-success" @onclick="() => DoReactivate(m)" title="Reactivate" disabled="@_saving"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m5 11h-4v4h-2v-4H7v-2h4V7h2v4h4z"/></svg></button>
                                 }
                             </td>
                         </tr>

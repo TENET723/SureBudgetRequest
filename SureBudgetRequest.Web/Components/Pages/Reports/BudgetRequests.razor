@@ -37,188 +37,24 @@
     }
     else
     {
-        @* ─── Filter card ─────────────────────────────────────────────── *@
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="form-grid-3">
-
-                    @* Free-text search *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Search</label>
-                        <ListSearchBox @bind-Value="_search" OnEnter="ApplyAsync"
-                                       Placeholder="Search reference, reason, or requester" />
-                    </div>
-
-                    @* Date range *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Submitted from</label>
-                        <input type="date" class="input"
-                               @bind="_fromDate" />
-                    </div>
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Submitted to</label>
-                        <input type="date" class="input"
-                               @bind="_toDate" />
-                    </div>
-
-                    @* Department *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Department</label>
-                        @if (_departmentLocked)
-                        {
-                            <input type="text" class="input" readonly
-                                   value="@(_departments.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "—")" />
-                        }
-                        else
-                        {
-                            <select class="select" @bind="_selectedDepartmentId">
-                                <option value="">All departments</option>
-                                @foreach (var d in _departments)
-                                {
-                                    <option value="@d.Id">@d.Name</option>
-                                }
-                            </select>
-                        }
-                    </div>
-
-                    @* COA *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Chart of Account</label>
-                        <select class="select" @bind="_selectedCoaId">
-                            <option value="">All accounts</option>
-                            @foreach (var c in _coas)
-                            {
-                                <option value="@c.Id">@c.Code — @c.Name@(c.IsActive ? "" : " (inactive)")</option>
-                            }
-                        </select>
-                    </div>
-
-                    @* Currency *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Currency</label>
-                        <select class="select" @bind="_selectedCurrencyCode">
-                            <option value="">All currencies</option>
-                            @foreach (var c in _currencies)
-                            {
-                                <option value="@c.Code">@c.Code — @c.Name</option>
-                            }
-                        </select>
-                    </div>
-
-                    @* Requester *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Requester</label>
-                        <select class="select" @bind="_selectedRequesterId">
-                            <option value="">Any requester</option>
-                            @foreach (var u in _allUsers)
-                            {
-                                <option value="@u.Id">@u.FullName</option>
-                            }
-                        </select>
-                    </div>
-
-                    @* Approver *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Approved by</label>
-                        <select class="select" @bind="_selectedApproverId">
-                            <option value="">Any approver</option>
-                            @foreach (var u in _approverCandidates)
-                            {
-                                <option value="@u.Id">@u.FullName (@RoleLabel(u.Role))</option>
-                            }
-                        </select>
-                    </div>
-
-                    @* Over-limit *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Over-limit</label>
-                        <select class="select" @bind="_overLimitFilter">
-                            <option value="any">All requests</option>
-                            <option value="over">Over-limit only (routed Management)</option>
-                            <option value="within">Within-limit only</option>
-                        </select>
-                    </div>
-
-                    @* Amount range (MMK) — inclusive bounds on the MMK-at-submission amount *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Amount from (MMK)</label>
-                        <input type="number" step="any" min="0" class="input"
-                               placeholder="No minimum" @bind="_amountMmkFrom" />
-                    </div>
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Amount to (MMK)</label>
-                        <input type="number" step="any" min="0" class="input"
-                               placeholder="No maximum" @bind="_amountMmkTo" />
-                    </div>
-
-                    @* Period overrun *@
-                    <div class="col-md-3 flex align-items-end">
-                        <label class="form-check text-sm mb-1">
-                            <input class="form-check-input" type="checkbox" @bind="_periodOverrunOnly" />
-                            <span class="form-check-label">Period overrun only</span>
-                        </label>
-                    </div>
-
-                    @* Type — multi-select via checkboxes, same style as Status *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Type</label>
-                        <div class="flex gap-3">
-                            @foreach (var t in AllTypes)
-                            {
-                                var type = t;
-                                <label class="form-check text-sm ">
-                                    <input class="form-check-input" type="checkbox"
-                                           checked="@_selectedTypes.Contains(type)"
-                                           @onchange="@((ChangeEventArgs e) => ToggleType(type, (bool)e.Value!))" />
-                                    <span class="form-check-label">@TypeLabel(type)</span>
-                                </label>
-                            }
-                        </div>
-                    </div>
-
-                    @* Status — multi-select via checkboxes *@
-                    <div>
-                        <label class="form-label text-sm text-muted mb-1">Status</label>
-                        <div class="flex gap-2 mb-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    @onclick="@(() => ApplyStatusPreset(StatusPreset.Active))">Active</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    @onclick="@(() => ApplyStatusPreset(StatusPreset.Closed))">Closed</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    @onclick="@(() => ApplyStatusPreset(StatusPreset.NeedsAttention))">Needs attention</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    @onclick="@(() => ApplyStatusPreset(StatusPreset.Clear))">Clear</button>
-                        </div>
-                        <div class="flex gap-3">
-                            @foreach (var s in AllStatuses)
-                            {
-                                var status = s;
-                                <label class="form-check text-sm ">
-                                    <input class="form-check-input" type="checkbox"
-                                           checked="@_selectedStatuses.Contains(status)"
-                                           @onchange="@((ChangeEventArgs e) => ToggleStatus(status, (bool)e.Value!))" />
-                                    <span class="form-check-label">@StatusLabel(status)</span>
-                                </label>
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex gap-2 mt-3">
-                    <button class="btn btn-primary btn-sm" @onclick="ApplyAsync" disabled="@_loading">
-                        @if (_loading)
-                        {
-                            <span class="spinner-border spinner-border-sm mr-1"></span>
-                        }
-                        Apply
-                    </button>
-                    <button class="btn btn-outline btn-sm" @onclick="ClearAsync" disabled="@_loading">
-                        Clear
-                    </button>
-                    <button class="btn btn-success btn-sm" @onclick="ExportAsync" disabled="@_loading">
-                        Export to Excel
-                    </button>
-                </div>
+        @* ─── Toolbar ─────────────────────────────────────────────────── *@
+        <div class="toolbar mb-4">
+            <ListSearchBox @bind-Value="_search" OnEnter="ApplyAsync"
+                           Placeholder="Search by reference, request, reason" />
+            <button class="btn btn-outline btn-sm" @onclick="() => _showFilter = true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Filter
+                @if (_activeFilterCount > 0)
+                {
+                    <span class="topbar-count-badge ml-1">@_activeFilterCount</span>
+                }
+            </button>
+            <div class="toolbar-right">
+                <button class="btn btn-success btn-sm" @onclick="ExportAsync" disabled="@_loading">
+                    Export to Excel
+                </button>
             </div>
         </div>
 
@@ -230,7 +66,7 @@
 
         @if (_loading)
         {
-            <div class="text-center ">
+            <div class="text-center">
                 <div class="spinner spinner-sm"></div>
             </div>
         }
@@ -238,7 +74,7 @@
         {
             <div class="table-wrapper">
                 <table class="data-table">
-                    <thead >
+                    <thead>
                         <tr>
                             <th class="col-no">#</th>
                             <th role="button" style="cursor:pointer"
@@ -255,12 +91,10 @@
                             </th>
                             <th>Department</th>
                             <th>Reason</th>
-                            <th>Ccy</th>
+                            <th class="text-end">Ccy</th>
                             <th class="text-end">Requested</th>
-                            <th class="text-end" role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
-                                ≈ MMK @SortIndicator(BudgetRequestSortBy.AmountInMmk)
-                            </th>
+                            <th class="text-end" role="button" style="cursor:pointer;text-align:right"
+                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">≈ MMK @SortIndicator(BudgetRequestSortBy.AmountInMmk)</th>
                             <th role="button" style="cursor:pointer"
                                 @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
                                 Status @SortIndicator(BudgetRequestSortBy.Status)
@@ -281,7 +115,7 @@
                                 <td class="text-sm">@LookupUser(r.RequesterId)</td>
                                 <td class="text-sm">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
                                 <td>@Truncate(r.Reasons, 40)</td>
-                                <td class="text-sm text-muted">@r.CurrencyCode</td>
+                                <td class="text-end text-sm text-muted">@r.CurrencyCode</td>
                                 <td class="text-end">@r.RequestedAmount.ToString("N2")</td>
                                 <td class="text-end text-sm text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
                                 <td>
@@ -312,13 +146,13 @@
                                     }
                                 </td>
                                 <td class="text-end">
-                                    <a href="requests/@r.Id" class="btn btn-outline btn-sm">View</a>
+                                    <a href="requests/@r.Id" class="btn btn-icon " title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path fill="currentColor" d="M30.94 15.66A16.69 16.69 0 0 0 16 5A16.69 16.69 0 0 0 1.06 15.66a1 1 0 0 0 0 .68A16.69 16.69 0 0 0 16 27a16.69 16.69 0 0 0 14.94-10.66a1 1 0 0 0 0-.68M16 22.5a6.5 6.5 0 1 1 6.5-6.5a6.51 6.51 0 0 1-6.5 6.5"/></svg></a>
                                 </td>
                             </tr>
                         }
                         @if (_result is null || _result.Items.Count == 0)
                         {
-                            <tr><td colspan="13" class="text-center text-muted ">No requests match the current filters.</td></tr>
+                            <tr><td colspan="13" class="text-center text-muted">No requests match the current filters.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -326,7 +160,6 @@
 
             @if (_result is not null && _result.Items.Count > 0)
             {
-                @* Paging controls *@
                 <div class="flex items-center justify-between flex-wrap gap-2 mt-2">
                     <div class="flex items-center gap-2">
                         <button class="btn btn-outline btn-sm" @onclick="PrevPage"
@@ -350,7 +183,6 @@
                         </div>
                     </div>
 
-                    @* Page subtotal *@
                     <div class="text-sm text-muted text-end">
                         <div>Page subtotal (MMK):
                             <strong class="text-dark">@_result.Items.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N2")</strong>
@@ -363,12 +195,193 @@
     }
 </div>
 
+@* ─── Filter Modal ─────────────────────────────────────────────────────────── *@
+@if (_showFilter)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h6 class="modal-title">Filter</h6>
+                <button class="btn btn-icon modal-close" @onclick="() => _showFilter = false">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid-3 mb-4">
+
+                    @* Date range *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Submitted from</label>
+                        <input type="date" class="input" @bind="_fromDate" />
+                    </div>
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Submitted to</label>
+                        <input type="date" class="input" @bind="_toDate" />
+                    </div>
+
+                    @* Department *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Department</label>
+                        @if (_departmentLocked)
+                        {
+                            <input type="text" class="input" readonly
+                                   value="@(_departments.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "—")" />
+                        }
+                        else
+                        {
+                            <select class="select" @bind="_selectedDepartmentId">
+                                <option value="">All departments</option>
+                                @foreach (var d in _departments)
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                        }
+                    </div>
+
+                    @* COA *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Chief Account</label>
+                        <select class="select" @bind="_selectedCoaId">
+                            <option value="">All accounts</option>
+                            @foreach (var c in _coas)
+                            {
+                                <option value="@c.Id">@c.Code — @c.Name@(c.IsActive ? "" : " (inactive)")</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Currency *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Currency</label>
+                        <select class="select" @bind="_selectedCurrencyCode">
+                            <option value="">All currencies</option>
+                            @foreach (var c in _currencies)
+                            {
+                                <option value="@c.Code">@c.Code — @c.Name</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Requester *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Requester</label>
+                        <select class="select" @bind="_selectedRequesterId">
+                            <option value="">All requesters</option>
+                            @foreach (var u in _allUsers)
+                            {
+                                <option value="@u.Id">@u.FullName</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Approver *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Approved by</label>
+                        <select class="select" @bind="_selectedApproverId">
+                            <option value="">All approvers</option>
+                            @foreach (var u in _approverCandidates)
+                            {
+                                <option value="@u.Id">@u.FullName (@RoleLabel(u.Role))</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Over-limit *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Over Limit</label>
+                        <select class="select" @bind="_overLimitFilter">
+                            <option value="any">All limits</option>
+                            <option value="over">Over-limit only</option>
+                            <option value="within">Within-limit only</option>
+                        </select>
+                    </div>
+
+                    @* Amount from *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Amount from (MMK)</label>
+                        <input type="number" step="any" min="0" class="input"
+                               placeholder="No minimum" @bind="_amountMmkFrom" />
+                    </div>
+
+                    @* Amount to *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Amount to (MMK)</label>
+                        <input type="number" step="any" min="0" class="input"
+                               placeholder="No maximum" @bind="_amountMmkTo" />
+                    </div>
+
+                    @* Department (Standard filter) *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Department</label>
+                        <select class="select" @bind="_selectedDepartmentId">
+                            <option value="">Standard</option>
+                            @foreach (var d in _departments)
+                            {
+                                <option value="@d.Id">@d.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @* Type *@
+                <div class="mb-4">
+                    <label class="form-label text-sm text-muted mb-2">Type</label>
+                    <div class="flex gap-4">
+                        @foreach (var t in AllTypes)
+                        {
+                            var type = t;
+                            <label class="flex items-center gap-2 text-sm" style="cursor:pointer">
+                                <input type="checkbox"
+                                       style="width:14px;height:14px;accent-color:var(--color-primary)"
+                                       checked="@_selectedTypes.Contains(type)"
+                                       @onchange="@((ChangeEventArgs e) => ToggleType(type, (bool)e.Value!))" />
+                                @TypeLabel(type)
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                @* Status *@
+                <div class="mb-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="form-label text-sm text-muted">Status</label>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(StatusPreset.Active))">Active</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(StatusPreset.Closed))">Closed</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(StatusPreset.NeedsAttention))">Needs attention</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(StatusPreset.Clear))">Clear</button>
+                        </div>
+                    </div>
+                    <div class="checkbox-grid">
+                        @foreach (var s in AllStatuses)
+                        {
+                            var status = s;
+                            <label>
+                                <input type="checkbox"
+                                       checked="@_selectedStatuses.Contains(status)"
+                                       @onchange="@((ChangeEventArgs e) => ToggleStatus(status, (bool)e.Value!))" />
+                                @StatusLabel(status)
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="ClearAsync">Clear</button>
+                <button class="btn btn-primary btn-sm" @onclick="ApplyAndClose" disabled="@_loading">
+                    @if (_loading) { <span class="spinner spinner-sm mr-1"></span> }
+                    Apply
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // ── Filter state ─────────────────────────────────────────────────────────
-    // Note: dropdown bindings use string state (not Guid?). Blazor's @bind on
-    // a <select> with an empty-value option ("") doesn't reliably round-trip
-    // to Guid?. We follow the pattern already established in Admin/Users.razor
-    // (_filterDept = "") and parse to the typed value at query time.
     private string _search = "";
     private DateTime? _fromDate;
     private DateTime? _toDate;
@@ -377,19 +390,36 @@
     private string _selectedCurrencyCode = "";
     private string _selectedRequesterId = "";
     private string _selectedApproverId = "";
-    // "any" | "over" | "within"
     private string _overLimitFilter = "any";
     private HashSet<RequestStatus> _selectedStatuses = new();
-
-    // ── Report filters (v5) ──────────────────────────────────────────────────
     private HashSet<BudgetRequestType> _selectedTypes = new();
     private decimal? _amountMmkFrom;
     private decimal? _amountMmkTo;
     private bool _periodOverrunOnly;
+    private bool _departmentLocked;
 
-    private bool _departmentLocked; // true for DeptHead — filter is forced to their dept
+    // ── UI state ─────────────────────────────────────────────────────────────
+    private bool _showFilter;
 
-    // ── Reference data for dropdowns ─────────────────────────────────────────
+    private int _activeFilterCount => new[]
+    {
+        !string.IsNullOrEmpty(_search),
+        _fromDate.HasValue,
+        _toDate.HasValue,
+        !string.IsNullOrEmpty(_selectedDepartmentId),
+        !string.IsNullOrEmpty(_selectedCoaId),
+        !string.IsNullOrEmpty(_selectedCurrencyCode),
+        !string.IsNullOrEmpty(_selectedRequesterId),
+        !string.IsNullOrEmpty(_selectedApproverId),
+        _overLimitFilter != "any",
+        _selectedStatuses.Count > 0,
+        _selectedTypes.Count > 0,
+        _amountMmkFrom.HasValue,
+        _amountMmkTo.HasValue,
+        _periodOverrunOnly,
+    }.Count(x => x);
+
+    // ── Reference data ───────────────────────────────────────────────────────
     private List<DepartmentDto> _departments = new();
     private List<CoaDto> _coas = new();
     private List<CurrencyDto> _currencies = new();
@@ -398,7 +428,7 @@
     private Dictionary<Guid, string> _userNames = new();
     private Dictionary<Guid, string> _departmentNames = new();
 
-    // ── Paging & sort state ──────────────────────────────────────────────────
+    // ── Paging & sort ────────────────────────────────────────────────────────
     private int _page = 1;
     private int _pageSize = 50;
     private BudgetRequestSortBy _sortBy = BudgetRequestSortBy.SubmittedAt;
@@ -409,7 +439,6 @@
     private bool _loading = true;
     private string? _errorMessage;
 
-    // All statuses, displayed in workflow order.
     private static readonly RequestStatus[] AllStatuses =
     {
         RequestStatus.Draft,
@@ -428,7 +457,6 @@
         RequestStatus.Reconciled,
     };
 
-    // The four request types, in enum order, for the Type multi-select.
     private static readonly BudgetRequestType[] AllTypes =
     {
         BudgetRequestType.Urgent,
@@ -445,12 +473,10 @@
             return;
         }
 
-        // Default date range: current calendar month → today (UTC).
         var nowUtc = DateTime.UtcNow;
         _fromDate = new DateTime(nowUtc.Year, nowUtc.Month, 1);
         _toDate = nowUtc.Date;
 
-        // Dept Heads: lock dept filter to their own department.
         if (CurrentUser.Role == UserRole.DepartmentHead)
         {
             _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
@@ -463,9 +489,6 @@
 
     private async Task LoadReferenceDataAsync()
     {
-        // Departments — load all (active + inactive) so we can resolve names
-        // for historical rows that reference deactivated depts. But only show
-        // active ones in the dropdown.
         var depts = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: true));
         if (depts.IsSuccess)
         {
@@ -473,18 +496,14 @@
             _departmentNames = depts.Value!.ToDictionary(d => d.Id, d => d.Name);
         }
 
-        // COAs — include inactive in dropdown so historical filters still work.
         var coas = await Mediator.Send(new ListCoasQuery(IncludeInactive: true));
         if (coas.IsSuccess)
             _coas = coas.Value!.OrderBy(c => c.Code).ToList();
 
-        // Currencies.
         var ccys = await Mediator.Send(new ListCurrenciesQuery(IncludeInactive: true));
         if (ccys.IsSuccess)
             _currencies = ccys.Value!.OrderBy(c => c.Code == "MMK" ? 0 : 1).ThenBy(c => c.Code).ToList();
 
-        // Users — load all active users for the requester picker; the approver
-        // picker is narrowed to roles that can actually approve.
         var users = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
         if (users.IsSuccess)
         {
@@ -507,10 +526,6 @@
 
         try
         {
-            // Convert the To-date picker to an EXCLUSIVE upper bound by
-            // adding a day. Keeps the SQL filter unambiguous and avoids the
-            // off-by-one trap where "to = May 19" excludes May 19 evening
-            // submissions.
             DateTime? fromUtc = _fromDate.HasValue
                 ? DateTime.SpecifyKind(_fromDate.Value.Date, DateTimeKind.Utc)
                 : null;
@@ -525,18 +540,12 @@
                 _        => null
             };
 
-            // Multi-select status: pass via Statuses when at least one is
-            // selected, null when none (= "any status").
             IReadOnlyCollection<RequestStatus>? statuses =
                 _selectedStatuses.Count > 0 ? _selectedStatuses.ToList() : null;
 
-            // Multi-select type: same shape as statuses.
             IReadOnlyCollection<BudgetRequestType>? types =
                 _selectedTypes.Count > 0 ? _selectedTypes.ToList() : null;
 
-            // Amount range — inclusive bounds. If both are supplied but reversed
-            // (from > to), ignore the range rather than erroring or returning an
-            // empty set.
             decimal? amountFrom = _amountMmkFrom;
             decimal? amountTo = _amountMmkTo;
             if (amountFrom.HasValue && amountTo.HasValue && amountFrom.Value > amountTo.Value)
@@ -545,8 +554,6 @@
                 amountTo = null;
             }
 
-            // Server-side paged search. Ordering, paging and the total count all
-            // come back from the handler, so there's no client-side sort here.
             var result = await Mediator.Send(new SearchBudgetRequestsQuery(
                 RequesterId: ParseGuid(_selectedRequesterId),
                 DepartmentId: ParseGuid(_selectedDepartmentId),
@@ -569,9 +576,7 @@
                 PageSize: _pageSize));
 
             if (result.IsSuccess)
-            {
                 _result = result.Value!;
-            }
             else
             {
                 _errorMessage = result.Error.Message;
@@ -591,22 +596,21 @@
         return RunQueryAsync();
     }
 
-    // ── Sorting ──────────────────────────────────────────────────────────────
-    // Clicking the active column toggles direction; clicking a new column sets a
-    // sensible default (newest/largest first for date & amount, A→Z for text).
+    private async Task ApplyAndClose()
+    {
+        _showFilter = false;
+        await ApplyAsync();
+    }
+
     private Task SortByColumn(BudgetRequestSortBy column)
     {
         if (_sortBy == column)
-        {
             _sortDescending = !_sortDescending;
-        }
         else
         {
             _sortBy = column;
-            _sortDescending = column is BudgetRequestSortBy.SubmittedAt
-                                      or BudgetRequestSortBy.AmountInMmk;
+            _sortDescending = column is BudgetRequestSortBy.SubmittedAt or BudgetRequestSortBy.AmountInMmk;
         }
-
         _page = 1;
         return RunQueryAsync();
     }
@@ -614,7 +618,6 @@
     private string SortIndicator(BudgetRequestSortBy column) =>
         _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
 
-    // ── Paging ───────────────────────────────────────────────────────────────
     private Task PrevPage()
     {
         if (_result is null || !_result.HasPrev) return Task.CompletedTask;
@@ -635,15 +638,9 @@
         return RunQueryAsync();
     }
 
-    // Builds the export URL from the CURRENT filter state and opens it in a new
-    // tab. The endpoint returns Content-Disposition: attachment, so the browser
-    // downloads the file. We use window.open rather than Nav.NavigateTo(forceLoad)
-    // so the Blazor circuit isn't torn down. Role scoping is re-enforced
-    // server-side, so we don't reproduce it here beyond the existing dept lock.
     private async Task ExportAsync()
     {
         var query = new List<string>();
-
         void Add(string key, string? value)
         {
             if (!string.IsNullOrEmpty(value))
@@ -685,8 +682,6 @@
         _amountMmkTo = null;
         _periodOverrunOnly = false;
 
-        // Don't unlock the dept filter for Dept Heads — they always see only
-        // their own dept regardless of "Clear".
         if (!_departmentLocked)
             _selectedDepartmentId = "";
 
@@ -708,8 +703,6 @@
 
     private enum StatusPreset { Active, Closed, NeedsAttention, Clear }
 
-    // Presets overwrite the status selection — the checkboxes remain the source
-    // of truth, so the user can tweak the result afterwards.
     private void ApplyStatusPreset(StatusPreset preset)
     {
         _selectedStatuses = preset switch
@@ -739,8 +732,6 @@
             _ => new(),
         };
     }
-
-    // ── Display helpers ──────────────────────────────────────────────────────
 
     private static Guid? ParseGuid(string s) =>
         Guid.TryParse(s, out var g) ? g : null;
