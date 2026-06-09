@@ -1,0 +1,67 @@
+@inject ToastService Toast
+@implements IDisposable
+
+@if (Toast.Toasts.Count > 0)
+{
+    <div class="toast-container">
+        @foreach (var t in Toast.Toasts.ToList())
+        {
+            <div class="toast toast-@t.Level.ToString().ToLower()">
+                <div class="toast-icon">
+                    @if (t.Level == ToastLevel.Success)
+                    {
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="9" r="8" fill="var(--color-success)" opacity="0.15"/>
+                            <path d="M5.5 9l2.5 2.5 4.5-5" stroke="var(--color-success)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    }
+                    else if (t.Level == ToastLevel.Error)
+                    {
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="9" r="8" fill="var(--color-danger)" opacity="0.15"/>
+                            <path d="M6 6l6 6M12 6l-6 6" stroke="var(--color-danger)" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    }
+                    else if (t.Level == ToastLevel.Warning)
+                    {
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="9" r="8" fill="var(--color-warning)" opacity="0.15"/>
+                            <path d="M9 6v4M9 12.5v.5" stroke="var(--color-warning)" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                            <circle cx="9" cy="9" r="8" fill="var(--color-info)" opacity="0.15"/>
+                            <path d="M9 8v5M9 5.5v.5" stroke="var(--color-info)" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    }
+                </div>
+                <div class="toast-content">
+                    <div class="toast-title">@t.Title</div>
+                    @if (!string.IsNullOrEmpty(t.Message))
+                    {
+                        <div class="toast-message">@t.Message</div>
+                    }
+                </div>
+                <button class="toast-close" @onclick="() => Toast.Dismiss(t.Id)" title="Dismiss">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        Toast.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Toast.OnChange -= StateHasChanged;
+    }
+}

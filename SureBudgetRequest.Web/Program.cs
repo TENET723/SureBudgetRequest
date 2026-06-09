@@ -56,6 +56,7 @@ builder.Services.AddCascadingAuthenticationState();
 // ICurrentUser is now resolved from cookie claims via AuthenticationStateProvider.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUserService>();
+builder.Services.AddScoped<SureBudgetRequest.Web.Services.ToastService>();
 
 var app = builder.Build();
 

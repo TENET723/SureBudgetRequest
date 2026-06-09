@@ -4,11 +4,14 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 
-<div class="app-shell">
+<div class="app-shell @(_sidebarCollapsed ? "sidebar-collapsed" : "")" id="app-shell">
     <aside class="sidebar" id="app-sidebar">
         <div class="nav-brand">
-            <a href="" class="brand-logo">aSure Budget</a>
-            <button class="btn btn-icon sidebar-toggle" title="Toggle sidebar">
+            @if (!_sidebarCollapsed)
+            {
+                <a href="" class="brand-logo">aSure Budget</a>
+            }
+            <button class="btn btn-icon sidebar-toggle" @onclick="ToggleSidebar" title="Toggle sidebar">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <rect x="1" y="2" width="3" height="12" rx="1" fill="currentColor"/>
                     <rect x="6" y="2" width="9" height="2" rx="1" fill="currentColor"/>
@@ -18,7 +21,7 @@
             </button>
         </div>
         <nav class="sidebar-nav">
-            <NavMenu />
+            <NavMenu Collapsed="_sidebarCollapsed" />
         </nav>
     </aside>
 
@@ -57,6 +60,8 @@
     </div>
 </div>
 
+<ToastContainer />
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -65,6 +70,10 @@
 
 @code {
     [CascadingParameter] private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
+
+    private bool _sidebarCollapsed = false;
+
+    private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
 
     protected override async Task OnInitializedAsync()
     {
