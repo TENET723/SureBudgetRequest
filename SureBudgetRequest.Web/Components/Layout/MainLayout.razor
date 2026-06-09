@@ -28,22 +28,22 @@
             <div class="topbar-right">
                 @if (CurrentUser.IsLoaded)
                 {
-                    <button class="notif-bell" title="Notifications">
+                   @*  <button class="notif-bell" title="Notifications">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                             <path d="M10 2a6 6 0 0 0-6 6v3l-1.5 2.5A1 1 0 0 0 3.5 15h13a1 1 0 0 0 .866-1.5L16 11V8a6 6 0 0 0-6-6Z" stroke="currentColor" stroke-width="1.5"/>
                             <path d="M8 15a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.5"/>
                         </svg>
                         <span class="notif-badge">!</span>
-                    </button>
+                    </button> *@
                     <div class="topbar-user">
                         <div class="user-avatar">@(CurrentUser.FullName.Length > 0 ? CurrentUser.FullName[0].ToString().ToUpper() : "?")</div>
                         <div class="user-info">
                             <span class="user-name">@CurrentUser.FullName</span>
                             <span class="user-role"><span class="role-dot"></span>@CurrentUser.Role</span>
                         </div>
-                        <svg class="user-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                       @*  <svg class="user-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
                             <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
+                        </svg> *@
                     </div>
                 }
             </div>
