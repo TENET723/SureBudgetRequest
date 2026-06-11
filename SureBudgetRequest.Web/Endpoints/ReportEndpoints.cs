@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using MediatR;
 using SureBudgetRequest.Application.BudgetRequests.Queries.ExportBudgetRequests;
+using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Web.Services;
 
@@ -31,7 +32,14 @@ public static class ReportEndpoints
                 Guid? requesterId,
                 Guid? approverId,
                 string? overLimit,
-                string[]? statuses) =>
+                string[]? statuses,
+                string? search,
+                string[]? types,
+                decimal? amountFrom,
+                decimal? amountTo,
+                bool? periodOverrun,
+                string? sortBy,
+                bool? sortDesc) =>
             {
                 // Identity is read from HttpContext.User (populated by cookie auth
                 // on this HTTP request), NOT from ICurrentUser — that service is
@@ -84,6 +92,33 @@ public static class ReportEndpoints
                         statusFilter = parsed;
                 }
 
+                // Type filter — same parse-and-drop-invalid shape as statuses.
+                IReadOnlyCollection<BudgetRequestType>? typeFilter = null;
+                if (types is { Length: > 0 })
+                {
+                    var parsedTypes = types
+                        .Select(t => Enum.TryParse<BudgetRequestType>(t, out var bt) ? bt : (BudgetRequestType?)null)
+                        .Where(bt => bt.HasValue)
+                        .Select(bt => bt!.Value)
+                        .ToList();
+                    if (parsedTypes.Count > 0)
+                        typeFilter = parsedTypes;
+                }
+
+                // Amount range — a reversed range (from > to) is ignored, exactly
+                // as the report page does before running its on-screen query.
+                if (amountFrom.HasValue && amountTo.HasValue && amountFrom.Value > amountTo.Value)
+                {
+                    amountFrom = null;
+                    amountTo = null;
+                }
+
+                // Sort — falls back to the page's default (SubmittedAt desc) when
+                // absent or unparsable.
+                var sortColumn = Enum.TryParse<BudgetRequestSortBy>(sortBy, ignoreCase: true, out var sb)
+                    ? sb
+                    : BudgetRequestSortBy.SubmittedAt;
+
                 var result = await mediator.Send(new ExportBudgetRequestsQuery(
                     RequesterId: requesterId,
                     DepartmentId: departmentId,
@@ -93,7 +128,14 @@ public static class ReportEndpoints
                     CoaId: coaId,
                     CurrencyCode: string.IsNullOrEmpty(currency) ? null : currency,
                     ApproverId: approverId,
-                    OverLimitOnly: overLimitOnly), ct);
+                    OverLimitOnly: overLimitOnly,
+                    Types: typeFilter,
+                    AmountInMmkFrom: amountFrom,
+                    AmountInMmkTo: amountTo,
+                    PeriodOverrunOnly: periodOverrun == true ? true : null,
+                    SearchTerm: string.IsNullOrWhiteSpace(search) ? null : search,
+                    SortBy: sortColumn,
+                    SortDescending: sortDesc ?? true), ct);
 
                 if (result.IsFailure || result.Value is null)
                     return Results.BadRequest(new { error = result.Error.Message ?? "Export failed." });

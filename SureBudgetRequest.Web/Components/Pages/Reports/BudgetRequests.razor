@@ -660,6 +660,22 @@
         foreach (var s in _selectedStatuses)
             Add("statuses", s.ToString());
 
+        // Mirror EVERY remaining on-screen filter so the export matches the
+        // table exactly (these were missing before — the cause of UI/export
+        // row-count mismatches).
+        foreach (var t in _selectedTypes)
+            Add("types", t.ToString());
+        if (_amountMmkFrom.HasValue)
+            Add("amountFrom", _amountMmkFrom.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (_amountMmkTo.HasValue)
+            Add("amountTo", _amountMmkTo.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (_periodOverrunOnly)
+            Add("periodOverrun", "true");
+
+        // Sort selection, so the file rows come out in the on-screen order.
+        Add("sortBy", _sortBy.ToString());
+        Add("sortDesc", _sortDescending ? "true" : "false");
+
         var url = "/api/reports/budget-requests/export";
         if (query.Count > 0)
             url += "?" + string.Join("&", query);
