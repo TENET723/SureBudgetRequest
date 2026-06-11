@@ -65,6 +65,13 @@ public interface IBudgetRequestRepository
     /// <paramref name="page"/> is clamped to >= 1 and <paramref name="pageSize"/>
     /// to [1, 100].
     /// </summary>
+    /// <param name="overdueAdvanceOnly">
+    /// <c>null</c> = no filter. <c>true</c> = only advance requests in
+    /// <c>PendingReconciliation</c> whose <c>ReconciliationDeadline</c> has
+    /// already passed (the DB-side equivalent of
+    /// <c>BudgetRequestSummaryDto.IsOverdueAdvance</c>, so the Inbox overdue
+    /// view can page server-side). <c>false</c> = the inverse.
+    /// </param>
     Task<(IReadOnlyList<BudgetRequest> Items, int TotalCount)> SearchAsync(
         Guid? requesterId,
         Guid? departmentId,
@@ -81,6 +88,7 @@ public interface IBudgetRequestRepository
         decimal? amountInMmkTo,
         bool? periodOverrunOnly,
         string? searchTerm,
+        bool? overdueAdvanceOnly,
         BudgetRequestSortBy sortBy,
         bool sortDescending,
         int page,

@@ -188,6 +188,7 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         decimal? amountInMmkTo,
         bool? periodOverrunOnly,
         string? searchTerm,
+        bool? overdueAdvanceOnly,
         BudgetRequestSortBy sortBy,
         bool sortDescending,
         int page,
@@ -198,6 +199,25 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
             periodOverrunOnly, searchTerm);
+
+        // Overdue-advance filter — the DB-side mirror of
+        // BudgetRequestSummaryDto.IsOverdueAdvance, evaluated against a single
+        // UTC "now" captured here so the COUNT and the page see the same cutoff.
+        if (overdueAdvanceOnly.HasValue)
+        {
+            var nowUtc = DateTime.UtcNow;
+            query = overdueAdvanceOnly.Value
+                ? query.Where(r =>
+                    r.Type == BudgetRequestType.Advance
+                    && r.Status == RequestStatus.PendingReconciliation
+                    && r.ReconciliationDeadline != null
+                    && r.ReconciliationDeadline < nowUtc)
+                : query.Where(r => !(
+                    r.Type == BudgetRequestType.Advance
+                    && r.Status == RequestStatus.PendingReconciliation
+                    && r.ReconciliationDeadline != null
+                    && r.ReconciliationDeadline < nowUtc));
+        }
 
         // Total before paging.
         var totalCount = await query.CountAsync(ct);
@@ -240,6 +260,17 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             BudgetRequestSortBy.Status => descending
                 ? query.OrderByDescending(r => r.Status)
                 : query.OrderBy(r => r.Status),
+            // "Waiting since" for the Outstanding Payments queue — translates to
+            // COALESCE(finalized_at, submitted_at, created_at). Ascending puts
+            // the longest-waiting request first.
+            BudgetRequestSortBy.OutstandingSince => descending
+                ? query.OrderByDescending(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
+                : query.OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt),
+            // Advance reconciliation deadline — Inbox overdue view. Ascending
+            // puts the most-overdue advance first.
+            BudgetRequestSortBy.ReconciliationDeadline => descending
+                ? query.OrderByDescending(r => r.ReconciliationDeadline)
+                : query.OrderBy(r => r.ReconciliationDeadline),
             // SubmittedAt is the default.
             _ => descending
                 ? query.OrderByDescending(r => r.SubmittedAt)

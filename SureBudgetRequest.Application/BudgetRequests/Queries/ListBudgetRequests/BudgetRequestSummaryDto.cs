@@ -35,7 +35,12 @@ public sealed record BudgetRequestSummaryDto(
     string? WithdrawMethodName = null,
     // Advance-withdrawal reconciliation deadline — null for non-advance requests
     // and for advances not yet Finance-approved. Drives the inbox overdue filter.
-    DateTime? ReconciliationDeadline = null)
+    DateTime? ReconciliationDeadline = null,
+    // Requester display name, sourced from the RequesterNameAtSubmission
+    // snapshot (set at CreateDraft, so populated even for drafts). List pages
+    // render this directly instead of resolving names per-user — consistent
+    // with the snapshot principle: show who submitted, not their current name.
+    string RequesterName = "")
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -101,5 +106,6 @@ public sealed record BudgetRequestSummaryDto(
         coa?.Name,
         e.WithdrawMethodId,
         withdrawMethod?.Name,
-        e.ReconciliationDeadline);
+        e.ReconciliationDeadline,
+        e.RequesterNameAtSubmission);
 }

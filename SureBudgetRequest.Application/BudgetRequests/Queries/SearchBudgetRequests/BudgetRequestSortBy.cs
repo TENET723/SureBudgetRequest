@@ -14,5 +14,18 @@ public enum BudgetRequestSortBy
     Requester,
     Type,
     AmountInMmk,
-    Status
+    Status,
+
+    /// <summary>
+    /// "How long has this been waiting" ordering for the Outstanding Payments
+    /// queue: <c>COALESCE(FinalizedAt, SubmittedAt, CreatedAt)</c>. Ascending =
+    /// longest-waiting first.
+    /// </summary>
+    OutstandingSince,
+
+    /// <summary>
+    /// Advance reconciliation deadline — drives the Inbox "Overdue advances"
+    /// view. Ascending = most-overdue first.
+    /// </summary>
+    ReconciliationDeadline
 }

@@ -3,9 +3,10 @@
 @inject ICurrentUser CurrentUser
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
+@using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
-@using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 
@@ -38,7 +39,7 @@
         @if (!_loading)
         {
             <span class="text-muted text-sm ml-auto">
-                @_requests.Count result@(_requests.Count == 1 ? "" : "s")
+                @(_result?.TotalCount ?? 0) result@((_result?.TotalCount ?? 0) == 1 ? "" : "s")
             </span>
         }
     </div>
@@ -151,13 +152,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @for (var i = 0; i < _requests.Count; i++)
+                    @for (var i = 0; i < Items.Count; i++)
                     {
-                        var r = _requests[i];
+                        var r = Items[i];
+                        var rowNo = ((_result?.Page ?? 1) - 1) * (_result?.PageSize ?? 0) + i + 1;
                         <tr>
-                            <td class="text-muted text-sm">@(i + 1)</td>
+                            <td class="text-muted text-sm">@rowNo</td>
                             <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
-                            <td class="text-sm">@(_userNames.TryGetValue(r.RequesterId, out var name) ? name : "—")</td>
+                            <td class="text-sm">@r.RequesterName</td>
                             <td>@Truncate(r.Reasons, 40)</td>
                             <td class="text-sm text-muted">@r.CurrencyCode</td>
                             <td class="text-end">@r.ApprovedAmount.ToString("N2")</td>
@@ -173,7 +175,7 @@
                             </td>
                         </tr>
                     }
-                    @if (!_requests.Any())
+                    @if (!Items.Any())
                     {
                         @if (_appliedHasFilters)
                         {
@@ -188,12 +190,34 @@
             </table>
         </div>
 
-        @if (_requests.Any())
+        @* ─── Pager (same pattern as MyRequests / the report page) ─────────── *@
+        <div class="flex items-center justify-between mt-2">
+            <span class="text-sm text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
+            <div class="flex items-center gap-2">
+                <label class="text-sm text-muted ">Page size</label>
+                <select class="select" style="width:auto" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <button class="btn btn-outline btn-sm"
+                        disabled="@(!(_result?.HasPrev ?? false))"
+                        @onclick="() => LoadPageAsync(_currentPage - 1)">Prev</button>
+                <span class="text-sm">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
+                <button class="btn btn-outline btn-sm"
+                        disabled="@(!(_result?.HasNext ?? false))"
+                        @onclick="() => LoadPageAsync(_currentPage + 1)">Next</button>
+            </div>
+        </div>
+
+        @if (Items.Any())
         {
             <div class="flex justify-content-end mt-2">
                 <div class="text-sm text-muted text-end">
-                    <div>Total outstanding across @_requests.Count request@(_requests.Count == 1 ? "" : "s"):</div>
-                    @foreach (var grp in _requests.GroupBy(r => r.CurrencyCode).OrderBy(g => g.Key == "MMK" ? 0 : 1).ThenBy(g => g.Key))
+                    @* Sums cover the current page only — the full result set is
+                       no longer loaded client-side now that the list is paged. *@
+                    <div>Total outstanding on this page (@Items.Count request@(Items.Count == 1 ? "" : "s")):</div>
+                    @foreach (var grp in Items.GroupBy(r => r.CurrencyCode).OrderBy(g => g.Key == "MMK" ? 0 : 1).ThenBy(g => g.Key))
                     {
                         <div><strong class="text-dark">@grp.Sum(r => r.RemainingBalance).ToString("N2") @grp.Key</strong></div>
                     }
@@ -216,10 +240,14 @@
         BudgetRequestType.Advance,
     };
 
-    private List<BudgetRequestSummaryDto> _requests = new();
-    private Dictionary<Guid, string> _userNames = new();
+    private PagedResult<BudgetRequestSummaryDto>? _result;
+    private int _currentPage = 1;
+    private int _pageSize = 20;
     private bool _loading = true;
     private string? _errorMessage;
+
+    private IReadOnlyList<BudgetRequestSummaryDto> Items =>
+        _result?.Items ?? Array.Empty<BudgetRequestSummaryDto>();
 
     // ── Reference data for the filter dropdowns ──────────────────────────────
     private List<DepartmentDto> _departments = new();
@@ -267,7 +295,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadReferenceDataAsync();
-        await LoadAsync();
+        await LoadPageAsync(1);
     }
 
     private async Task LoadReferenceDataAsync()
@@ -295,12 +323,12 @@
         else _selectedTypes.Remove(t);
     }
 
-    private async Task Apply() => await LoadAsync();
+    private async Task Apply() => await LoadPageAsync(1);
 
     private async Task ApplyAndClose()
     {
         _showFilters = false;
-        await LoadAsync();
+        await LoadPageAsync(1);
     }
 
     private async Task Clear()
@@ -315,10 +343,10 @@
         if (SeesAllDepartments)
             _selectedDepartmentId = "";
 
-        await LoadAsync();
+        await LoadPageAsync(1);
     }
 
-    private async Task LoadAsync()
+    private async Task LoadPageAsync(int page)
     {
         _loading = true;
         _errorMessage = null;
@@ -371,7 +399,7 @@
             || untilUtc.HasValue
             || (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId));
 
-        var result = await Mediator.Send(new ListBudgetRequestsQuery(
+        var result = await Mediator.Send(new SearchBudgetRequestsQuery(
             RequesterId: requesterFilter,
             DepartmentId: deptFilter,
             Statuses: OutstandingStatuses,
@@ -379,28 +407,20 @@
             SubmittedUntilUtc: untilUtc,
             CurrencyCode: currency,
             Types: types,
-            SearchTerm: term));
+            SearchTerm: term,
+            SortBy: BudgetRequestSortBy.OutstandingSince,
+            SortDescending: false,   // oldest-approved first, same order as before
+            Page: page,
+            PageSize: _pageSize));
 
         if (result.IsSuccess)
         {
-            // Oldest-approved first so Finance sees what's been waiting longest.
-            _requests = result.Value
-                .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
-                .ToList();
-
-            // Re-resolve any requester names we haven't already cached.
-            var requesterIds = _requests
-                .Select(r => r.RequesterId)
-                .Distinct()
-                .Where(id => !_userNames.ContainsKey(id));
-            foreach (var id in requesterIds)
-            {
-                var u = await Mediator.Send(new GetUserQuery(id));
-                if (u.IsSuccess) _userNames[id] = u.Value.FullName;
-            }
+            _result = result.Value;
+            _currentPage = _result.Page;
         }
         else
         {
+            _result = null;
             _errorMessage = result.Error.Message;
         }
 
