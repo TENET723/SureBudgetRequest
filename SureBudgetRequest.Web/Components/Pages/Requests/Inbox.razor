@@ -8,6 +8,7 @@
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
+@using SureBudgetRequest.Web.Services
 
 <PageTitle>Inbox</PageTitle>
 
@@ -200,7 +201,7 @@
                                     }
                                     else
                                     {
-                                        @(r.SubmittedAt?.ToLocalTime().ToString("g"))
+                                        @TimeDisplay.Mm(r.SubmittedAt)
                                     }
                                 </td>
                                 <td class="text-end">

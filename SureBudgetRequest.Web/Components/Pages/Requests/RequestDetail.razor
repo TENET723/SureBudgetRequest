@@ -27,6 +27,7 @@
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
 @using Microsoft.AspNetCore.Components.Forms
 @using SureBudgetRequest.Web.Components.Shared
+@using SureBudgetRequest.Web.Services
 
 <PageTitle>Request Detail</PageTitle>
 
@@ -188,7 +189,7 @@ else
                     {
                         <div>
                             <div class="text-sm text-muted">Submitted</div>
-                            <div>@_request.SubmittedAt.Value.ToLocalTime().ToString("g")</div>
+                            <div>@TimeDisplay.Mm(_request.SubmittedAt.Value)</div>
                         </div>
                     }
                     <div>
@@ -327,7 +328,7 @@ else
                                     </div>
                                     <div class="tl-meta">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
-                                        · @a.ActionedAt.ToLocalTime().ToString("g")
+                                        · @TimeDisplay.Mm(a.ActionedAt)
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
                                     {
@@ -389,7 +390,7 @@ else
                                     @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
                                     {
                                         payNo++;
-                                        var paidLocal = p.PaidAt.ToLocalTime();
+                                        var paidLocal = TimeDisplay.ToMyanmar(p.PaidAt);
                                         <tr>
                                             <td class="col-no">@payNo</td>
                                             <td class="nowrap">@paidLocal.ToString("d/M/yyyy")</td>
@@ -508,14 +509,14 @@ else
                             {
                                 <span>
                                     Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
-                                    received on @_request.RefundReceivedAt.Value.ToLocalTime().ToString("g").
+                                    received on @TimeDisplay.Mm(_request.RefundReceivedAt.Value).
                                 </span>
                             }
                             @if (_request.ReimbursementPaidAt.HasValue)
                             {
                                 <span>
                                     Reimbursement of @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode
-                                    paid on @_request.ReimbursementPaidAt.Value.ToLocalTime().ToString("g").
+                                    paid on @TimeDisplay.Mm(_request.ReimbursementPaidAt.Value).
                                 </span>
                             }
                         </div>
@@ -1127,7 +1128,7 @@ else
                                         histNo++;
                                         <tr>
                                             <td class="col-no">@histNo</td>
-                                            <td class="nowrap">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td class="nowrap">@TimeDisplay.Mm(h.ModifiedAt)</td>
                                             <td>@h.ModifiedByUserName</td>
                                             <td class="text-muted-cell">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>

@@ -13,6 +13,7 @@
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
+@using SureBudgetRequest.Web.Services
 
 <PageTitle>Budget Request Report</PageTitle>
 
@@ -111,7 +112,7 @@
                             <tr>
                                 <td class="text-muted text-sm">@((_result.Page - 1) * _result.PageSize + i + 1)</td>
                                 <td class="text-sm"><strong>@(r.Reference ?? "—")</strong></td>
-                                <td class="text-sm text-muted">@(r.SubmittedAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                                <td class="text-sm text-muted">@TimeDisplay.Mm(r.SubmittedAt)</td>
                                 <td class="text-sm">@LookupUser(r.RequesterId)</td>
                                 <td class="text-sm">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
                                 <td>@Truncate(r.Reasons, 40)</td>

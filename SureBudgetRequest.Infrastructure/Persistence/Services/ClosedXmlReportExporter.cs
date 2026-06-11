@@ -15,6 +15,9 @@ public sealed class ClosedXmlReportExporter : IReportExporter
     private const string AmountFormat = "#,##0.00";
     private const string DateTimeFormat = "yyyy-mm-dd hh:mm";
 
+    // Display timezone for exported timestamps (Myanmar, UTC+6:30, no DST).
+    private static readonly TimeSpan MyanmarOffset = new(6, 30, 0);
+
     public byte[] ExportBudgetRequests(IReadOnlyList<BudgetRequestExportRow> rows)
     {
         using var workbook = new XLWorkbook();
@@ -53,9 +56,9 @@ public sealed class ClosedXmlReportExporter : IReportExporter
             var submittedCell = ws.Cell(rowIndex, 2);
             if (r.SubmittedAt.HasValue)
             {
-                // Stored as UTC; the on-prem server runs in the office timezone,
-                // so local time is the office time.
-                submittedCell.Value = r.SubmittedAt.Value.ToLocalTime();
+                // Stored as UTC; convert with the fixed Myanmar offset (+6:30,
+                // no DST) so exports don't depend on the server OS timezone.
+                submittedCell.Value = r.SubmittedAt.Value.Add(MyanmarOffset);
                 submittedCell.Style.DateFormat.Format = DateTimeFormat;
             }
 
