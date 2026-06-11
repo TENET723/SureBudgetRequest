@@ -14,8 +14,9 @@ public sealed record GetDashboardQuery() : IRequest<Result<DashboardDto>>;
 public sealed class GetDashboardQueryHandler
     : IRequestHandler<GetDashboardQuery, Result<DashboardDto>>
 {
-    // How many rows each card shows on the dashboard. Full lists live on the dedicated pages.
-    private const int CardTopN = 5;
+    // Queues return FULL lists — the dashboard card count must always equal
+    // the rows in the matching tab (the dashboard table paginates client-side).
+    // Volumes are internal-company scale, so no server-side cap is needed.
 
     // Threshold for "stuck" requests on the Admin view.
     private const int StuckDays = 7;
@@ -99,12 +100,10 @@ public sealed class GetDashboardQueryHandler
                 .ToList(),
             InFlight: myInFlight
                 .OrderByDescending(r => r.SubmittedAt ?? r.CreatedAt)
-                .Take(CardTopN)
                 .Select(BudgetRequestSummaryDto.FromEntity)
                 .ToList(),
             RecentlyCompleted: myCompleted
                 .OrderByDescending(r => r.FinalizedAt ?? r.CreatedAt)
-                .Take(CardTopN)
                 .Select(BudgetRequestSummaryDto.FromEntity)
                 .ToList());
 
@@ -133,7 +132,6 @@ public sealed class GetDashboardQueryHandler
                 TopItems: pending
                     .OrderBy(r => TypePriority(r.Type))                  // Urgent first
                     .ThenBy(r => r.SubmittedAt ?? r.CreatedAt)            // oldest first
-                    .Take(CardTopN)
                     .Select(BudgetRequestSummaryDto.FromEntity)
                     .ToList());
         }
@@ -154,7 +152,6 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingPayment.Count,
                 TopItems: awaitingPayment
                     .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt) // oldest first
-                    .Take(CardTopN)
                     .Select(BudgetRequestSummaryDto.FromEntity)
                     .ToList());
 
@@ -190,7 +187,6 @@ public sealed class GetDashboardQueryHandler
             stuckRequests = new StuckRequestsDto(
                 TotalCount: stuck.Count,
                 TopItems: stuck
-                    .Take(CardTopN)
                     .Select(BudgetRequestSummaryDto.FromEntity)
                     .ToList());
         }

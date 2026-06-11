@@ -1,5 +1,5 @@
-/* Dashboard stat cards */
-.dash-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+/* Dashboard stat cards — role-conditional, 3 or 4 per row */
+.dash-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .dash-stat-card {
   background: white; border: 1px solid var(--color-border);
   border-radius: var(--radius-md); padding: 20px 20px 16px;
@@ -17,9 +17,11 @@
 .dash-stat-icon-action   { background: #FFF2DF; color: var(--color-warning); }
 .dash-stat-icon-flight   { background: #E8EFFF; color: var(--color-primary); }
 .dash-stat-icon-complete { background: #E4FFE9; color: var(--color-success); }
-.dash-stat-trend { font-size: 12px; color: var(--color-text-muted); display: flex; align-items: center; gap: 4px; }
-.trend-up   { color: var(--color-success); font-weight: 600; }
-.trend-down { color: var(--color-danger);  font-weight: 600; }
+.dash-stat-icon-pay      { background: #E8EFFF; color: var(--color-primary); }
+.dash-stat-icon-money    { background: #E4FFE9; color: var(--color-success); }
+.dash-stat-icon-stuck    { background: #FFE9E9; color: var(--color-danger); }
+/* Subtitle under the value — real data (oldest-item age) or a plain description */
+.dash-stat-sub { font-size: 12px; color: var(--color-text-muted); }
 
 /* Tab bar for request list */
 .dash-tab-bar {

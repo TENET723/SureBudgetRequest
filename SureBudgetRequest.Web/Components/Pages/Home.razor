@@ -30,75 +30,42 @@
     }
     else if (_data is not null)
     {
-        @* ── Stat cards ──────────────────────────────────────────────── *@
+        @* ── Stat cards (role-conditional) ───────────────────────────── *@
         <div class="dash-stat-row">
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Pending Requests</div>
-                <div class="dash-stat-value">@_pendingCount</div>
-                <div class="dash-stat-icon dash-stat-icon-pending">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M3 9h18M8 4V2M16 4V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <path d="M8 13h4M8 16h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
+            @foreach (var card in GetCards())
+            {
+                <div class="dash-stat-card">
+                    <div class="dash-stat-label">@card.Label</div>
+                    <div class="dash-stat-value">@card.Value</div>
+                    <div class="dash-stat-icon @card.IconClass">
+                        @CardIcon(card.IconKey)
+                    </div>
+                    <div class="dash-stat-sub">@card.Subtitle</div>
                 </div>
-                <div class="dash-stat-trend">
-                    <span class="trend-up">↑ Pending</span> approvals in queue
-                </div>
-            </div>
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Pending Actions</div>
-                <div class="dash-stat-value">@_data.Employee.ActionRequired.Count</div>
-                <div class="dash-stat-icon dash-stat-icon-action">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                </div>
-                <div class="dash-stat-trend">
-                    <span class="trend-up">↑</span> Action required from you
-                </div>
-            </div>
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Request In Flight</div>
-                <div class="dash-stat-value">@_data.Employee.InFlight.Count</div>
-                <div class="dash-stat-icon dash-stat-icon-flight">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M2 10h20" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M6 14h4M14 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                </div>
-                <div class="dash-stat-trend">
-                    <span class="trend-down">↓</span> Currently in progress
-                </div>
-            </div>
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Completed</div>
-                <div class="dash-stat-value">@_data.Employee.RecentlyCompleted.Count</div>
-                <div class="dash-stat-icon dash-stat-icon-complete">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-                        <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </div>
-                <div class="dash-stat-trend">
-                    <span class="trend-up">↑</span> Recently finalized
-                </div>
-            </div>
+            }
         </div>
 
         @* ── Tabs + table ─────────────────────────────────────────────── *@
         <div class="dash-tab-bar">
-            <button class="dash-tab @(_activeTab == "pending"   ? "active" : "")" @onclick='() => SetTab("pending")'>Pending Requests</button>
-            <button class="dash-tab @(_activeTab == "actions"   ? "active" : "")" @onclick='() => SetTab("actions")'>Pending Actions</button>
-            <button class="dash-tab @(_activeTab == "inflight"  ? "active" : "")" @onclick='() => SetTab("inflight")'>Request in flight</button>
-            <button class="dash-tab @(_activeTab == "completed" ? "active" : "")" @onclick='() => SetTab("completed")'>Recently completed</button>
-            @if (_data.StuckRequests is not null && _data.StuckRequests.TotalCount > 0)
+            @if (ShowApprove)
+            {
+                <button class="dash-tab @(_activeTab == "approve" ? "active" : "")" @onclick='() => SetTab("approve")'>To Approve</button>
+            }
+            @if (ShowPay)
+            {
+                <button class="dash-tab @(_activeTab == "pay" ? "active" : "")" @onclick='() => SetTab("pay")'>@PayLabel</button>
+            }
+            <button class="dash-tab @(_activeTab == "actions"   ? "active" : "")" @onclick='() => SetTab("actions")'>My Actions</button>
+            <button class="dash-tab @(_activeTab == "inflight"  ? "active" : "")" @onclick='() => SetTab("inflight")'>In Flight</button>
+            <button class="dash-tab @(_activeTab == "completed" ? "active" : "")" @onclick='() => SetTab("completed")'>Recently Completed</button>
+            @if (ShowStuck)
             {
                 <button class="dash-tab @(_activeTab == "stuck" ? "active" : "")" @onclick='() => SetTab("stuck")'>
-                    No Movements In +7 Days
-                    <span class="topbar-count-badge ml-1">@_data.StuckRequests.TotalCount</span>
+                    No Movement In 7+ Days
+                    @if (_data.StuckRequests!.TotalCount > 0)
+                    {
+                        <span class="topbar-count-badge ml-1">@_data.StuckRequests.TotalCount</span>
+                    }
                 </button>
             }
             <span class="dash-tab-spacer"></span>
@@ -202,17 +169,35 @@
     private DashboardDto? _data;
     private bool _loading = true;
     private string? _errorMessage;
-    private string _activeTab = "pending";
+    private string _activeTab = "inflight";
     private int _page = 1;
 
-    // Computed pending count: approval queue + payment queue
-    private int _pendingCount =>
-        (_data?.MyApprovalQueue?.TotalCount ?? 0) +
-        (_data?.PaymentQueue?.TotalCount ?? 0);
+    // ── Role-conditional visibility ───────────────────────────────────────
+    //
+    // The query already populates sections per role; the flags below only
+    // decide what to RENDER. Finance payer-only users (IsFinanceApprover ==
+    // false) get the approval queue from the query but never see it — hiding
+    // is intentionally client-side (display concern, no domain guard needed).
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private bool ShowApprove =>
+        _data?.MyApprovalQueue is not null &&
+        (CurrentUser.Role != UserRole.Finance || CurrentUser.IsFinanceApprover);
 
-    private async Task RefreshAsync() => await LoadAsync();
+    private bool ShowPay => _data?.PaymentQueue is not null;   // Finance + Accounting
+
+    private bool ShowStuck => _data?.StuckRequests is not null; // Admin
+
+    // Accounting is read-only — frame the queue as awareness, not action.
+    private string PayLabel =>
+        CurrentUser.Role == UserRole.Accounting ? "Awaiting Payment" : "To Pay";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        SetDefaultTab();
+    }
+
+    private async Task RefreshAsync() => await LoadAsync(); // keeps current tab
 
     private async Task LoadAsync()
     {
@@ -232,6 +217,21 @@
         }
     }
 
+    // Default tab by role priority: the user's most actionable queue wins.
+    // Single chain works for every role because the sections are role-gated:
+    //   approve (DeptHead/Mgmt/Finance-approver) → pay (Finance/Accounting)
+    //   → stuck (Admin) → my actions → in flight.
+    private void SetDefaultTab()
+    {
+        if (_data is null) return;
+
+        if (ShowApprove && _data.MyApprovalQueue!.TotalCount > 0)      _activeTab = "approve";
+        else if (ShowPay && _data.PaymentQueue!.TotalCount > 0)        _activeTab = "pay";
+        else if (ShowStuck && _data.StuckRequests!.TotalCount > 0)     _activeTab = "stuck";
+        else if (_data.Employee.ActionRequired.Count > 0)              _activeTab = "actions";
+        else                                                           _activeTab = "inflight";
+    }
+
     private void SetTab(string tab)
     {
         _activeTab = tab;
@@ -245,9 +245,8 @@
         var empty = (IReadOnlyList<BudgetRequestSummaryDto>)Array.Empty<BudgetRequestSummaryDto>();
         return _activeTab switch
         {
-            "pending"   => (_data.MyApprovalQueue?.TopItems ?? empty)
-                           .Concat(_data.PaymentQueue?.TopItems ?? empty)
-                           .DistinctBy(r => r.Id).ToList(),
+            "approve"   => _data.MyApprovalQueue?.TopItems ?? empty,
+            "pay"       => _data.PaymentQueue?.TopItems ?? empty,
             "actions"   => _data.Employee.ActionRequired,
             "inflight"  => _data.Employee.InFlight,
             "completed" => _data.Employee.RecentlyCompleted,
@@ -255,6 +254,126 @@
             _           => empty
         };
     }
+
+    // ── Stat cards ────────────────────────────────────────────────────────
+
+    private sealed record CardSpec(string Label, string Value, string IconKey, string IconClass, string Subtitle);
+
+    // Max 4 cards per role, most actionable first. Subtitles are real data
+    // (oldest item age) or plain descriptions — never decorative trends.
+    private IEnumerable<CardSpec> GetCards()
+    {
+        if (_data is null) yield break;
+
+        if (ShowApprove)
+        {
+            var q = _data.MyApprovalQueue!;
+            yield return new("To Approve", q.TotalCount.ToString(),
+                "approve", "dash-stat-icon-pending", QueueSubtitle(q.TopItems));
+        }
+
+        if (ShowPay)
+        {
+            var q = _data.PaymentQueue!;
+            yield return new(PayLabel, q.TotalCount.ToString(),
+                "pay", "dash-stat-icon-pay", QueueSubtitle(q.TopItems));
+        }
+
+        if (_data.FinanceMetrics is not null)
+        {
+            yield return new("Outstanding (MMK)", FormatCompact(_data.FinanceMetrics.OutstandingTotalMmk),
+                "money", "dash-stat-icon-money", "Approved, awaiting payment");
+        }
+
+        if (ShowStuck)
+        {
+            yield return new("Stuck Requests", _data.StuckRequests!.TotalCount.ToString(),
+                "stuck", "dash-stat-icon-stuck", "No movement in 7+ days");
+        }
+
+        yield return new("Needs My Attention", _data.Employee.ActionRequired.Count.ToString(),
+            "action", "dash-stat-icon-action", "Drafts & sent-back requests");
+
+        // Fill remaining slots up to 4 with the user's own pipeline.
+        var used = (ShowApprove ? 1 : 0) + (ShowPay ? 1 : 0)
+                 + (_data.FinanceMetrics is not null ? 1 : 0) + (ShowStuck ? 1 : 0) + 1;
+
+        if (used < 4)
+        {
+            yield return new("In Flight", _data.Employee.InFlight.Count.ToString(),
+                "flight", "dash-stat-icon-flight", "Awaiting approval or payment");
+            used++;
+        }
+        if (used < 4)
+        {
+            yield return new("Recently Completed", _data.Employee.RecentlyCompleted.Count.ToString(),
+                "complete", "dash-stat-icon-complete", "Last finalized requests");
+        }
+    }
+
+    private static string QueueSubtitle(IReadOnlyList<BudgetRequestSummaryDto> items)
+    {
+        if (items.Count == 0) return "Queue is clear";
+
+        var oldest = items
+            .Where(i => i.SubmittedAt.HasValue)
+            .Select(i => i.SubmittedAt!.Value)
+            .DefaultIfEmpty(DateTime.UtcNow)
+            .Min();
+
+        var days = (int)(DateTime.UtcNow - oldest).TotalDays;
+        return days switch
+        {
+            <= 0 => "Newest arrived today",
+            1    => "Oldest waiting 1 day",
+            _    => $"Oldest waiting {days} days"
+        };
+    }
+
+    // Compact MMK formatting so large totals fit the stat-value slot.
+    private static string FormatCompact(decimal v) => v switch
+    {
+        >= 1_000_000_000m => $"{v / 1_000_000_000m:0.#}B",
+        >= 1_000_000m     => $"{v / 1_000_000m:0.#}M",
+        >= 10_000m        => $"{v / 1_000m:0.#}K",
+        _                 => v.ToString("N0")
+    };
+
+    private RenderFragment CardIcon(string key) => key switch
+    {
+        "approve" => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M3 9h18M8 4V2M16 4V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <path d="M9 14l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>,
+        "pay"     => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="2" y="6" width="20" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M5 9.5v5M19 9.5v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>,
+        "money"   => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M9.5 14.5c.5 1 1.4 1.5 2.5 1.5 1.5 0 2.5-.8 2.5-2s-1-1.7-2.5-2-2.5-.8-2.5-2 1-2 2.5-2c1.1 0 2 .5 2.5 1.5M12 6.5V8m0 8v1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>,
+        "stuck"   => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 3l9.5 16.5h-19L12 3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                        <path d="M12 10v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <circle cx="12" cy="17" r="1" fill="currentColor"/>
+                      </svg>,
+        "action"  => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 8v4l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                      </svg>,
+        "flight"  => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <rect x="2" y="5" width="20" height="14" rx="2" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M2 10h20" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M6 14h4M14 14h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                      </svg>,
+        _         => @<svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 12l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+    };
 
     // ── Navigation ────────────────────────────────────────────────────────
 
@@ -305,13 +424,5 @@
         RequestStatus.Paid or RequestStatus.Reconciled        => "status-badge-paid",
         RequestStatus.Rejected or RequestStatus.Cancelled     => "status-badge-rejected",
         _                                                     => "status-badge-draft"
-    };
-
-    private static string TypeLabel(BudgetRequestType t) => t switch
-    {
-        BudgetRequestType.Urgent          => "Urgent",
-        BudgetRequestType.Standard        => "Standard",
-        BudgetRequestType.ProjectProposal => "Proposal",
-        _                                 => t.ToString()
     };
 }

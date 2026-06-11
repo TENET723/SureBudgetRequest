@@ -25,14 +25,16 @@ public sealed record DashboardDto(
 public sealed record EmployeeSectionDto(
     // Drafts + SentBack — things the user needs to do something about
     IReadOnlyList<BudgetRequestSummaryDto> ActionRequired,
-    // Non-terminal requests submitted by the user (top 5, newest first)
+    // Non-terminal requests submitted by the user (full list, newest first)
     IReadOnlyList<BudgetRequestSummaryDto> InFlight,
-    // Last 5 Paid/Rejected/Cancelled by the user
+    // Paid/Rejected/Cancelled by the user (full list, newest first)
     IReadOnlyList<BudgetRequestSummaryDto> RecentlyCompleted);
 
 public sealed record ApprovalQueueDto(
     int TotalCount,
-    // Top 5, sorted Urgent-first then oldest-first
+    // FULL list (TotalCount == TopItems.Count), sorted Urgent-first then
+    // oldest-first. The dashboard table paginates client-side; the card count
+    // must always match the rows in the matching tab.
     IReadOnlyList<BudgetRequestSummaryDto> TopItems);
 
 public sealed record PaymentQueueDto(
