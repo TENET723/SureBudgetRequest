@@ -5,13 +5,15 @@ namespace SureBudgetRequest.Infrastructure.Storage;
 
 /// <summary>
 /// Stores attachments on the local filesystem under
-/// <c>{AttachmentsRoot}/{requestId}/{guid}_{originalFileName}</c>.
+/// <c>{AttachmentsRoot}/{requestId}/{guid}{ext}</c>.
 ///
 /// <para>
-/// Stored paths are RELATIVE — e.g. <c>"{requestId}/{guid}_{fileName}"</c> — to
+/// Stored paths are RELATIVE — e.g. <c>"{requestId}/{guid}{ext}"</c> — to
 /// match the contract documented on <see cref="IFileStorage"/>. The root prefix
-/// is prepended internally when reading/deleting. This keeps stored paths
-/// portable across providers (Supabase, local, future S3, etc.).
+/// is prepended internally when reading/deleting. The original filename never
+/// enters the path (it lives on <c>Attachment.FileName</c>), keeping the key
+/// format identical to <see cref="SupabaseFileStorage"/>. This keeps stored
+/// paths portable across providers (Supabase, local, future S3, etc.).
 /// </para>
 ///
 /// Use this provider by setting <c>Storage:Provider</c> to <c>"Local"</c>.
@@ -32,8 +34,7 @@ public sealed class LocalFileStorage : IFileStorage
         Stream content,
         CancellationToken cancellationToken = default)
     {
-        var safeFileName = SanitizeFileName(originalFileName);
-        var uniqueName = $"{Guid.NewGuid():N}_{safeFileName}";
+        var uniqueName = $"{Guid.NewGuid():N}{SafeExtension(originalFileName)}";
 
         // Relative path is what we return + store in DB.
         var relativePath = $"{budgetRequestId}/{uniqueName}";
@@ -82,12 +83,18 @@ public sealed class LocalFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
-    private static string SanitizeFileName(string fileName)
+    /// <summary>
+    /// Returns a storage-safe extension derived from the original filename.
+    /// Only known extensions pass through (lowercased); anything else becomes
+    /// ".bin". Mirrors <see cref="SupabaseFileStorage"/> so key formats stay
+    /// identical across providers.
+    /// </summary>
+    private static string SafeExtension(string fileName)
     {
-        // Strip directory traversal, keep only the file name portion
-        var name = Path.GetFileName(fileName);
-        // Replace any remaining invalid chars with underscores
-        var invalid = Path.GetInvalidFileNameChars();
-        return string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c));
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp"
+            or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt" or ".csv"
+            ? ext
+            : ".bin";
     }
 }

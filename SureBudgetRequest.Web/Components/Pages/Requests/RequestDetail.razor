@@ -710,7 +710,7 @@ else
                 </div>
                 <div class="modal-body">
                     <label class="form-label text-sm font-semibold">Reason for rejection</label>
-                    <textarea class="input" rows="3" @bind="_rejectComment" placeholder="Explain why this request is being rejected…"></textarea>
+                    <textarea class="textarea" rows="3" @bind="_rejectComment" placeholder="Explain why this request is being rejected…"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _showRejectModal = false">Cancel</button>
@@ -734,7 +734,7 @@ else
                 <div class="modal-body">
                     <p class="text-sm text-muted">The request will return to Draft status. The requester can edit and resubmit.</p>
                     <label class="form-label text-sm font-semibold">Comment</label>
-                    <textarea class="input" rows="3" @bind="_sendBackComment" placeholder="What needs to be fixed?"></textarea>
+                    <textarea class="textarea" rows="3" @bind="_sendBackComment" placeholder="What needs to be fixed?"></textarea>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _showSendBackModal = false">Cancel</button>
@@ -885,7 +885,7 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Description</label>
-                        <textarea class="input" rows="2" @bind="_usageDescription"
+                        <textarea class="textarea textarea-sm" rows="2" @bind="_usageDescription"
                                   placeholder="What was this spent on?"></textarea>
                     </div>
                     <div class="mb-4">

@@ -8,6 +8,19 @@ namespace SureBudgetRequest.Web.Services;
 /// <summary>
 /// Resolves the current user from cookie claims set at login.
 /// Replaces the old dev-impersonation cookie scheme entirely.
+///
+/// <para>
+/// Dual-source principal resolution:
+/// — When an <see cref="HttpContext"/> is available (minimal API endpoints such
+///   as attachment downloads, or SSR prerendering), the principal comes straight
+///   from <c>HttpContext.User</c>. Same cookie, same claims.
+/// — Otherwise (interactive SignalR circuit, where HttpContext is unavailable),
+///   it falls back to <see cref="AuthenticationStateProvider"/>.
+/// Without the HttpContext path, ServerAuthenticationStateProvider throws
+/// "Do not call GetAuthenticationStateAsync outside of the DI scope for a Razor
+/// component" when ICurrentUser is touched from a plain HTTP request — e.g. via
+/// ScopedMediator bridging the user into an operation scope.
+/// </para>
 /// </summary>
 public sealed class CurrentUserService : ICurrentUser
 {
@@ -18,18 +31,25 @@ public sealed class CurrentUserService : ICurrentUser
     public const string ClaimIsFinanceApprover = "asure_is_finance_approver";
 
     private readonly AuthenticationStateProvider _authStateProvider;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private ClaimsPrincipal? _principal;
 
-    public CurrentUserService(AuthenticationStateProvider authStateProvider)
+    public CurrentUserService(
+        AuthenticationStateProvider authStateProvider,
+        IHttpContextAccessor httpContextAccessor)
     {
         _authStateProvider = authStateProvider;
+        _httpContextAccessor = httpContextAccessor;
     }
 
-    // In Blazor Server, AuthenticationStateProvider holds the state captured at
-    // circuit start and returns it synchronously thereafter. Calling .Result here
-    // is safe in that context. Cached for the lifetime of the scope (one circuit).
+    // Prefer HttpContext.User when a request is in flight (API endpoints, SSR
+    // prerender). Fall back to the circuit's AuthenticationStateProvider, which
+    // holds the state captured at circuit start and returns it synchronously
+    // thereafter — calling .Result is safe in that context. Cached for the
+    // lifetime of the scope.
     private ClaimsPrincipal Principal => _principal ??=
-        _authStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult().User;
+        _httpContextAccessor.HttpContext?.User
+        ?? _authStateProvider.GetAuthenticationStateAsync().GetAwaiter().GetResult().User;
 
     public Guid UserId
     {

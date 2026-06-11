@@ -123,7 +123,7 @@
 
             <div class="mb-4">
                 <label class="form-label text-sm font-semibold">Reason / Purpose</label>
-                <textarea class="input" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
+                <textarea class="textarea" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
             </div>
 
             <div class="mb-4">
@@ -148,7 +148,7 @@
                 </div>
                 @if (_allowsPartial)
                 {
-                    <textarea class="form-control form-control-sm mt-2" rows="2" @bind="_partialDetail"
+                    <textarea class="textarea textarea-sm mt-2-form" rows="2" @bind="_partialDetail"
                               placeholder="Preferred schedule or notes (optional)"></textarea>
                 }
                 else
@@ -248,7 +248,7 @@
                     <label class="form-label text-sm font-semibold" for="overrunJustification">
                         Please justify why this overrun is necessary.
                     </label>
-                    <textarea id="overrunJustification" class="input" rows="4"
+                    <textarea id="overrunJustification" class="textarea" rows="4"
                               @bind="_monthlyOverrunJustification" @bind:event="oninput"
                               placeholder="e.g. Quarter-end software license renewal that cannot be deferred…"></textarea>
                 </div>

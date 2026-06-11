@@ -14,8 +14,11 @@ namespace SureBudgetRequest.Infrastructure.Storage;
 /// PRIVATE in the Supabase dashboard.
 ///
 /// Stored paths returned from <see cref="SaveAsync"/> are bucket-relative, e.g.
-/// <c>"{requestId}/{guid}_{sanitized}"</c>. The bucket name lives in config and
-/// is not embedded in the stored path — that makes bucket changes painless.
+/// <c>"{requestId}/{guid}{ext}"</c>. The original filename never enters the key
+/// (it lives on <c>Attachment.FileName</c> and is served back on download) —
+/// macOS screenshot names contain U+202F, which Supabase rejects as an invalid
+/// object key. The bucket name lives in config and is not embedded in the
+/// stored path — that makes bucket changes painless.
 /// </summary>
 public sealed class SupabaseFileStorage : IFileStorage
 {
@@ -34,8 +37,8 @@ public sealed class SupabaseFileStorage : IFileStorage
         Stream content,
         CancellationToken cancellationToken = default)
     {
-        var safeName = SanitizeFileName(originalFileName);
-        var relativePath = $"{budgetRequestId}/{Guid.NewGuid():N}_{safeName}";
+        var ext = SafeExtension(originalFileName);
+        var relativePath = $"{budgetRequestId}/{Guid.NewGuid():N}{ext}";
 
         // POST /storage/v1/object/{bucket}/{path}
         using var request = new HttpRequestMessage(
@@ -115,13 +118,19 @@ public sealed class SupabaseFileStorage : IFileStorage
     }
 
     /// <summary>
-    /// Strip directory traversal and replace any invalid filename chars with underscores.
+    /// Returns a storage-safe extension derived from the original filename.
+    /// Only known extensions pass through (lowercased); anything else becomes
+    /// ".bin". This guarantees the storage key contains no user-controlled
+    /// characters — macOS screenshot names include U+202F (narrow no-break
+    /// space), which Supabase rejects as an invalid object key.
     /// </summary>
-    private static string SanitizeFileName(string fileName)
+    private static string SafeExtension(string fileName)
     {
-        var name = Path.GetFileName(fileName);
-        var invalid = Path.GetInvalidFileNameChars();
-        return string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c));
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        return ext is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp"
+            or ".doc" or ".docx" or ".xls" or ".xlsx" or ".txt" or ".csv"
+            ? ext
+            : ".bin";
     }
 
     /// <summary>

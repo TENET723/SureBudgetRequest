@@ -154,7 +154,7 @@
 
                 <div class="mb-4">
                     <label class="form-label text-sm font-semibold">Reason / Purpose</label>
-                    <textarea class="input" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
+                    <textarea class="textarea" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
                 </div>
 
                 @if (SelectedMethodRequiresAttachment)
@@ -200,7 +200,7 @@
                     </div>
                     @if (_allowsPartial)
                     {
-                        <textarea class="form-control form-control-sm mt-2" rows="2" @bind="_partialDetail"
+                        <textarea class="textarea textarea-sm mt-2-form" rows="2" @bind="_partialDetail"
                                   placeholder="Preferred schedule or notes (optional)"></textarea>
                     }
                     else
@@ -257,7 +257,7 @@
             {
                 <div class="card-body border-top">
                     <label class="form-label text-sm font-semibold">Note (what did you change?)</label>
-                    <textarea class="input" rows="2" @bind="_modificationNote"
+                    <textarea class="textarea textarea-sm" rows="2" @bind="_modificationNote"
                               placeholder="Optional — describe what you changed and why"></textarea>
                     <div class="form-hint">Saved to the modification history. Optional.</div>
                 </div>
@@ -309,7 +309,7 @@
                     <label class="form-label text-sm font-semibold" for="overrunJustificationEdit">
                         Please justify why this overrun is necessary.
                     </label>
-                    <textarea id="overrunJustificationEdit" class="input" rows="4"
+                    <textarea id="overrunJustificationEdit" class="textarea" rows="4"
                               @bind="_monthlyOverrunJustification" @bind:event="oninput"
                               placeholder="e.g. Quarter-end software license renewal that cannot be deferred…"></textarea>
                 </div>
