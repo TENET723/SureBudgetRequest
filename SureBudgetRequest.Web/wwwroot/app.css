@@ -240,7 +240,7 @@ input, select, textarea { font-family: var(--font-sans); }
 .btn-warning { background: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning); }
 .btn-warning:hover { background: var(--color-warning); color: white; }
 .btn-sm { height: 30px; font-size: 13px; padding: 0 var(--space-3); }
-.btn-icon { width: 32px; height: 32px; padding: 0; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--color-text-muted); transition: background 120ms, color 120ms; }
+.btn-icon { width: 32px; height: 32px; padding: 0; border-radius: var(--radius-md); display: inline-flex; vertical-align: middle; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; color: var(--color-text-muted); transition: background 120ms, color 120ms; }
 .btn-icon:hover { background: var(--color-bg-row-alt); color: var(--color-text-dark); }
 
 /* 6. Form elements */
@@ -257,6 +257,10 @@ input, select, textarea { font-family: var(--font-sans); }
 .textarea { height: auto; padding: 10px 12px; resize: vertical; min-height: 90px; }
 /* Compact variant for short optional notes (rows="2" fields) */
 .textarea-sm { min-height: 64px; }
+/* Global checkbox accent — covers checkboxes outside .checkbox-row/.checkbox-grid
+   (modal Active toggles, filter checkboxes). Without this they fall back to the
+   browser/OS accent color. */
+input[type="checkbox"] { accent-color: var(--color-primary); }
 .input::placeholder, .select option[value=""], .textarea::placeholder { color: var(--color-text-light); }
 .input:focus, .select:focus, .textarea:focus {
   border-color: var(--color-primary); outline: none;
