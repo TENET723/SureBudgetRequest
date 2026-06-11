@@ -48,7 +48,7 @@ else
                 <a href="requests/mine" class="text-muted text-sm">← Back</a>
                 <div class="flex items-center gap-2 mt-1">
                     <h5>Budget Request</h5>
-                    <button class="btn btn-xs btn-outline-secondary p-1 py-0 text-sm" style="font-size:0.7rem" @onclick="OpenHistory">History</button>
+                    <button class="btn btn-outline btn-xs" @onclick="OpenHistory">History</button>
                 </div>
                 <span class="text-muted text-sm font-mono">@_request.Reference</span>
             </div>
@@ -309,37 +309,45 @@ else
         }
 
         @* ── Approval Timeline ── *@
-        @if (_request.ApprovalActions.Any())
+        @{ var pendingStage = PendingStageInfo(); }
+        @if (_request.ApprovalActions.Any() || pendingStage is not null)
         {
             <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Approval History</h6>
-                    <div class="timeline">
+                    <h6 class="text-sm font-semibold mb-4">Approval History</h6>
+                    <div class="tl">
                         @foreach (var a in _request.ApprovalActions.OrderBy(x => x.ActionedAt))
                         {
-                            <div class="flex gap-3 mb-4">
-                                <div class="flex-shrink-0 mt-1">
-                                    @if (a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved)
-                                    { <span class="badge badge-role">✓</span> }
-                                    else if (a.Decision == ApprovalDecision.Rejected)
-                                    { <span class="badge badge-role">✗</span> }
-                                    else
-                                    { <span class="badge badge-role">↩</span> }
-                                </div>
-                                <div>
-                                    <div class="text-sm font-semibold">
-                                        @a.Stage
-                                        @if (a.Decision == ApprovalDecision.AutoApproved)
-                                        { <span class="text-muted fw-normal">(auto-approved)</span> }
+                            <div class="tl-item">
+                                <div class="tl-node @DecisionNodeClass(a.Decision)">@DecisionGlyph(a.Decision)</div>
+                                <div class="tl-body">
+                                    <div class="tl-stage">
+                                        <span class="tl-stage-name">@StageLabel(a.Stage.ToString())</span>
+                                        <span class="badge badge-xs @DecisionBadgeClass(a.Decision)">@DecisionLabel(a.Decision)</span>
                                     </div>
-                                    <div class="text-sm text-muted">
+                                    <div class="tl-meta">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
                                         · @a.ActionedAt.ToLocalTime().ToString("g")
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
                                     {
-                                        <div class="text-sm mt-1 text-muted fst-italic">"@a.Comment"</div>
+                                        <div class="tl-comment">"@a.Comment"</div>
                                     }
+                                </div>
+                            </div>
+                        }
+                        @if (pendingStage is not null)
+                        {
+                            <div class="tl-item">
+                                <div class="tl-node tl-node-pending">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                </div>
+                                <div class="tl-body">
+                                    <div class="tl-stage">
+                                        <span class="tl-stage-name">@pendingStage.Value.Stage</span>
+                                        <span class="badge badge-xs badge-role">PENDING</span>
+                                    </div>
+                                    <div class="tl-comment">@pendingStage.Value.Awaiting</div>
                                 </div>
                             </div>
                         }
@@ -353,78 +361,84 @@ else
         {
             <div class="card mb-4">
                 <div class="card-body">
-                    <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-4">Payments</h6>
+                    <div class="section-head">
+                        <h6 class="text-sm font-semibold">Payments</h6>
+                        @if (_request.Payments.Any())
+                        {
+                            <span class="badge-total">Total Paid : @_request.Payments.Sum(x => x.Amount).ToString("N2") @_request.CurrencyCode</span>
+                        }
+                    </div>
                     @if (_request.Payments.Any())
                     {
-                        <table class="table table-sm mb-2">
-                            <thead >
-                                <tr>
-                                    <th>Date</th>
-                                    <th class="text-end">Amount (@_request.CurrencyCode)</th>
-                                    <th>Source account</th>
-                                    <th>Reference</th>
-                                    <th>Receipt</th>
-                                    <th>Recorded by</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
-                                {
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td class="text-sm">@p.PaidAt.ToLocalTime().ToString("g")</td>
-                                        <td class="text-end">@p.Amount.ToString("N2")</td>
-                                        <td class="text-sm">
-                                            @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
-                                            {
-                                                <div>@p.SourceBankName</div>
-                                                <div class="text-muted font-mono" style="font-size:0.75rem">@p.SourceAccountNumber</div>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">—</span>
-                                            }
-                                        </td>
-                                        <td class="text-sm text-muted">@(p.Reference ?? "—")</td>
-                                        <td class="text-sm">
-                                            @if (p.AttachmentId.HasValue)
-                                            {
-                                                var receipt = FindAttachment(p.AttachmentId);
-                                                var receiptUrl = $"/api/attachments/{p.AttachmentId.Value}";
-                                                
-                                                @if (receipt is not null && IsImage(receipt.ContentType))
+                                        <th class="col-no">No</th>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th class="text-end">Amount (@_request.CurrencyCode)</th>
+                                        <th>Source Account</th>
+                                        <th>Reference</th>
+                                        <th>Receipt</th>
+                                        <th>Recorded By</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var payNo = 0; }
+                                    @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
+                                    {
+                                        payNo++;
+                                        var paidLocal = p.PaidAt.ToLocalTime();
+                                        <tr>
+                                            <td class="col-no">@payNo</td>
+                                            <td class="nowrap">@paidLocal.ToString("d/M/yyyy")</td>
+                                            <td class="nowrap text-muted-cell">@paidLocal.ToString("h:mm tt")</td>
+                                            <td class="text-end font-semibold tabular">@p.Amount.ToString("N2")</td>
+                                            <td>
+                                                @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
                                                 {
-                                                    <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
-                                                        <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy"
-                                                             style="max-width:64px;max-height:64px;object-fit:contain;display:block;
-                                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
-                                                    </a>
+                                                    <div>@p.SourceBankName</div>
+                                                    <div class="text-muted-cell font-mono">@p.SourceAccountNumber</div>
                                                 }
                                                 else
                                                 {
-                                                    <a href="@receiptUrl" target="_blank" rel="noopener">View</a>
+                                                    <span class="text-muted">—</span>
                                                 }
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">—</span>
-                                            }
-                                        </td>
-                                        <td class="text-sm">@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                        <div class="flex justify-content-between text-sm text-muted">
-                            <span>Total paid: <strong>@_request.TotalPaid.ToString("N2") @_request.CurrencyCode</strong></span>
-                            @if (_request.RemainingBalance > 0)
-                            {
-                                <span class="text-warning">Remaining: @_request.RemainingBalance.ToString("N2") @_request.CurrencyCode</span>
-                            }
+                                            </td>
+                                            <td class="text-muted-cell">@(p.Reference ?? "—")</td>
+                                            <td>
+                                                @if (p.AttachmentId.HasValue)
+                                                {
+                                                    var receipt = FindAttachment(p.AttachmentId);
+                                                    var receiptUrl = $"/api/attachments/{p.AttachmentId.Value}";
+
+                                                    @if (receipt is not null && IsImage(receipt.ContentType))
+                                                    {
+                                                        <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                            <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs">View</a>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                            <td>@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     }
                     else
                     {
-                        <p class="text-sm text-muted ">No payments recorded yet.</p>
+                        <p class="text-sm text-muted">No payments recorded yet.</p>
                     }
                 </div>
             </div>
@@ -439,46 +453,34 @@ else
         {
             <div class="card mb-4">
                 <div class="card-body">
-                    <div class="flex items-center justify-between mb-4">
-                        <h6 class="card-title text-sm font-semibold text-uppercase text-muted ">
-                            Advance Reconciliation
-                        </h6>
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center gap-2" style="flex-wrap:wrap">
+                            <h6 class="text-sm font-semibold">Advance Reconciliation</h6>
+                            <span class="badge-total">Used : @_request.TotalUsageRecorded.ToString("N2") / @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode</span>
+                            @if (_request.RemainingAdvance >= 0)
+                            {
+                                <span class="badge-total badge-total-success">Remaining : @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</span>
+                            }
+                            else
+                            {
+                                <span class="badge-total badge-total-danger">Over-spent : @((-_request.RemainingAdvance).ToString("N2")) @_request.CurrencyCode</span>
+                            }
+                        </div>
                         @if (_request.IsOverdue)
                         {
-                            <span class="badge badge-role">OVERDUE</span>
+                            <span class="badge badge-sm badge-rejected">OVERDUE</span>
                         }
                     </div>
 
                     @if (_request.ReconciliationDeadline.HasValue)
                     {
-                        <div class="form-grid-3 mb-4">
-                            <div>
-                                <div class="text-sm text-muted">Reconciliation deadline</div>
-                                <div class="font-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
-                                @if (!string.IsNullOrEmpty(CountdownText()))
-                                {
-                                    <div class="text-sm @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
-                                }
-                            </div>
-                            <div>
-                                <div class="text-sm text-muted">Recorded usage / Advance</div>
-                                <div class="font-semibold">
-                                    @_request.TotalUsageRecorded.ToString("N2") /
-                                    @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode
-                                </div>
-                                @if (_request.RemainingAdvance >= 0)
-                                {
-                                    <div class="text-sm text-muted">
-                                        Remaining: @_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="text-sm text-muted">
-                                        Over-spent: @((-_request.RemainingAdvance).ToString("N2")) @_request.CurrencyCode
-                                    </div>
-                                }
-                            </div>
+                        <div class="mb-4">
+                            <div class="text-sm text-muted">Reconciliation deadline</div>
+                            <div class="font-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
+                            @if (!string.IsNullOrEmpty(CountdownText()))
+                            {
+                                <div class="text-sm @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
+                            }
                         </div>
                     }
 
@@ -521,59 +523,62 @@ else
 
                     @if (_request.AdvanceUsages.Any())
                     {
-                        <table class="table table-sm align-middle mb-2">
-                            <thead >
-                                <tr>
-                                    <th>Spent On</th>
-                                    <th class="text-end">Amount (@_request.CurrencyCode)</th>
-                                    <th>Description</th>
-                                    <th>Receipt</th>
-                                    @if (CanEditUsage) { <th></th> }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var u in _request.AdvanceUsages.OrderBy(x => x.SpentOn))
-                                {
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td class="text-sm">@u.SpentOn.ToString("dd MMM yyyy")</td>
-                                        <td class="text-end">@u.Amount.ToString("N2")</td>
-                                        <td class="text-sm">@u.Description</td>
-                                        <td class="text-sm">
-                                            @if (u.AttachmentId.HasValue)
-                                            {
-                                               
+                                        <th class="col-no">No</th>
+                                        <th>Date</th>
+                                        <th class="text-end">Amount (@_request.CurrencyCode)</th>
+                                        <th>Description</th>
+                                        <th>Receipt</th>
+                                        @if (CanEditUsage) { <th class="col-actions"></th> }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var usageNo = 0; }
+                                    @foreach (var u in _request.AdvanceUsages.OrderBy(x => x.SpentOn))
+                                    {
+                                        usageNo++;
+                                        <tr>
+                                            <td class="col-no">@usageNo</td>
+                                            <td class="nowrap">@u.SpentOn.ToString("dd MMM yyyy")</td>
+                                            <td class="text-end font-semibold tabular">@u.Amount.ToString("N2")</td>
+                                            <td>@u.Description</td>
+                                            <td>
+                                                @if (u.AttachmentId.HasValue)
+                                                {
                                                     var receipt = FindAttachment(u.AttachmentId);
                                                     var receiptUrl = $"/api/attachments/{u.AttachmentId.Value}";
-                                                
-                                                @if (receipt is not null && IsImage(receipt.ContentType))
-                                                {
-                                                    <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
-                                                        <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy"
-                                                             style="max-width:64px;max-height:64px;object-fit:contain;display:block;
-                                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
-                                                    </a>
+
+                                                    @if (receipt is not null && IsImage(receipt.ContentType))
+                                                    {
+                                                        <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                            <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
+                                                        </a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs">View</a>
+                                                    }
                                                 }
                                                 else
                                                 {
-                                                    <a href="@receiptUrl" target="_blank" rel="noopener">View</a>
+                                                    <span class="text-muted">—</span>
                                                 }
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">—</span>
-                                            }
-                                        </td>
-                                        @if (CanEditUsage)
-                                        {
-                                            <td class="text-end text-nowrap">
-                                                <button class="btn btn-ghost btn-sm" @onclick="() => OpenEditUsageModal(u)">Edit</button>
-                                                <button class="btn btn-ghost btn-sm" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
                                             </td>
-                                        }
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                                            @if (CanEditUsage)
+                                            {
+                                                <td class="col-actions nowrap">
+                                                    <button class="btn btn-ghost btn-xs" @onclick="() => OpenEditUsageModal(u)">Edit</button>
+                                                    <button class="btn btn-ghost btn-xs text-danger" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
                     }
                     else
                     {
@@ -1106,21 +1111,25 @@ else
                     else
                     {
                         <div class="table-wrapper">
-                            <table class="table table-sm table-hover ">
-                                <thead >
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <th class="ps-3">When</th>
+                                        <th class="col-no">No</th>
+                                        <th>When</th>
                                         <th>Updated By</th>
                                         <th>Note</th>
                                     </tr>
                                 </thead>
                                 <tbody>
+                                    @{ var histNo = 0; }
                                     @foreach (var h in _history)
                                     {
+                                        histNo++;
                                         <tr>
-                                            <td class="ps-3 text-sm">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                                            <td class="text-sm">@h.ModifiedByUserName</td>
-                                            <td class="text-sm">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
+                                            <td class="col-no">@histNo</td>
+                                            <td class="nowrap">@h.ModifiedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                            <td>@h.ModifiedByUserName</td>
+                                            <td class="text-muted-cell">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -1135,6 +1144,167 @@ else
         </div>
     </div>
 }
+
+
+<style>
+    /* ============================================================
+       19. Request detail — approval timeline, section badges,
+           receipt thumbnails (redesign)
+       ============================================================ */
+
+    /* Section header inside a card body: title + total badges */
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: var(--space-4);
+        flex-wrap: wrap;
+    }
+
+    /* Total pill (e.g. "Total Paid : 5,000,000 MMK") */
+    .badge-total {
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        padding: 0 10px;
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        font-weight: 600;
+        background: var(--color-primary-bg);
+        color: var(--color-primary);
+        white-space: nowrap;
+    }
+
+    .badge-total-success {
+        background: var(--color-success-bg);
+        color: #166534;
+    }
+
+    .badge-total-danger {
+        background: var(--color-danger-bg);
+        color: var(--color-danger);
+    }
+
+    /* Extra-small badge (timeline stage decisions) */
+    .badge-xs {
+        height: 18px;
+        font-size: 10px;
+        padding: 0 7px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        border-radius: var(--radius-sm);
+    }
+
+    /* Extra-small button (table row actions, compact links) */
+    .btn-xs {
+        height: 24px;
+        font-size: 12px;
+        padding: 0 var(--space-2);
+    }
+
+    /* Receipt thumbnail inside tables */
+    .receipt-thumb {
+        max-width: 56px;
+        max-height: 44px;
+        object-fit: contain;
+        display: block;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        background: var(--color-bg-row-alt);
+    }
+
+    /* Approval timeline */
+    .tl {
+        position: relative;
+    }
+
+    .tl-item {
+        position: relative;
+        display: flex;
+        gap: 14px;
+        padding-bottom: 22px;
+    }
+
+        .tl-item:last-child {
+            padding-bottom: 2px;
+        }
+
+        .tl-item::before {
+            content: "";
+            position: absolute;
+            left: 13px;
+            top: 30px;
+            bottom: 0;
+            width: 2px;
+            background: var(--color-border);
+        }
+
+        .tl-item:last-child::before {
+            display: none;
+        }
+
+    .tl-node {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        z-index: 1;
+    }
+
+    .tl-node-approved {
+        background: var(--color-success);
+    }
+
+    .tl-node-rejected {
+        background: var(--color-danger);
+    }
+
+    .tl-node-sentback {
+        background: var(--color-warning);
+    }
+
+    .tl-node-pending {
+        background: var(--color-primary);
+    }
+
+    .tl-body {
+        flex: 1;
+        min-width: 0;
+        padding-top: 2px;
+    }
+
+    .tl-stage {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .tl-stage-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--color-text-dark);
+    }
+
+    .tl-meta {
+        font-size: 13px;
+        color: var(--color-text-muted);
+        margin-top: 2px;
+    }
+
+    .tl-comment {
+        font-size: 13px;
+        color: var(--color-text-muted);
+        font-style: italic;
+        margin-top: 3px;
+    }
+</style>
 
 @code {
     [Parameter] public Guid Id { get; set; }
@@ -1764,6 +1934,60 @@ else
         _actionSuccess = "Deadline extended.";
         await LoadRequest();
     }
+
+    // ── Approval timeline helpers ─────────────────────────────────────────────
+
+    /// Current pending stage shown as the last (blue) timeline node.
+    /// Only the stage the request is currently waiting on — no future stages.
+    private (string Stage, string Awaiting)? PendingStageInfo()
+    {
+        if (_request is null) return null;
+        return _request.Status switch
+        {
+            RequestStatus.PendingDeptHead => ("Dept Head",
+                $"Awaiting approval by {(_userNames.TryGetValue(_request.DeptHeadIdAtSubmission, out var dh) ? dh : "the department head")}."),
+            RequestStatus.PendingManagement => ("Management", "Awaiting approval by Management."),
+            RequestStatus.PendingFinance => ("Finance", "Awaiting approval by Finance."),
+            _ => null
+        };
+    }
+
+    private static string StageLabel(string stage) => stage switch
+    {
+        "DeptHead"   => "Dept Head",
+        "Management" => "Management",
+        "Finance"    => "Finance",
+        _ => stage
+    };
+
+    private static string DecisionNodeClass(ApprovalDecision d) => d switch
+    {
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "tl-node-approved",
+        ApprovalDecision.Rejected => "tl-node-rejected",
+        _ => "tl-node-sentback"
+    };
+
+    private static string DecisionGlyph(ApprovalDecision d) => d switch
+    {
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "✓",
+        ApprovalDecision.Rejected => "✕",
+        _ => "↩"
+    };
+
+    private static string DecisionBadgeClass(ApprovalDecision d) => d switch
+    {
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "badge-active",
+        ApprovalDecision.Rejected => "badge-rejected",
+        _ => "badge-warning"
+    };
+
+    private static string DecisionLabel(ApprovalDecision d) => d switch
+    {
+        ApprovalDecision.Approved     => "APPROVED",
+        ApprovalDecision.AutoApproved => "AUTO-APPROVED",
+        ApprovalDecision.Rejected     => "REJECTED",
+        _ => "SENT BACK"
+    };
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
