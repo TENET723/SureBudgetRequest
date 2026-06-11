@@ -1,6 +1,8 @@
+using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using SureBudgetRequest.Application;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.BudgetRequests.Common;
@@ -26,6 +28,16 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// ── ScopedMediator ─────────────────────────────────────────────────────────────
+// Blazor Server: one DI scope per circuit means one AppDbContext per browser
+// session, and fast page switching causes concurrent operations on that single
+// context ("A second operation was started on this context instance...").
+// ScopedMediator runs every Send/Publish in its own DI scope so each command/
+// query gets its own DbContext. Must come AFTER AddApplication/AddInfrastructure
+// so it replaces MediatR's own IMediator registration.
+builder.Services.Replace(ServiceDescriptor.Scoped<IMediator>(sp =>
+    ActivatorUtilities.CreateInstance<ScopedMediator>(sp)));
 
 // ── Authentication: cookie scheme ─────────────────────────────────────────────
 builder.Services
@@ -55,7 +67,19 @@ builder.Services.AddCascadingAuthenticationState();
 
 // ICurrentUser is now resolved from cookie claims via AuthenticationStateProvider.
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUser, CurrentUserService>();
+// ICurrentUser resolution:
+//  - Circuit scope: CurrentUserService (claims via AuthenticationStateProvider).
+//  - ScopedMediator operation scopes: CurrentUserSnapshot, populated from the
+//    circuit user before the handler runs (no AuthenticationStateProvider there).
+builder.Services.AddScoped<CurrentUserService>();
+builder.Services.AddScoped<CurrentUserSnapshot>();
+builder.Services.AddScoped<ICurrentUser>(sp =>
+{
+    var snapshot = sp.GetRequiredService<CurrentUserSnapshot>();
+    return snapshot.IsSet
+        ? snapshot
+        : sp.GetRequiredService<CurrentUserService>();
+});
 builder.Services.AddScoped<SureBudgetRequest.Web.Services.ToastService>();
 
 var app = builder.Build();

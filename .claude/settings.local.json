@@ -10,7 +10,8 @@
       "PowerShell(Head *)",
       "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\WIN\\\\source\\\\repos\\\\TENET723\\\\SureBudgetRequest\\\\SureBudgetRequest.Web\" -Recurse -Force | Where-Object { $_.Extension -in '.cs', '.cshtml' } | Select-Object FullName | Select-Object -First 30)",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\WIN\\\\source\\\\repos\\\\TENET723\\\\SureBudgetRequest\" -Name \"*.csproj\")",
-      "Bash(Select-Object -First 5)"
+      "Bash(Select-Object -First 5)",
+      "PowerShell($p = \"$env:USERPROFILE\\\\.nuget\\\\packages\\\\mediatr\"; if \\(Test-Path $p\\) { Get-ChildItem $p | Select-Object Name })"
     ]
   }
 }
