@@ -48,10 +48,13 @@
                            Placeholder="Search reference, reason, or requester" Width="320px" />
 
             <button type="button" class="btn btn-outline btn-sm" @onclick="ToggleFilters">
-                Filters
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Filter
                 @if (ActiveFilterCount > 0)
                 {
-                    <span class="badge badge-role">@ActiveFilterCount</span>
+                    <span class="topbar-count-badge ml-1">@ActiveFilterCount</span>
                 }
             </button>
 
@@ -63,10 +66,20 @@
             }
         </div>
 
-        @* ─── Collapsible filter strip ─────────────────────────────────────── *@
+        @* ─── Filter modal (same pattern as the budget-request report page) ── *@
         @if (_showFilters)
         {
-            <div class="filter-panel">
+            <div class="modal-backdrop">
+                <div class="modal modal-lg">
+                    <div class="modal-header">
+                        <h6 class="modal-title">Filter</h6>
+                        <button class="btn btn-icon modal-close" @onclick="() => _showFilters = false">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="modal-body">
                 <div class="form-grid-3">
 
                     @* Department — privileged roles only; Dept Head's queue stays
@@ -124,18 +137,14 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="flex gap-2 mt-3">
-                    <button class="btn btn-primary btn-sm" @onclick="Apply" disabled="@_loading">
-                        @if (_loading)
-                        {
-                            <span class="spinner-border spinner-border-sm mr-1"></span>
-                        }
-                        Apply
-                    </button>
-                    <button class="btn btn-outline btn-sm" @onclick="Clear" disabled="@_loading">
-                        Clear filters
-                    </button>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-outline btn-sm" @onclick="Clear" disabled="@_loading">Clear</button>
+                        <button class="btn btn-primary btn-sm" @onclick="ApplyAndClose" disabled="@_loading">
+                            @if (_loading) { <span class="spinner spinner-sm mr-1"></span> }
+                            Apply
+                        </button>
+                    </div>
                 </div>
             </div>
         }
@@ -313,6 +322,12 @@
     }
 
     private async Task Apply() => await LoadAsync();
+
+    private async Task ApplyAndClose()
+    {
+        _showFilters = false;
+        await LoadAsync();
+    }
 
     private async Task Clear()
     {

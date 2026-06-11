@@ -22,73 +22,21 @@
         <div class="alert alert-error">@_errorMessage</div>
     }
 
-    <div class="flex items-center gap-2 mb-2">
-        <button class="btn btn-outline btn-sm" @onclick="() => _showFilters = !_showFilters">
-            Filters @(_showFilters ? "▲" : "▼")
+    <div class="flex items-center gap-2 mb-2 flex-wrap">
+        <ListSearchBox @bind-Value="_search" OnEnter="() => LoadPageAsync(1)"
+                       Placeholder="Search reference or reason" Width="320px" />
+
+        <button type="button" class="btn btn-outline btn-sm" @onclick="() => _showFilters = true">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 3h12M3 7h8M5 11h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Filter
+            @if (_activeFilterCount > 0)
+            {
+                <span class="topbar-count-badge ml-1">@_activeFilterCount</span>
+            }
         </button>
     </div>
-
-    @if (_showFilters)
-    {
-        <div class="filter-panel">
-            <div class="form-grid-3">
-                <div class="col-12 col-md-6 col-lg-4">
-                    <label class="form-label text-sm mb-1">Search</label>
-                    <ListSearchBox @bind-Value="_search" OnEnter="() => LoadPageAsync(1)" Placeholder="Search reference or reason" />
-                </div>
-                <div class="col-6 col-md-3 col-lg-2">
-                    <label class="form-label text-sm mb-1">From date</label>
-                    <input type="date" class="input" @bind="_fromDate" />
-                </div>
-                <div class="col-6 col-md-3 col-lg-2">
-                    <label class="form-label text-sm mb-1">To date</label>
-                    <input type="date" class="input" @bind="_toDate" />
-                </div>
-            </div>
-
-            <div class="row g-3 mt-1">
-                <div class="col-12 col-lg-8">
-                    <label class="form-label text-sm mb-1">Status</label>
-                    <div class="flex gap-1 mb-2">
-                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_openStatuses))">Open</button>
-                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_needsAttentionStatuses))">Needs attention</button>
-                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(_closedStatuses))">Closed</button>
-                        <button class="btn btn-outline btn-sm" @onclick="@(() => ApplyStatusPreset(Array.Empty<RequestStatus>()))">Clear</button>
-                    </div>
-                    <div class="flex gap-3">
-                        @foreach (var s in _allStatuses)
-                        {
-                            <div class="form-check form-check-inline m-0">
-                                <input class="form-check-input" type="checkbox" id="status-@s"
-                                       checked="@_selectedStatuses.Contains(s)"
-                                       @onchange="e => ToggleStatus(s, (bool)e.Value!)" />
-                                <label class="form-label" for="status-@s">@StatusLabel(s)</label>
-                            </div>
-                        }
-                    </div>
-                </div>
-                <div class="col-12 col-lg-4">
-                    <label class="form-label text-sm mb-1">Type</label>
-                    <div class="flex gap-3">
-                        @foreach (var t in _allTypes)
-                        {
-                            <div class="form-check form-check-inline m-0">
-                                <input class="form-check-input" type="checkbox" id="type-@t"
-                                       checked="@_selectedTypes.Contains(t)"
-                                       @onchange="e => ToggleType(t, (bool)e.Value!)" />
-                                <label class="form-label" for="type-@t">@TypeLabel(t)</label>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-2 mt-3">
-                <button class="btn btn-primary btn-sm" @onclick="() => LoadPageAsync(1)" disabled="@_loading">Apply</button>
-                <button class="btn btn-outline btn-sm" @onclick="ClearFilters" disabled="@_loading">Clear</button>
-            </div>
-        </div>
-    }
 
     @if (_loading)
     {
@@ -198,6 +146,85 @@
     </div>
 }
 
+@* ─── Filter modal (same pattern as the budget-request report page) ─────── *@
+@if (_showFilters)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h6 class="modal-title">Filter</h6>
+                <button class="btn btn-icon modal-close" @onclick="() => _showFilters = false">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid-3 mb-4">
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Submitted from</label>
+                        <input type="date" class="input" @bind="_fromDate" />
+                    </div>
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Submitted to</label>
+                        <input type="date" class="input" @bind="_toDate" />
+                    </div>
+                </div>
+
+                @* Type *@
+                <div class="mb-4">
+                    <label class="form-label text-sm text-muted mb-2">Type</label>
+                    <div class="flex gap-4">
+                        @foreach (var t in _allTypes)
+                        {
+                            var type = t;
+                            <label class="flex items-center gap-2 text-sm" style="cursor:pointer">
+                                <input type="checkbox"
+                                       style="width:14px;height:14px;accent-color:var(--color-primary)"
+                                       checked="@_selectedTypes.Contains(type)"
+                                       @onchange="@((ChangeEventArgs e) => ToggleType(type, (bool)e.Value!))" />
+                                @TypeLabel(type)
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                @* Status *@
+                <div class="mb-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="form-label text-sm text-muted">Status</label>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(_openStatuses))">Open</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(_needsAttentionStatuses))">Needs attention</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(_closedStatuses))">Closed</button>
+                            <button type="button" class="btn btn-sm btn-outline" @onclick="@(() => ApplyStatusPreset(Array.Empty<RequestStatus>()))">Clear</button>
+                        </div>
+                    </div>
+                    <div class="checkbox-grid">
+                        @foreach (var s in _allStatuses)
+                        {
+                            var status = s;
+                            <label>
+                                <input type="checkbox"
+                                       checked="@_selectedStatuses.Contains(status)"
+                                       @onchange="@((ChangeEventArgs e) => ToggleStatus(status, (bool)e.Value!))" />
+                                @StatusLabel(status)
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="ClearFilters" disabled="@_loading">Clear</button>
+                <button class="btn btn-primary btn-sm" @onclick="ApplyAndClose" disabled="@_loading">
+                    @if (_loading) { <span class="spinner spinner-sm mr-1"></span> }
+                    Apply
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // Current page of server-side search results (source of truth for the table).
     private PagedResult<BudgetRequestSummaryDto>? _result;
@@ -272,6 +299,23 @@
         || _selectedTypes.Count > 0
         || _fromDate.HasValue
         || _toDate.HasValue;
+
+    // Count of active staged filters, shown as a badge on the Filter button
+    // (same convention as the report page; search counts as a filter).
+    private int _activeFilterCount => new[]
+    {
+        !string.IsNullOrWhiteSpace(_search),
+        _fromDate.HasValue,
+        _toDate.HasValue,
+        _selectedStatuses.Count > 0,
+        _selectedTypes.Count > 0,
+    }.Count(x => x);
+
+    private async Task ApplyAndClose()
+    {
+        _showFilters = false;
+        await LoadPageAsync(1);
+    }
 
     protected override async Task OnInitializedAsync() => await LoadPageAsync(1);
 
