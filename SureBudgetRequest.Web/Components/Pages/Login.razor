@@ -54,13 +54,21 @@
                            placeholder="Enter password"
                            autocomplete="current-password" />
                 <button type="button" tabindex="-1"
+                        onclick="togglePassword(this)"
+                        aria-label="Show password"
                         style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
                                background:none;border:none;cursor:pointer;color:var(--color-text-muted);
                                padding:0;display:flex;align-items:center;">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                    <svg class="pwd-eye" width="18" height="18" viewBox="0 0 18 18" fill="none">
                         <path d="M1 9C2.5 5 5.5 3 9 3s6.5 2 8 6c-1.5 4-4.5 6-8 6S2.5 13 1 9Z"
                               stroke="currentColor" stroke-width="1.5"/>
                         <circle cx="9" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                    </svg>
+                    <svg class="pwd-eye-off" width="18" height="18" viewBox="0 0 18 18" fill="none" style="display:none">
+                        <path d="M1 9C2.5 5 5.5 3 9 3s6.5 2 8 6c-1.5 4-4.5 6-8 6S2.5 13 1 9Z"
+                              stroke="currentColor" stroke-width="1.5"/>
+                        <circle cx="9" cy="9" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M2 2L16 16" stroke="currentColor" stroke-width="1.5"/>
                     </svg>
                 </button>
             </div>
@@ -75,6 +83,20 @@
         </button>
     </EditForm>
 </div>
+
+<script>
+    function togglePassword(btn) {
+        var input = document.getElementById('login-password');
+        if (!input) return;
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+        var eye = btn.querySelector('.pwd-eye');
+        var eyeOff = btn.querySelector('.pwd-eye-off');
+        if (eye) eye.style.display = showing ? '' : 'none';
+        if (eyeOff) eyeOff.style.display = showing ? 'none' : '';
+    }
+</script>
 
 @code {
     [SupplyParameterFromForm]
