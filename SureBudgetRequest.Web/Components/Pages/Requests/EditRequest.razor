@@ -58,11 +58,6 @@
             </div>
         }
 
-        @if (!string.IsNullOrEmpty(_error))
-        {
-            <div class="alert alert-error">@_error</div>
-        }
-
         @if (WouldOverflowPeriod)
         {
             <div class="alert alert-warning">
@@ -111,17 +106,28 @@
                         </select>
                     </div>
                     <div>
-                        <label class="form-label text-sm font-semibold">Amount</label>
-                        <input class="input" type="number" min="1" step="0.01" @bind="_amount" @bind:after="OnAmountChanged" />
+                        <label class="form-label text-sm font-semibold">Amount <span class="text-danger">*</span></label>
+                        <input class="input @(ShowError("amount") ? "is-invalid" : null)" type="number" min="1" step="0.01"
+                               @bind="_amount" @bind:after="OnAmountChanged"
+                               @onfocusout="@(() => Touch("amount"))" />
+                        @if (ShowError("amount"))
+                        {
+                            <div class="invalid-feedback">@FieldError("amount")</div>
+                        }
                     </div>
                     </div>
 
                     @if (_currencyCode != "MMK")
                     {
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Exchange Rate (MMK per @_currencyCode)</label>
-                        <input class="input" type="number" step="0.01" 
-                               @bind="_selectedRate" @bind:after="OnAmountChanged" />
+                        <label class="form-label text-sm font-semibold">Exchange Rate (MMK per @_currencyCode) <span class="text-danger">*</span></label>
+                        <input class="input @(ShowError("rate") ? "is-invalid" : null)" type="number" step="0.01"
+                               @bind="_selectedRate" @bind:after="OnAmountChanged"
+                               @onfocusout="@(() => Touch("rate"))" />
+                        @if (ShowError("rate"))
+                        {
+                            <div class="invalid-feedback">@FieldError("rate")</div>
+                        }
                         <div class="form-hint">Default system rate: @_systemRate.ToString("N2")</div>
                     </div>
                     }
@@ -153,8 +159,14 @@
                 }
 
                 <div class="mb-4">
-                    <label class="form-label text-sm font-semibold">Reason / Purpose</label>
-                    <textarea class="textarea" rows="3" @bind="_reason" placeholder="Describe what the budget is for…"></textarea>
+                    <label class="form-label text-sm font-semibold">Reason / Purpose <span class="text-danger">*</span></label>
+                    <textarea class="textarea @(ShowError("reason") ? "is-invalid" : null)" rows="3"
+                              @bind="_reason" @onfocusout="@(() => Touch("reason"))"
+                              placeholder="Describe what the budget is for…"></textarea>
+                    @if (ShowError("reason"))
+                    {
+                        <div class="invalid-feedback">@FieldError("reason")</div>
+                    }
                 </div>
 
                 @if (SelectedMethodRequiresAttachment)
@@ -214,24 +226,39 @@
 
                 <div class="form-grid-2 mb-4">
                     <div>
-                        <label class="form-label text-sm font-semibold">Full Name</label>
-                        <input class="input" @bind="_withdrawerName" />
+                        <label class="form-label text-sm font-semibold">Full Name <span class="text-danger">*</span></label>
+                        <input class="input @(ShowError("withdrawerName") ? "is-invalid" : null)"
+                               @bind="_withdrawerName" @onfocusout="@(() => Touch("withdrawerName"))" />
+                        @if (ShowError("withdrawerName"))
+                        {
+                            <div class="invalid-feedback">@FieldError("withdrawerName")</div>
+                        }
                     </div>
                     <div>
-                        <label class="form-label text-sm font-semibold">Job Title</label>
-                        <input class="input" @bind="_withdrawerTitle" />
+                        <label class="form-label text-sm font-semibold">Job Title <span class="text-danger">*</span></label>
+                        <input class="input @(ShowError("withdrawerTitle") ? "is-invalid" : null)"
+                               @bind="_withdrawerTitle" @onfocusout="@(() => Touch("withdrawerTitle"))" />
+                        @if (ShowError("withdrawerTitle"))
+                        {
+                            <div class="invalid-feedback">@FieldError("withdrawerTitle")</div>
+                        }
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label text-sm font-semibold">Withdraw Method</label>
-                    <select class="select" @bind="_withdrawMethodId">
+                    <label class="form-label text-sm font-semibold">Withdraw Method <span class="text-danger">*</span></label>
+                    <select class="select @(ShowError("withdrawMethod") ? "is-invalid" : null)"
+                            @bind="_withdrawMethodId" @onfocusout="@(() => Touch("withdrawMethod"))">
                         <option value="">— select a method —</option>
                         @foreach (var m in _withdrawMethods)
                         {
                             <option value="@m.Id">@m.Name</option>
                         }
                     </select>
+                    @if (ShowError("withdrawMethod"))
+                    {
+                        <div class="invalid-feedback">@FieldError("withdrawMethod")</div>
+                    }
                     @if (!_withdrawMethods.Any())
                     {
                         <div class="form-text text-sm text-danger">
@@ -267,18 +294,22 @@
 
                 @if (IsDhModifying)
                 {
-                    <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: false)" disabled="@_saving">
+                    <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: false)"
+                            disabled="@(_saving || HasValidationErrors)">
                         @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         Update
                     </button>
                 }
                 else
                 {
-                    <button class="btn btn-outline btn-sm" @onclick="() => OnSaveClicked(submit: false)" disabled="@_saving">
+                    <button class="btn btn-outline btn-sm" @onclick="() => OnSaveClicked(submit: false)"
+                            disabled="@(_saving || HasValidationErrors)">
                         @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         @SaveLabel
                     </button>
-                    <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: true)" disabled="@_saving">
+                    <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: true)"
+                            title="@(SelectedMethodRequiresAttachment && !HasBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload at least one banking file before submitting." : null)"
+                            disabled="@(_saving || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasBankingAttachment))">
                         @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         @SubmitLabel
                     </button>
@@ -321,6 +352,27 @@
                         @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
                         @ConfirmLabel
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Error modal ────────────────────────────────────────────────────────────── *@
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Something went wrong</h6>
+                    <button class="btn btn-icon modal-close" @onclick="CloseErrorModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-sm">@_error</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" @onclick="CloseErrorModal">OK</button>
                 </div>
             </div>
         </div>
@@ -389,6 +441,33 @@
 
     private bool HasBankingAttachment =>
         _request?.Attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod) == true;
+
+    // ── Field-level validation (messages appear only after a field is touched) ──
+    private readonly HashSet<string> _touched = new();
+    private static readonly string[] RequiredFields =
+        { "amount", "rate", "reason", "withdrawerName", "withdrawerTitle", "withdrawMethod" };
+
+    private void Touch(string field) => _touched.Add(field);
+    private bool ShowError(string field) => _touched.Contains(field) && FieldError(field) is not null;
+
+    private string? FieldError(string field) => field switch
+    {
+        "amount" => _amount <= 0 ? "Amount must be greater than zero." : null,
+        "rate" => _currencyCode != "MMK" && _selectedRate <= 0
+            ? "Exchange rate must be greater than zero." : null,
+        "reason" => string.IsNullOrWhiteSpace(_reason) ? "Reason is required." : null,
+        "withdrawerName" => string.IsNullOrWhiteSpace(_withdrawerName)
+            ? "Withdrawer name is required." : null,
+        "withdrawerTitle" => string.IsNullOrWhiteSpace(_withdrawerTitle)
+            ? "Withdrawer job title is required." : null,
+        "withdrawMethod" => string.IsNullOrWhiteSpace(_withdrawMethodId) || !Guid.TryParse(_withdrawMethodId, out _)
+            ? "Withdraw method is required." : null,
+        _ => null
+    };
+
+    private bool HasValidationErrors => RequiredFields.Any(f => FieldError(f) is not null);
+
+    private void CloseErrorModal() => _error = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -552,6 +631,8 @@
 
     private bool ValidateForm()
     {
+        // Buttons are disabled while errors exist, but keep this as a safety net.
+        foreach (var f in RequiredFields) _touched.Add(f);
         if (_amount <= 0) { _error = "Amount must be greater than zero."; return false; }
         if (string.IsNullOrWhiteSpace(_currencyCode)) { _error = "Currency is required."; return false; }
         if (_selectedRate <= 0) { _error = "Exchange rate must be greater than zero."; return false; }

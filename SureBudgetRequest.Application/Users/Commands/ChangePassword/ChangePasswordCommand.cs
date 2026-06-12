@@ -19,7 +19,7 @@ public sealed record ChangePasswordCommand(
 
 public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, Result>
 {
-    public const int MinimumPasswordLength = 10;
+    public const int MinimumPasswordLength = 6;
 
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;

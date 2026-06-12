@@ -21,7 +21,7 @@ public sealed record CreateUserCommand(
 
 public sealed class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Result<Guid>>
 {
-    public const int MinimumPasswordLength = 10;
+    public const int MinimumPasswordLength = 6;
 
     private readonly IUserRepository _userRepository;
     private readonly IDepartmentRepository _departmentRepository;
