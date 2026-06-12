@@ -87,17 +87,29 @@
                 <thead>
                     <tr>
                         <th class="col-no">No</th>
-                        <th>Request ID</th>
-                        <th>Name</th>
-                        <th>Submitted At</th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick='() => SortByColumn("ref")'>
+                            Request ID @SortIndicator("ref")
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick='() => SortByColumn("name")'>
+                            Name @SortIndicator("name")
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick='() => SortByColumn("submitted")'>
+                            Submitted At @SortIndicator("submitted")
+                        </th>
                         <th>Description</th>
-                        <th>Status</th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick='() => SortByColumn("status")'>
+                            Status @SortIndicator("status")
+                        </th>
                         <th style="width:40px"></th>
                     </tr>
                 </thead>
                 <tbody>
                     @{
-                        var rows = GetActiveTabRows();
+                        var rows = SortRows(GetActiveTabRows());
                         var page = _page;
                         var pageSize = 14;
                         var paged = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -235,6 +247,53 @@
     {
         _activeTab = tab;
         _page = 1;
+        // Each tab starts from the default order: newest-submitted first.
+        _sortCol = "submitted";
+        _sortDesc = true;
+    }
+
+    // ── Sorting (client-side — dashboard rows are already in memory) ──────
+    // Default: submission time, newest first. Drafts (null SubmittedAt) are
+    // treated as newest so they stay on top in the My Actions tab.
+    private string _sortCol = "submitted";   // "ref" | "name" | "submitted" | "status"
+    private bool _sortDesc = true;
+
+    private void SortByColumn(string col)
+    {
+        if (_sortCol == col)
+            _sortDesc = !_sortDesc;
+        else
+        {
+            _sortCol = col;
+            _sortDesc = col == "submitted";
+        }
+        _page = 1;
+    }
+
+    private string SortIndicator(string col) =>
+        _sortCol == col ? (_sortDesc ? "▼" : "▲") : "";
+
+    private List<BudgetRequestSummaryDto> SortRows(IReadOnlyList<BudgetRequestSummaryDto> rows)
+    {
+        IOrderedEnumerable<BudgetRequestSummaryDto> ordered = _sortCol switch
+        {
+            "ref" => _sortDesc
+                ? rows.OrderByDescending(r => r.Reference ?? "")
+                : rows.OrderBy(r => r.Reference ?? ""),
+            "name" => _sortDesc
+                ? rows.OrderByDescending(r => RequesterName(r.RequesterId))
+                : rows.OrderBy(r => RequesterName(r.RequesterId)),
+            "status" => _sortDesc
+                ? rows.OrderByDescending(r => r.Status)
+                : rows.OrderBy(r => r.Status),
+            // "submitted" is the default. Null SubmittedAt (drafts) sorts as
+            // MaxValue: first when descending, last when ascending.
+            _ => _sortDesc
+                ? rows.OrderByDescending(r => r.SubmittedAt ?? DateTime.MaxValue)
+                : rows.OrderBy(r => r.SubmittedAt ?? DateTime.MaxValue),
+        };
+
+        return ordered.ThenByDescending(r => r.CreatedAt).ToList();
     }
 
     private IReadOnlyList<BudgetRequestSummaryDto> GetActiveTabRows()

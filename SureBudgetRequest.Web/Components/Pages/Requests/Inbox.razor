@@ -164,12 +164,37 @@
                     <thead >
                         <tr>
                             <th class="col-no">#</th>
-                            <th>Date</th>
-                            <th>Requester</th>
+                            <th role="button" style="cursor:pointer"
+                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.RequestDate))">
+                                Date @SortIndicator(BudgetRequestSortBy.RequestDate)
+                            </th>
+                            <th role="button" style="cursor:pointer"
+                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
+                                Requester @SortIndicator(BudgetRequestSortBy.Requester)
+                            </th>
                             <th>Reason</th>
-                            <th class="text-end">Amount</th>
-                            <th>Status</th>
-                            <th>@(_view == "overdue" ? "Deadline" : "Submitted")</th>
+                            <th class="text-end" role="button" style="cursor:pointer;text-align:right"
+                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
+                                Amount @SortIndicator(BudgetRequestSortBy.AmountInMmk)
+                            </th>
+                            <th role="button" style="cursor:pointer"
+                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
+                                Status @SortIndicator(BudgetRequestSortBy.Status)
+                            </th>
+                            @if (_view == "overdue")
+                            {
+                                <th role="button" style="cursor:pointer"
+                                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.ReconciliationDeadline))">
+                                    Deadline @SortIndicator(BudgetRequestSortBy.ReconciliationDeadline)
+                                </th>
+                            }
+                            else
+                            {
+                                <th role="button" style="cursor:pointer"
+                                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
+                                    Submitted @SortIndicator(BudgetRequestSortBy.SubmittedAt)
+                                </th>
+                            }
                             <th></th>
                         </tr>
                     </thead>
@@ -264,6 +289,28 @@
     private int _pageSize = 20;
     private bool _loading = true;
     private string _view = "inbox";   // "inbox" | "overdue"
+
+    // ── Sorting ── default: submission time, newest first (inbox view).
+    // The overdue view defaults to deadline ascending (most-overdue first).
+    private BudgetRequestSortBy _sortBy = BudgetRequestSortBy.SubmittedAt;
+    private bool _sortDescending = true;
+
+    private Task SortByColumn(BudgetRequestSortBy column)
+    {
+        if (_sortBy == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortBy = column;
+            _sortDescending = column is BudgetRequestSortBy.SubmittedAt
+                or BudgetRequestSortBy.AmountInMmk
+                or BudgetRequestSortBy.RequestDate;
+        }
+        return LoadPageAsync(1);
+    }
+
+    private string SortIndicator(BudgetRequestSortBy column) =>
+        _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
 
     private IReadOnlyList<BudgetRequestSummaryDto> Items =>
         _result?.Items ?? Array.Empty<BudgetRequestSummaryDto>();
@@ -376,6 +423,17 @@
     {
         if (_view == view) return;
         _view = view;
+        // Reset to each view's default ordering.
+        if (_view == "overdue")
+        {
+            _sortBy = BudgetRequestSortBy.ReconciliationDeadline;
+            _sortDescending = false;   // most-overdue first
+        }
+        else
+        {
+            _sortBy = BudgetRequestSortBy.SubmittedAt;
+            _sortDescending = true;    // newest first
+        }
         await LoadPageAsync(1);
     }
 
@@ -455,8 +513,8 @@
                 AmountInMmkTo: amountTo,
                 SearchTerm: term,
                 OverdueAdvanceOnly: true,
-                SortBy: BudgetRequestSortBy.ReconciliationDeadline,
-                SortDescending: false,
+                SortBy: _sortBy,
+                SortDescending: _sortDescending,
                 Page: page,
                 PageSize: _pageSize));
 
@@ -480,7 +538,8 @@
                 _                       => (RequestStatus?)null
             };
 
-            // Oldest-submitted first — same order as before, now applied in SQL.
+            // Default: newest-submitted first. The user can re-sort via the
+            // clickable column headers; sorting is applied in SQL.
             var result = await Mediator.Send(new SearchBudgetRequestsQuery(
                 DepartmentId: deptFilter,
                 Status: statusFilter,
@@ -490,8 +549,8 @@
                 AmountInMmkFrom: amountFrom,
                 AmountInMmkTo: amountTo,
                 SearchTerm: term,
-                SortBy: BudgetRequestSortBy.SubmittedAt,
-                SortDescending: false,
+                SortBy: _sortBy,
+                SortDescending: _sortDescending,
                 Page: page,
                 PageSize: _pageSize));
 

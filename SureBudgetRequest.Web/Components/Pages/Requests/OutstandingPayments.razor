@@ -140,14 +140,27 @@
                 <thead >
                     <tr>
                         <th class="col-no">#</th>
-                        <th>Date</th>
-                        <th>Requester</th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.RequestDate))">
+                            Date @SortIndicator(BudgetRequestSortBy.RequestDate)
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
+                            Requester @SortIndicator(BudgetRequestSortBy.Requester)
+                        </th>
                         <th>Reason</th>
                         <th>Ccy</th>
-                        <th class="text-end">Approved</th>
+                        <th class="text-end" role="button" style="cursor:pointer;text-align:right"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.OutstandingSince))"
+                            title="Sort by how long the request has been waiting for payment">
+                            Approved @SortIndicator(BudgetRequestSortBy.OutstandingSince)
+                        </th>
                         <th class="text-end">Paid</th>
                         <th class="text-end">Outstanding</th>
-                        <th>Status</th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
+                            Status @SortIndicator(BudgetRequestSortBy.Status)
+                        </th>
                         <th></th>
                     </tr>
                 </thead>
@@ -243,6 +256,32 @@
     private PagedResult<BudgetRequestSummaryDto>? _result;
     private int _currentPage = 1;
     private int _pageSize = 20;
+
+    // ── Sorting ── default: submission time, newest first. The "Approved"
+    // header sorts by OutstandingSince (how long the request has been
+    // waiting), which ascending restores the old longest-waiting-first
+    // payment-queue order.
+    private BudgetRequestSortBy _sortBy = BudgetRequestSortBy.SubmittedAt;
+    private bool _sortDescending = true;
+
+    private Task SortByColumn(BudgetRequestSortBy column)
+    {
+        if (_sortBy == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortBy = column;
+            // Time/amount columns start descending; OutstandingSince starts
+            // ascending (longest-waiting first — the useful queue order).
+            _sortDescending = column is BudgetRequestSortBy.SubmittedAt
+                or BudgetRequestSortBy.AmountInMmk
+                or BudgetRequestSortBy.RequestDate;
+        }
+        return LoadPageAsync(1);
+    }
+
+    private string SortIndicator(BudgetRequestSortBy column) =>
+        _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
     private bool _loading = true;
     private string? _errorMessage;
 
@@ -408,8 +447,8 @@
             CurrencyCode: currency,
             Types: types,
             SearchTerm: term,
-            SortBy: BudgetRequestSortBy.OutstandingSince,
-            SortDescending: false,   // oldest-approved first, same order as before
+            SortBy: _sortBy,
+            SortDescending: _sortDescending,
             Page: page,
             PageSize: _pageSize));
 

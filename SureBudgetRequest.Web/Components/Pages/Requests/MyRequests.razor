@@ -50,12 +50,27 @@
                 <thead >
                     <tr>
                         <th class="col-no">#</th>
-                        <th>Reference</th>
-                        <th>Request Date</th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.Reference))">
+                            Reference @SortIndicator(BudgetRequestSortBy.Reference)
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.RequestDate))">
+                            Request Date @SortIndicator(BudgetRequestSortBy.RequestDate)
+                        </th>
                         <th>Reason</th>
-                        <th class="text-end">Amount</th>
-                        <th>Status</th>
-                        <th>Submitted</th>
+                        <th class="text-end" role="button" style="cursor:pointer;text-align:right"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
+                            Amount @SortIndicator(BudgetRequestSortBy.AmountInMmk)
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
+                            Status @SortIndicator(BudgetRequestSortBy.Status)
+                        </th>
+                        <th role="button" style="cursor:pointer"
+                            @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
+                            Submitted @SortIndicator(BudgetRequestSortBy.SubmittedAt)
+                        </th>
                         <th></th>
                     </tr>
                 </thead>
@@ -231,6 +246,29 @@
     private PagedResult<BudgetRequestSummaryDto>? _result;
     private int _currentPage = 1;
     private int _pageSize = 20;
+
+    // ── Sorting ── default: submission time, newest first. Drafts (null
+    // SubmittedAt) sort first under PostgreSQL's DESC NULLS FIRST, so they
+    // stay pinned on top by default.
+    private BudgetRequestSortBy _sortBy = BudgetRequestSortBy.SubmittedAt;
+    private bool _sortDescending = true;
+
+    private Task SortByColumn(BudgetRequestSortBy column)
+    {
+        if (_sortBy == column)
+            _sortDescending = !_sortDescending;
+        else
+        {
+            _sortBy = column;
+            _sortDescending = column is BudgetRequestSortBy.SubmittedAt
+                or BudgetRequestSortBy.AmountInMmk
+                or BudgetRequestSortBy.RequestDate;
+        }
+        return LoadPageAsync(1);
+    }
+
+    private string SortIndicator(BudgetRequestSortBy column) =>
+        _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
     // Snapshot of "were any filters/search applied" for the query that produced
     // _result — drives the empty-state message (set inside LoadPageAsync).
     private bool _appliedHasFilters;
@@ -354,6 +392,8 @@
             SubmittedFromUtc: from,
             SubmittedUntilUtc: until,
             SearchTerm: _search,
+            SortBy: _sortBy,
+            SortDescending: _sortDescending,
             Page: page,
             PageSize: _pageSize);
 
