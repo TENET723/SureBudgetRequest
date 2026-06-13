@@ -435,7 +435,7 @@
 
     // ── Navigation ────────────────────────────────────────────────────────
 
-    private void OpenRequest(Guid id) => Nav.NavigateTo($"requests/{id}");
+    private void OpenRequest(Guid id) => Nav.NavigateTo($"requests/{id}?from=home");
 
     private void OpenRequestSmart(BudgetRequestSummaryDto r)
     {
@@ -458,17 +458,21 @@
 
     private static string StatusLabel(RequestStatus s) => s switch
     {
-        RequestStatus.Draft             => "Draft",
-        RequestStatus.PendingDeptHead   => "Pending Head",
-        RequestStatus.PendingManagement => "Pending Mgmt",
-        RequestStatus.PendingFinance    => "Pending Finance",
-        RequestStatus.SentBack          => "Sent Back",
-        RequestStatus.Approved          => "Approved",
-        RequestStatus.PartiallyPaid     => "Part. Paid",
-        RequestStatus.Paid              => "Paid",
-        RequestStatus.Rejected          => "Rejected",
-        RequestStatus.Cancelled         => "Cancelled",
-        _                               => s.ToString()
+        RequestStatus.Draft                 => "Draft",
+        RequestStatus.PendingDeptHead       => "Pending Head",
+        RequestStatus.PendingManagement     => "Pending Mgmt",
+        RequestStatus.PendingFinance        => "Pending Finance",
+        RequestStatus.SentBack              => "Sent Back",
+        RequestStatus.Approved              => "Approved",
+        RequestStatus.PartiallyPaid         => "Part. Paid",
+        RequestStatus.Paid                  => "Paid",
+        RequestStatus.Rejected              => "Rejected",
+        RequestStatus.Cancelled             => "Cancelled",
+        RequestStatus.PendingReconciliation => "Pending Recon",
+        RequestStatus.AwaitingRefund        => "Awaiting Refund",
+        RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
+        RequestStatus.Reconciled            => "Reconciled",
+        _                                   => s.ToString()
     };
 
     private static string StatusBadgeClass(RequestStatus s) => s switch
@@ -477,7 +481,10 @@
         RequestStatus.PendingDeptHead
             or RequestStatus.PendingManagement
             or RequestStatus.PendingFinance
-            or RequestStatus.SentBack                         => "status-badge-pending",
+            or RequestStatus.SentBack
+            or RequestStatus.PendingReconciliation
+            or RequestStatus.AwaitingRefund
+            or RequestStatus.AwaitingReimbursement           => "status-badge-pending",
         RequestStatus.Approved or RequestStatus.PartiallyPaid => "status-badge-approved",
         RequestStatus.Paid or RequestStatus.Reconciled        => "status-badge-paid",
         RequestStatus.Rejected or RequestStatus.Cancelled     => "status-badge-rejected",

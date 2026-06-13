@@ -35,14 +35,22 @@ public sealed class GetDashboardQueryHandler
         RequestStatus.PendingFinance,
         RequestStatus.Approved,
         RequestStatus.PartiallyPaid,
-        RequestStatus.SentBack
+        RequestStatus.SentBack,
+        // Advance reconciliation phase — these statuses only ever apply to
+        // Advance requests, which skip Paid entirely. The money is out but
+        // the request is not closed until reconciled, so they are in-flight.
+        RequestStatus.PendingReconciliation,
+        RequestStatus.AwaitingRefund,
+        RequestStatus.AwaitingReimbursement
     };
 
     private static readonly RequestStatus[] CompletedStatuses =
     {
         RequestStatus.Paid,
         RequestStatus.Rejected,
-        RequestStatus.Cancelled
+        RequestStatus.Cancelled,
+        // Terminal state for Advance requests (advances never reach Paid).
+        RequestStatus.Reconciled
     };
 
     private static readonly RequestStatus[] ActionRequiredStatuses =

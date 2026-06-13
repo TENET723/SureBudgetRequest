@@ -46,7 +46,7 @@ else
         @* ── Header ── *@
         <div class="flex items-start justify-content-between mb-4">
             <div>
-                <a href="requests/mine" class="text-muted text-sm">← Back</a>
+                <a href="@BackTarget.Url" class="text-muted text-sm">← Back to @BackTarget.Label</a>
                 <div class="flex items-center gap-2 mt-1">
                     <h5>Budget Request</h5>
                     <button class="btn btn-outline btn-xs" @onclick="OpenHistory">History</button>
@@ -1309,6 +1309,29 @@ else
 
 @code {
     [Parameter] public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+
+    /// <summary>
+    /// Where "← Back" returns to. Driven by the `from` token (whitelist below);
+    /// falls back to a role-appropriate list when the token is missing or unknown
+    /// (e.g. Slack deep links, page refresh). Tokens map to fixed internal routes,
+    /// so an unknown value can never resolve to an off-app URL.
+    /// </summary>
+    private (string Url, string Label) BackTarget => From switch
+    {
+        "inbox"       => ("requests/inbox",          "Inbox"),
+        "mine"        => ("requests/mine",           "My Requests"),
+        "outstanding" => ("requests/outstanding",    "Outstanding Payments"),
+        "reports"     => ("reports/budget-requests", "Reports"),
+        "home"        => ("/",                       "Dashboard"),
+        _ => CurrentUser.Role switch
+        {
+            UserRole.Employee   => ("requests/mine",           "My Requests"),
+            UserRole.Accounting => ("reports/budget-requests", "Reports"),
+            _                   => ("requests/inbox",          "Inbox"),
+        }
+    };
 
     private BudgetRequestDto? _request;
     private Dictionary<Guid, string> _userNames = new();
