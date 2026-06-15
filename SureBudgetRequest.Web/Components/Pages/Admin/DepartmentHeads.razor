@@ -125,7 +125,7 @@
                     <label class="form-label text-sm font-semibold">New Department Head</label>
                     <select class="select" @bind="_formHeadUserId">
                         <option value="">— select —</option>
-                        @foreach (var u in _activeUsers)
+                        @foreach (var u in _activeHeadUsers)
                         {
                             <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
                         }
@@ -154,7 +154,7 @@
 @code {
     private List<DepartmentDto> _departments = new();
     private List<DepartmentDto> _filtered = new();
-    private List<UserDto> _activeUsers = new();
+    private List<UserDto> _activeHeadUsers = new();
     private Dictionary<Guid, string> _userNames = new();
     private bool _loading = true;
     private string _search = "";
@@ -185,7 +185,7 @@
         if (usersResult.IsSuccess)
         {
             _userNames = usersResult.Value.ToDictionary(u => u.Id, u => u.FullName);
-            _activeUsers = usersResult.Value.Where(u => u.IsActive).ToList();
+            _activeHeadUsers = usersResult.Value.Where(u => u.IsActive && u.Role == UserRole.DepartmentHead).ToList();
         }
 
         var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));

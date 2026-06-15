@@ -90,11 +90,11 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 
-    if (app.Environment.IsDevelopment())
-    {
-        var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
-        await seeder.SeedAsync();
-    }
+    //if (app.Environment.IsDevelopment())
+    //{
+    //    var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
+    //    await seeder.SeedAsync();
+    //}
 }
 
 // ── Middleware pipeline ───────────────────────────────────────────────────────
