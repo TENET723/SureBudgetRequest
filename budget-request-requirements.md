@@ -1,209 +1,427 @@
-# Budget Request — Requirements Spec (v4)
+# SureBudgetRequest — Project Handoff
 
-**Project:** SureBudgetRequest (aSure internal app)
-**Stack:** .NET 10 · Blazor Server · Clean Architecture · Supabase (PostgreSQL) · Slack notifications
-**Status:** Approved for build (minor open items in §8)
+**Read this first if you're continuing this project in a new Claude session.**
 
 ---
 
-## 1. Overview
+## What this project is
 
-Internal app for aSure employees to request budget for purchases or expenses. Requests flow through a Department Head, optionally a Boss (for over-limit amounts), then Finance.
+Internal budget-request app for **aSure** (a Myanmar company). Employees submit budget requests that flow through Department Head → Management (if over budget limit) → Finance for approval. Finance records payments, which may be made in installments. Advance-type requests go through a reconciliation phase after payment.
 
-## 2. Roles
+Replaces an existing Airtable workflow. Deployed on an internal server at the aSure office, also accessible at `https://surebudget.sure.com.mm`.
+
+---
+
+## Stack
+
+- **.NET 9** — all four projects target `net9.0` (EF Core 9, Npgsql 9)
+- **Blazor Server SSR** with `AddInteractiveServerComponents`
+- **Clean Architecture** — 4 projects: Domain, Application, Infrastructure, Web
+- **Supabase (PostgreSQL)** — accessed via EF Core + Npgsql (NOT the Supabase REST client)
+- **EFCore.NamingConventions** — snake_case table/column names; C# stays PascalCase
+- **MediatR 12** — CQRS; commands and queries in the Application layer
+- **Cookie authentication** — PBKDF2-SHA256 password hashing; 8-hour sliding session
+- **Slack incoming webhooks** — per-department routing; outbox pattern via `NotificationOutbox` table + `NotificationOutboxProcessor` background service
+- **Supabase Storage** (default) or **LocalFileStorage** (dev fallback) for attachments
+- **ClosedXML** — Excel export on the Reports page
+
+---
+
+## Project structure
+
+```
+SureBudgetRequest.slnx
+├── SureBudgetRequest.Domain/           ← no dependencies
+├── SureBudgetRequest.Application/      ← depends on Domain; MediatR, FluentValidation
+├── SureBudgetRequest.Infrastructure/   ← depends on Application; EF Core, Npgsql, ClosedXML
+└── SureBudgetRequest.Web/              ← Blazor Server; references Application + Infrastructure
+```
+
+Web references both Application and Infrastructure (composition root pattern). This is correct and already wired.
+
+---
+
+## Build status
+
+All four layers are complete and the app is in active use.
+
+| Layer | Status |
+|---|---|
+| Domain | ✅ Complete |
+| Application | ✅ Complete |
+| Infrastructure | ✅ Complete |
+| Web (pages + layout) | ✅ Complete |
+| Authentication | ✅ Full cookie auth with login page and password change flow |
+| Migrations | ✅ 27 migrations applied; snapshot up to date |
+| Seeder | ✅ Seeds currencies, COAs, withdraw methods, bank accounts, budget categories, users, departments |
+| Deployment | ✅ Linux publish profile → `ubuntu@56.10.4.71`; systemd service `web.service` |
+
+---
+
+## Roles
 
 | Role | Description |
 |---|---|
-| **Employee** | Submits requests. Default role. |
-| **Department Head** | Approves requests from their own department. One per department. |
-| **Boss** | A single user company-wide. Approves over-limit requests. |
-| **Finance** | Final stage — verifies, picks Chart of Account, processes payment. |
-| **Admin** | Manages users, departments, budget limits. Has access to all admin pages. |
+| `Employee` | Submits requests. Default role. |
+| `DepartmentHead` | Approves requests from their own department. One per department. |
+| `Management` | Approves over-limit requests company-wide (replaces "Boss" from early spec). |
+| `Finance` | Final approval stage, records payments. Split into two sub-types via `IsFinanceApprover` flag — see below. |
+| `Admin` | Manages users, departments, COAs, currencies, bank accounts, withdraw methods, app settings. |
+| `Accounting` | Read-only. Sees everything Finance sees but cannot take any write actions. Enforced at the command boundary — no command handler admits `Accounting` on write paths. |
 
-## 3. Core Entities
+### Finance sub-types (`IsFinanceApprover` flag on `User`)
 
-- **User** — belongs to a Department, has a Role
-- **Department** — has one Department Head, a **per-request budget limit**, and an **optional monthly limit** (both in MMK)
-- **BudgetRequest** — the request itself, with status, amount, requester, **currency**, optional **CoaId**
-- **ApprovalAction** — audit row for every approve/reject/auto-approve decision
-- **Attachment** — supporting documents
-- **Currency** — master record (Code, Name, RateToMmk, IsActive). MMK exists as a row with rate = 1.
-- **CurrencyRateChange** — audit row written every time an admin changes a currency's rate
-- **Coa** (Chart of Account) — master record (Code, Name, Description?, IsActive). Global pool — every department picks from the same list.
+| Sub-type | Can do |
+|---|---|
+| Finance Approver (`IsFinanceApprover = true`) | Approve, Reject, Send Back, Record Payment |
+| Finance Payer (`IsFinanceApprover = false`) | Record Payment only |
 
-## 4. Approval Flow
+The flag is cleared automatically when a user's role changes away from Finance.
 
-The flow is **strictly sequential**: Department Head → Boss (if applicable) → Finance.
+---
 
-Whether the Boss stage applies is determined by **the request amount (converted to MMK) vs. the department's *per-request* budget limit at submission time**:
+## Approval flow
 
-- amount-in-MMK **≤ per-request limit** → skip Boss stage
-- amount-in-MMK **> per-request limit** → include Boss stage
+Sequential: **DeptHead → Management (if over limit) → Finance**
 
-When the request's currency is not MMK, the system converts the requested amount to MMK using the **exchange rate at submission time** (snapshotted onto the request — see R7 and R7a). Department limits are always denominated in MMK.
+Whether Management is required is determined at submission time by comparing `RequestedAmountInMmkAtSubmission` against `DepartmentLimitAtSubmission`. This comparison is snapshotted and never re-evaluated; future limit changes do not re-route in-flight requests.
 
-**The monthly limit (R15) is independent of routing.** It does *not* add a Boss stage. Its only effect on the flow is to require a justification field on the request when triggered.
+**Auto-approval:** if the DeptHead snapshot ID matches the requester at submission, the DeptHead stage is auto-approved immediately. Recorded in `ApprovalAction` with `Decision = AutoApproved`. Management and Finance do not currently have an equivalent guard — any Management or Finance user (other than the snapshotted DeptHead) can approve.
 
-**Finance approval requires a Chart of Account selection (R21).** Dept Head and Management approvals do not.
+### Status values
 
-### 4.1 Auto-approval rule (handles self-approval cleanly)
-
-> **If the assigned approver of a stage is the same person as the requester, that stage is automatically approved by the system.**
-
-This single rule handles every self-approval case at the Dept Head stage. Management and Finance stages do not auto-approve (peer review even for Management members).
-
-The auto-approval is recorded in `ApprovalAction` with `Decision = AutoApproved` and `ApproverId = RequesterId` for full audit visibility.
-
-### 4.2 Worked examples
-
-**Case A — Regular employee, under per-request limit, under monthly:**
 ```
-Submitted → PendingDeptHead (manual) → PendingFinance (manual + COA pick) → Approved → Paid
+Draft
+  └─ Submit ──► PendingDeptHead ──► PendingManagement (if over limit)
+                                  └─ PendingFinance
+                                       ├─ Approved ──► PartiallyPaid ──► Paid
+                                       │                      (Advance: PendingReconciliation ──►
+                                       │                        AwaitingRefund | AwaitingReimbursement ──► Reconciled)
+                                       ├─ Rejected
+                                       └─ SentBack ──► (requester edits) ──► resubmit ──► PendingDeptHead
+Cancelled  (requester cancels while PendingDeptHead only)
+```
+
+`Advance` requests never reach `Paid`; they go to `PendingReconciliation` after full payment. The reconciliation phase may end in `AwaitingRefund` (underspent) or `AwaitingReimbursement` (overspent) before reaching `Reconciled`.
+
+### Worked examples
+
+**Case A — Regular employee, under per-request limit:**
+```
+Submitted → PendingDeptHead (manual) → PendingFinance (manual + COA required) → Approved → [installments] → Paid
 ```
 
 **Case B — Regular employee, over per-request limit:**
 ```
-Submitted → PendingDeptHead → PendingManagement → PendingFinance (+ COA pick) → Approved → Paid
+Submitted → PendingDeptHead → PendingManagement → PendingFinance (+ COA required) → Approved → Paid
 ```
 
-**Case F — Regular employee, under per-request limit, but pushes department over monthly:**
+**Case C — DeptHead submits (auto-approval):**
 ```
-Submitted (with MonthlyOverrunJustification) →
-  PendingDeptHead → PendingFinance (+ COA pick) → Approved → Paid
-```
-
-**Case G — Finance approves, then sends back, then re-approves:**
-```
-Submitted → PendingDeptHead → PendingFinance →
-  [Finance sends back with comment, optionally with COA pre-selected] → SentBack →
-  [Requester edits and resubmits] → PendingDeptHead → PendingFinance →
-  [Finance approves; modal pre-fills the prior CoaId; Finance can change it] → Approved → Paid
+Submitted → DeptHead AUTO-APPROVED → PendingFinance (+ COA required) → Approved → Paid
 ```
 
-### 4.3 Rejection
-
-Any approver can reject at their stage:
-
+**Case D — DeptHead submits, over limit:**
 ```
-Pending<Stage> → Rejected
+Submitted → DeptHead AUTO-APPROVED → PendingManagement (manual) → PendingFinance → Approved → Paid
 ```
 
-`Rejected` is terminal. To resubmit, the employee creates a new request.
+**Case E — Monthly cap triggered (under per-request limit):**
+```
+Submitted (with MonthlyOverrunJustification) → PendingDeptHead → PendingFinance → Approved → Paid
+  ↑ routing unchanged; only justification required
+```
 
-## 5. Status Values
+**Case F — Finance sends back, then re-approves:**
+```
+... → PendingFinance → SentBack → [requester edits] → resubmit → PendingDeptHead → PendingFinance
+  [Finance re-approves; CoaId pre-filled from prior approval; Finance can change it] → Approved
+```
 
-- `Draft` — saved but not submitted
-- `PendingDeptHead`
-- `PendingManagement` — only when amount-in-MMK > department per-request limit
-- `PendingFinance`
-- `SentBack` — Finance returned it to the requester for fixes
-- `Approved` — finance approved; awaiting payment dispatch
-- `PartiallyPaid` — some payments recorded, not yet full
-- `Paid` — finance has marked it paid
-- `Rejected` — terminal
-- `Cancelled` — withdrawn by requester before any approval
+**Case G — Advance request:**
+```
+Submitted → PendingDeptHead → PendingFinance (sets ReconciliationDeadline + COA) → Approved
+  → [installments] → PendingReconciliation → [requester submits usage]
+  → AwaitingRefund (underspent) or AwaitingReimbursement (overspent) → Reconciled
+```
 
-## 6. Business Rules
+---
 
-- **R1** — A request is denominated in a **single currency** chosen at draft time from the active Currency master list.
-- **R1a** — The request's `RequestedAmount`, `ApprovedAmount`, and `Payment.Amount` are all in the request's currency. Only the limit comparison converts to MMK.
-- **R2** — A request requires: amount, currency, reason, requester, request date.
-- **R3** — Each department has exactly **one** Department Head.
-- **R4** — Each user belongs to exactly **one** department.
-- **R6** — The department **per-request limit** (in MMK) is a per-single-request threshold for routing. A request whose MMK-equivalent exceeds it triggers Management approval.
-- **R7** — The per-request limit comparison uses the department's **current** per-request limit AND the **effective exchange rate** at submission time. The effective rate is either a **manual override** provided by the requester (R28) or the **current system exchange rate** at the moment of submission. Both are snapshotted onto the request.
-- **R7a** — Exchange rate snapshot fields on `BudgetRequest`: `CurrencyCode`, `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`. Immutable once set.
-- **R8** — Approval is **strictly sequential**: Dept Head → Management (if applicable) → Finance.
-- **R9** — **Auto-approval rule**: any Dept Head stage where the assigned approver is the requester is auto-approved by the system at submission time.
-- **R10** — All status transitions write an `ApprovalAction` row.
-- **R11** — Slack notifications fire on every status change.
-- **R12** — All **currency rate changes** by admin write a `CurrencyRateChange` audit row in the same transaction.
+## Business rules
+
+### Currency
+
+- **R1** — A request is denominated in a single currency chosen at draft time from the active `Currency` master list.
+- **R1a** — `RequestedAmount`, `ApprovedAmount`, and `Payment.Amount` are all in the request's currency. Only the limit comparison converts to MMK.
 - **R13** — MMK is locked: its rate cannot be changed and it cannot be deactivated.
-- **R14** — A request in `SentBack` status that is resubmitted picks up the **then-current** exchange rate, dept head, and monthly limit.
+- **R12** — All currency rate changes by admin write a `CurrencyRateChange` audit row in the same transaction.
 
-### Monthly limit rules
+### Exchange rate
 
-- **R15** — Each department has an **optional `MonthlyLimit`** (in MMK, nullable). When set, it caps the department's cumulative approved-by-Finance spending for the current calendar month. When null, no monthly enforcement is performed.
-- **R16** — **Monthly spend** for a department in a given calendar month is the sum of `RequestedAmountInMmkAtSubmission` for all requests where `DepartmentIdAtSubmission` matches, `SubmittedAt` falls within that calendar month (UTC, half-open), and `Status ∈ {Approved, PartiallyPaid, Paid}`.
-- **R17** — At submission, if a monthly limit is set and the new request would push the dept over, the requester must have supplied a non-empty `MonthlyOverrunJustification`. Submission fails otherwise.
-- **R18** — Monthly overrun does **not** alter routing.
-- **R19** — At submission, snapshot `MonthlyLimitAtSubmission` and `MonthlySpendBeforeAtSubmission` on the request. Both nullable.
-- **R20** — On `ResubmitAfterSendBack`, the monthly check re-runs against the then-current dept monthly limit and spend.
-
-### Chart of Account rules
-
-- **R21** — Each `BudgetRequest` has an optional `CoaId` (nullable FK to `Coa`). Null until Finance approves; required at Finance approval; preserved through send-back / re-approval cycles.
-- **R22** — At the Finance stage, `ApproveBy` must receive a `CoaId` referencing an **active** `Coa`. The domain enforces non-null; the Application layer additionally verifies existence and active status.
-- **R23** — The Chart of Account master list is **global** (not per-department). `Coa` fields: `Code` (unique, max 32), `Name` (max 200), `Description?` (max 1000), `IsActive`.
-- **R24** — **Finance** role manages the COA master list. **Admin** also has access as a safety net.
-- **R25** — On send-back / re-approval, `CoaId` is **preserved** as a pre-fill hint for the next Finance approver. The next Finance approval overwrites it. No per-action audit of COA changes — current value wins.
-- **R26** — Pre-existing approved requests (created before this feature shipped) have `CoaId = null` indefinitely. No backfill is performed.
-- **R27** — A `Coa` cannot be deleted while any `BudgetRequest` references it (FK `OnDelete: Restrict`). Admins **deactivate** unused accounts instead of deleting them. Deactivated accounts don't appear in the approval picker, but historical references remain intact.
-
-### Manual Exchange Rate rules
-
-- **R28** — For non-**Advance** requests, the requester may manually override the system exchange rate during the Draft or SentBack stages. If a manual rate is set, it is used for limit comparisons and MMK-equivalent snapshots at submission time.
-- **R29** — **Advance** requests always use the system exchange rate at submission time. Manual overrides are forbidden for this request type.
+- **R7** — The per-request limit comparison uses the department's current per-request limit AND the effective exchange rate at submission time. The effective rate is either a manual override supplied by the requester (R28) or the current system rate at the moment of submission. Both are snapshotted onto the request.
+- **R7a** — Snapshot fields: `CurrencyCode`, `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`. Immutable once set.
+- **R14** — A `SentBack` request that is resubmitted picks up the then-current exchange rate, dept head, and monthly limit.
+- **R28** — For non-Advance requests, the requester may manually override the system exchange rate during Draft or SentBack. If set, it is used for limit comparisons and MMK snapshots at submission.
+- **R29** — Advance requests always use the system exchange rate. Manual overrides are forbidden for this type.
 - **R30** — Manual exchange rates must be greater than zero.
 
+### Per-request budget limit
+
+- **R6** — `Department.BudgetLimit` (in MMK) is a per-single-request threshold. A request whose MMK-equivalent exceeds it routes through the Management stage.
+- **R7** — Limit comparison uses `DepartmentLimitAtSubmission`. Future limit changes do not re-route in-flight requests.
+
+### Monthly budget cap
+
+- **R15** — Each department has an optional `MonthlyLimit` (in MMK, nullable). When set, it caps cumulative approved spend for the current calendar month. When null, no monthly enforcement is performed.
+- **R16** — Monthly spend = sum of `RequestedAmountInMmkAtSubmission` for requests where `DepartmentIdAtSubmission` matches, `SubmittedAt` is within the calendar month (UTC), and `Status ∈ {Approved, PartiallyPaid, Paid}`.
+- **R17** — At submission, if the new request would push the dept over its monthly limit, `MonthlyOverrunJustification` must be non-empty. `Submit()` fails otherwise.
+- **R18** — Monthly overrun does not alter routing — Management stage is only triggered by the per-request limit.
+- **R19** — Snapshot `MonthlyLimitAtSubmission` and `MonthlySpendBeforeAtSubmission` on the request at submission. Both nullable.
+- **R20** — On `ResubmitAfterSendBack`, the monthly check re-runs against the then-current dept monthly limit and spend.
+
+### Chart of Accounts (COA)
+
+- **R21** — Each `BudgetRequest` has an optional `CoaId` (nullable FK to `Coa`). Null until Finance approves; **required at Finance approval**.
+- **R22** — `ApproveBy` at the Finance stage must receive a `CoaId` referencing an active `Coa`. Domain enforces non-null; Application layer verifies existence and active status.
+- **R23** — The COA list is global (not per-department). `Coa` fields: `Code` (unique, max 32), `Name` (max 200), `Description?` (max 1000), `IsActive`.
+- **R24** — Finance role manages the COA list. Admin also has access.
+- **R25** — On send-back / re-approval, `CoaId` is preserved as a pre-fill hint for the next Finance approver. The next Finance approval overwrites it. No per-action audit of COA changes — current value wins.
+- **R26** — Pre-existing approved requests (before the COA feature shipped) have `CoaId = null` indefinitely. No backfill.
+- **R27** — A `Coa` cannot be deleted while any `BudgetRequest` references it (`OnDelete: Restrict`). Deactivate instead. Deactivated accounts don't appear in the approval picker but historical FKs remain intact.
+
+### Approval rules
+
+- **R8** — Approval is strictly sequential: DeptHead → Management (if over limit) → Finance.
+- **R9** — Auto-approval: the DeptHead stage is auto-approved when `DeptHeadIdAtSubmission == RequesterId`. Recorded with `Decision = AutoApproved`. Management and Finance stages never auto-approve.
+- **R10** — Every status transition writes an `ApprovalAction` row.
+
+### Payments
+
+- Payments are recorded as installments. Sum of all `Payment.Amount` values must equal `ApprovedAmount` (in request currency).
+- Status transitions automatically: `Approved` → `PartiallyPaid` (first payment, not yet full) → `Paid` (sum equals approved amount).
+- Advance requests: full payment triggers `PendingReconciliation` instead of `Paid`.
+
+### Cancellation / rejection
+
+- **R** — Requester can cancel only while in `PendingDeptHead`. After any approval, cancellation is blocked.
+- **R** — Any approver can reject at their stage. `Rejected` is terminal. To retry, create a new request.
+
+### Notifications
+
+- **R11** — Slack notifications fire on every status change. Webhook URLs are stored per-department. No global webhook URL in config.
+
 ---
 
-## 7. Resolved Decisions
+## Request types (`BudgetRequestType`)
 
-| ID | Decision |
+| Value | Description |
 |---|---|
-| F2 — Self-approval | Auto-approve any Dept Head stage where approver = requester (R9). Management/Finance never auto-approve. |
-| F3 — Limit period | Per-request limit AND optional monthly limit, both coexist (R6, R15). |
-| F4 — Approval order | Sequential: Dept Head → Management → Finance. |
-| F13 — Multi-currency | Supported as of v2. |
-| F16 — Monthly limit | Added in v3. Optional per-department cap; triggers justification. |
-| F17 — Month definition | Determined by `SubmittedAt` (UTC). |
-| F20 — Chart of Account | Added in v4. Required at Finance approval. Global pool. Finance role manages, Admin has access too. |
-| F21 — COA history | Not tracked per-action in v1 — `BudgetRequest.CoaId` is overwritten on re-approval. |
-| F22 — COA backfill | Existing approved requests stay null. No backfill. |
-| F25 — Manual Exchange Rate | Added in v5. Allowed for non-Advance requests; locked at submission. |
+| `Standard` | Normal purchase request. Participates in monthly spend cap check. |
+| `Urgent` | Same routing as Standard; flagged for priority. Participates in monthly cap. |
+| `ProjectProposal` | Does not participate in monthly cap. |
+| `Advance` | Requester draws funds before knowing exact spend. Finance sets a reconciliation deadline at approval. Enters reconciliation phase after full payment. |
+
+**Reference number format:** `BR-{TypeCode}-{yyyyMMdd}-{4 random digits}` (e.g. `BR-U-20260513-4521`). Generated at submission; null while Draft. TypeCode: `U` = Urgent, `S` = Standard, `P` = ProjectProposal, `A` = Advance.
 
 ---
 
-## 8. Still Open (decide before launch, not blocking build)
+## Domain layer conventions
 
-| ID | Question | Recommended default |
-|---|---|---|
-| **F6** | What if Dept Head is on leave for weeks? | Admin can re-assign the approver on a stuck request |
-| **F7** | Can requester edit a submitted request? | **No.** Cancel and resubmit. |
-| **F8** | Can requester cancel? At which stages? | Only while in `PendingDeptHead`. |
-| **F18** | Should month boundaries use UTC or Myanmar local time (UTC+6:30)? | UTC for v1. |
-| **F23** | Should COA selection be tracked per-ApprovalAction (full audit history)? | Not in v1. Add to ApprovalAction in v2 if it matters. |
-| **F24** | Should we expose "approved spend by COA" reports? | Out of scope for v1. The data is there when needed (FK + index on `coa_id`). |
+- **`BudgetRequest` aggregate** — workflow rules live as methods on the entity. Partial class split across 5 files:
+  - `BudgetRequest.cs` — properties and identity
+  - `BudgetRequest.Lifecycle.cs` — `CreateDraft`, `Submit`, `Cancel`, `UpdateDetails`, `AddAttachment`
+  - `BudgetRequest.Approvals.cs` — `ApproveBy`, `Reject`, `SendBack`, `ResubmitAfterSendBack`
+  - `BudgetRequest.Payments.cs` — `RecordPayment`
+  - `BudgetRequest.Reconciliation.cs` — `SubmitReconciliation`, `RecordRefund`, `RecordReimbursement`, advance usage tracking
+- **Encapsulation** — private setters; `internal` constructors on child entities (`ApprovalAction`, `Payment`, `Attachment`, `AdvanceUsage`) so they can only be created through methods on `BudgetRequest`.
+- **`Result<T>`** — for expected failures (wrong status, validation). Exceptions only for programmer errors (null required fields, negative amounts).
+- **EF Core compatibility** — every entity has a private parameterless constructor.
 
----
+### Submission snapshots
 
-## 9. Notification Triggers (Slack)
+`BudgetRequest` captures the following at `Submit()` time so audit and routing are stable regardless of later admin changes:
 
-Unchanged from v3.
-
----
-
-## 10. Key Implementation Notes
-
-10.1 — `BudgetRequest` aggregate owns its workflow.
-10.2 — Stage routing logic lives in the Domain.
-10.3 — Auto-approval is computed at `Submit()`-time.
-10.4 — Submission snapshots: `DepartmentLimit`, `ExchangeRate`, `RequestedAmountInMmk`, `MonthlyLimit?`, `MonthlySpendBefore?`.
-10.5 — Currency is a separate aggregate; referenced by `CurrencyCode` string FK.
-10.6 — Monthly-spend aggregate query lives in the repository.
-10.7 — **`Coa` is a separate aggregate**; referenced by `BudgetRequest.CoaId` (Guid FK). The Domain `ApproveBy` method takes `coaId` as a parameter; the Application layer validates active-status before calling.
-10.8 — `Coa` lookups for display (Detail page) are done in the `GetBudgetRequestQuery` handler — `BudgetRequestDto` carries `CoaCode` and `CoaName` as display fields, resolved server-side from the FK.
+- `DepartmentIdAtSubmission`, `DepartmentLimitAtSubmission`
+- `DeptHeadIdAtSubmission`, `DeptHeadNameAtSubmission`
+- `RequesterNameAtSubmission`
+- `ExchangeRateAtSubmission`, `RequestedAmountInMmkAtSubmission`
+- `MonthlyLimitAtSubmission`, `MonthlySpendBeforeAtSubmission`
+- `MonthlyWindowStartAtSubmission`, `MonthlyWindowEndAtSubmission`
 
 ---
 
-## 11. Currency Management
+## Key entities
 
-- Admin-only UI at `/admin/currencies`. Unchanged from v3.
+| Entity | Notes |
+|---|---|
+| `User` | Role, `IsFinanceApprover`, `DepartmentId`, `PasswordHash`, `MustChangePassword`, `SlackUserId` |
+| `Department` | `HeadUserId`, `BudgetLimit` (per-request threshold in MMK), `MonthlyLimit` (cumulative cap in MMK), `SlackWebhookUrl` |
+| `BudgetRequest` | Aggregate root; see above |
+| `ApprovalAction` | Audit row per decision (Approved / Rejected / AutoApproved / SentBack) |
+| `Payment` | Installment row; sum of payments must equal approved amount |
+| `Attachment` | Linked to `BudgetRequest` or `WithdrawMethod`; stored in Supabase Storage |
+| `AdvanceUsage` | Requester-reported spend line items during reconciliation |
+| `BudgetRequestModification` | Log of field changes (amount, reason, etc.) made while Draft/SentBack |
+| `Currency` | Code, name, exchange rate to MMK |
+| `CurrencyRateChange` | Audit trail of rate updates |
+| `Coa` | Chart of accounts; assigned by Finance at approval |
+| `WithdrawMethod` | Payment method options (can have an attachment) |
+| `BankAccount` | Company bank accounts used for payments |
+| `BudgetCategory` | Category tags for requests |
+| `DepartmentMonthlyBudget` | Financial-year budget plan per department per month |
+| `AppSetting` | Key-value store for runtime configuration (e.g. reconciliation deadline defaults) |
+| `NotificationOutboxEntry` | Infrastructure only; transactional outbox for Slack messages |
 
-## 12. Chart of Account Management
+---
 
-- Finance + Admin UI at `/coas`. CRUD with create/edit modal, active/inactive toggle, deactivate confirm. Same shape as the Currencies admin page.
-- Codes are unique (case-sensitive) and trimmed on save.
-- Deactivation does NOT cascade to historical requests — the FK is preserved, but the account won't appear in the approval picker for new approvals.
-- Deletion is blocked by the FK (`OnDelete: Restrict`). Always deactivate.
+## Multi-currency
+
+Requests can be denominated in any active `Currency`. The `ExchangeRateAtSubmission` (to MMK) is snapshotted at submit time. `RequestedAmountInMmkAtSubmission` is cached for limit comparisons and reporting. An optional `ManualExchangeRate` override is supported for non-Advance requests.
+
+---
+
+## Monthly budget cap
+
+`Standard` and `Urgent` requests participate in a monthly spend cap. At submission:
+
+1. The app calculates the department's already-approved spend in MMK for the current calendar month window.
+2. If the new request would push total spend over `Department.MonthlyLimit`, the requester must provide a `MonthlyOverrunJustification` — `Submit()` fails without it.
+3. Routing is not affected — only the per-request `BudgetLimit` triggers the Management stage.
+
+The `PeriodOverrunBadge` and `MonthlyLimitBadge` shared components surface this in the UI.
+
+---
+
+## Notifications (Slack)
+
+Notifications are written to the `NotificationOutbox` table within the same EF Core transaction as the domain change (via `SlackNotificationService`). `NotificationOutboxProcessor` (a `BackgroundService`) polls every 10 seconds (configurable) and POSTs pending entries to Slack.
+
+Webhook URLs are stored per-department on `Department.SlackWebhookUrl`, managed in Admin → Departments. There is no global webhook URL in config.
+
+`MaxRetries` (default 5) is configured under `Slack` in `appsettings.json`. Network/config errors consume retries the same as Slack rejections — monitor for exhausted entries on misconfigured startups.
+
+**Ordering rule:** `SaveChangesAsync` must be called before `DispatchAsync` — the outbox entry must be persisted before the background processor can pick it up.
+
+---
+
+## File storage
+
+Configured via `Storage:Provider` in `appsettings.json`:
+
+- `"Supabase"` (default) — `SupabaseFileStorage`; requires `Supabase:Url`, `Supabase:ServiceRoleKey`, `Supabase:AttachmentsBucket`
+- `"Local"` — `LocalFileStorage`; writes to `Storage:AttachmentsRoot` (default `App_Data/attachments/{requestId}/{guid}_{originalFileName}`)
+
+Attachment file-size limits are defined in `AttachmentConstraints.cs`. The SignalR max message size in `Program.cs` is bumped to match.
+
+---
+
+## Authentication
+
+Full cookie-based auth. No dev impersonation — users log in with a real username/password.
+
+- Cookie name: `.SureBudget.Auth`
+- Session: 8-hour sliding expiration
+- Passwords hashed with PBKDF2-SHA256 via `IPasswordHasher`
+- `MustChangePassword` flag: set on creation and admin resets; clears after a successful self-service password change. Users are redirected to the change-password page until cleared.
+- `ICurrentUser` is resolved from cookie claims via `AuthenticationStateProvider` on the Blazor circuit. Inside `ScopedMediator` operation scopes, `CurrentUserSnapshot` is populated from the circuit user before each handler runs.
+
+---
+
+## ScopedMediator
+
+Blazor Server's single DI scope per circuit means one `AppDbContext` per browser session. Fast page switching can trigger concurrent operations on that single context. `ScopedMediator` wraps every `Send`/`Publish` in its own DI scope so each command/query gets its own `DbContext`. It replaces MediatR's default `IMediator` registration and must be registered after `AddApplication()`/`AddInfrastructure()`.
+
+---
+
+## Configuration shape
+
+```jsonc
+// appsettings.json
+{
+  "ConnectionStrings": {
+    "Supabase": "Host=...;Port=5432;Database=postgres;Username=...;Password=...;Trust Server Certificate=true"
+  },
+  "Slack": {
+    // Webhook URLs are per-department (stored in DB). No global URL here.
+    "MaxRetries": 5,
+    "PollingIntervalSeconds": 10
+  },
+  "Storage": {
+    "Provider": "Supabase",          // "Supabase" | "Local"
+    "AttachmentsRoot": "App_Data/attachments"  // only used when Provider = "Local"
+  },
+  "Supabase": {
+    "Url": "https://<project>.supabase.co",
+    "ServiceRoleKey": "<service-role-jwt>",
+    "AttachmentsBucket": "budget-attachments"
+  }
+}
+```
+
+**Connection port:** use Supabase session pooler on **port 5432** for EF Core. Port 6543 (transaction pooler) is unsuitable for EF migrations and breaks prepared statements.
+
+---
+
+## Web pages
+
+| Route | Description |
+|---|---|
+| `/login` | Public login page |
+| `/account/change-password` | Forced on first login; also self-service |
+| `/` | Dashboard |
+| `/requests/new` | New request form |
+| `/requests/{id}` | Request detail / action page |
+| `/requests/{id}/edit` | Edit draft or sent-back request |
+| `/requests/mine` | My requests list |
+| `/requests/inbox` | Approval inbox (role-aware) |
+| `/requests/outstanding-payments` | Finance payment queue |
+| `/reports/budget-requests` | Filterable report with Excel export |
+| `/finance/budget-plan` | Department monthly budget plan |
+| `/admin/users` | User management |
+| `/admin/departments` | Department management |
+| `/admin/department-heads` | Department head assignment |
+| `/admin/currencies` | Currency and exchange rate management |
+| `/coas` | Chart of accounts |
+| `/bank-accounts` | Bank account management |
+| `/withdraw-methods` | Withdraw method management |
+| `/admin/budget-categories` | Budget category management |
+| `/app-settings` | Runtime app settings |
+| `/account/profile` | User profile (placeholder) |
+
+---
+
+## Deployment
+
+Publish profile: `SureBudget-Linux-Prod.pubxml`
+
+- Runtime: `linux-x64`, framework-dependent
+- Publishes to `bin/Release/net9.0/publish/`, then SCPs to `ubuntu@56.10.4.71:/var/www/web`
+- Restarts `web.service` via SSH after deploy
+- Live at `https://surebudget.sure.com.mm`
+- SSH key: `C:\Users\WIN\source\repos\publishKey\LightsailDefaultKey-ap-southeast-1a.pem`
+
+**EF migrations** must be run from the Web project using port 5432 (session pooler):
+```
+dotnet ef database update --project SureBudgetRequest.Infrastructure --startup-project SureBudgetRequest.Web
+```
+
+---
+
+## Known issues / on the horizon
+
+- **Self-approval gap at Management and Finance stages** — auto-approval is only enforced at DeptHead (requester == `DeptHeadIdAtSubmission` is caught at `Submit()`). Management and Finance lack an `approver != RequesterId` guard. Flagged as highest priority.
+- **Profile page** — `Account/Profile.razor` exists but is a placeholder; not implemented.
+- **Slack reference numbers** — Slack notification payloads do not yet include the `Reference` field added during the reference-number rollout.
+- **`Counter.razor` and `Weather.razor`** — default Blazor template pages still present in the Web project; they have no nav links but haven't been deleted.
+
+---
+
+## Key learnings / gotchas
+
+- **Spec drift** — the `budget-request-requirements.md` file reflects early planning and diverges significantly from the built system. Always read the codebase before making recommendations.
+- **Snapshot principle** — filtering and display operate on values snapshotted at submission time, not live data. This is the most common source of confusion when something "doesn't update."
+- **EF Core migration hygiene** — always use `dotnet ef migrations add` rather than hand-writing migrations. Missing `.Designer.cs` files cause silent schema drift.
+- **Antiforgery in Blazor SSR** — `EditForm` with `method="post"` auto-injects the antiforgery token. Do NOT add `<AntiforgeryToken />` inside an `EditForm`; it causes duplicate fields and validation failure. Manual token is only required in plain HTML `<form>` elements.
+- **Notification outbox ordering** — `SaveChangesAsync` before `DispatchAsync`. Reversing this drops outbox entries on `DbContext` disposal.
+- **Retry exhaustion** — `MaxRetries` is consumed equally by network errors and Slack rejections. A misconfigured startup will permanently exhaust retries for in-flight notifications.
+- **RLS** — disable Row Level Security on all app tables in Supabase. The app connects with service-role credentials, not the anon key.
