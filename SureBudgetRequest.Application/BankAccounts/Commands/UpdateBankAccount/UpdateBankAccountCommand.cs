@@ -9,8 +9,8 @@ namespace SureBudgetRequest.Application.BankAccounts.Commands.UpdateBankAccount;
 public sealed record UpdateBankAccountCommand(
     Guid BankAccountId,
     string BankName,
-    string AccountNumber,
-    string AccountHolderName,
+    string? AccountNumber,
+    string? AccountHolderName,
     bool IsActive) : IRequest<Result>;
 
 public sealed class UpdateBankAccountCommandHandler

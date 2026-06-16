@@ -13,43 +13,37 @@ public class BankAccount
     public Guid Id { get; private set; }
     public string BankName { get; private set; } = null!;
 
-    /// <summary>Stored as plain text — no masking, no encryption.</summary>
-    public string AccountNumber { get; private set; } = null!;
-    public string AccountHolderName { get; private set; } = null!;
+    /// <summary>Optional. Stored as plain text — no masking, no encryption.</summary>
+    public string? AccountNumber { get; private set; }
+
+    /// <summary>Optional. The account owner / holder name.</summary>
+    public string? AccountHolderName { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
     private BankAccount() { }
 
-    public BankAccount(string bankName, string accountNumber, string accountHolderName)
+    public BankAccount(string bankName, string? accountNumber, string? accountHolderName)
     {
         if (string.IsNullOrWhiteSpace(bankName))
             throw new ArgumentException("Bank name is required.", nameof(bankName));
-        if (string.IsNullOrWhiteSpace(accountNumber))
-            throw new ArgumentException("Account number is required.", nameof(accountNumber));
-        if (string.IsNullOrWhiteSpace(accountHolderName))
-            throw new ArgumentException("Account holder name is required.", nameof(accountHolderName));
 
         //Id = Guid.NewGuid();
         BankName = bankName.Trim();
-        AccountNumber = accountNumber.Trim();
-        AccountHolderName = accountHolderName.Trim();
+        AccountNumber = string.IsNullOrWhiteSpace(accountNumber) ? null : accountNumber.Trim();
+        AccountHolderName = string.IsNullOrWhiteSpace(accountHolderName) ? null : accountHolderName.Trim();
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
     }
 
-    public void Update(string bankName, string accountNumber, string accountHolderName)
+    public void Update(string bankName, string? accountNumber, string? accountHolderName)
     {
         if (string.IsNullOrWhiteSpace(bankName))
             throw new ArgumentException("Bank name is required.", nameof(bankName));
-        if (string.IsNullOrWhiteSpace(accountNumber))
-            throw new ArgumentException("Account number is required.", nameof(accountNumber));
-        if (string.IsNullOrWhiteSpace(accountHolderName))
-            throw new ArgumentException("Account holder name is required.", nameof(accountHolderName));
 
         BankName = bankName.Trim();
-        AccountNumber = accountNumber.Trim();
-        AccountHolderName = accountHolderName.Trim();
+        AccountNumber = string.IsNullOrWhiteSpace(accountNumber) ? null : accountNumber.Trim();
+        AccountHolderName = string.IsNullOrWhiteSpace(accountHolderName) ? null : accountHolderName.Trim();
     }
 
     public void Deactivate() => IsActive = false;

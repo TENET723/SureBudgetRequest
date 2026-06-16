@@ -13,8 +13,8 @@ public class BankAccountConfiguration : IEntityTypeConfiguration<BankAccount>
         builder.HasKey(a => a.Id);
 
         builder.Property(a => a.BankName).IsRequired().HasMaxLength(200);
-        builder.Property(a => a.AccountNumber).IsRequired().HasMaxLength(100);
-        builder.Property(a => a.AccountHolderName).IsRequired().HasMaxLength(200);
+        builder.Property(a => a.AccountNumber).HasMaxLength(100);
+        builder.Property(a => a.AccountHolderName).HasMaxLength(200);
         builder.Property(a => a.IsActive).IsRequired();
         builder.Property(a => a.CreatedAt).IsRequired();
     }

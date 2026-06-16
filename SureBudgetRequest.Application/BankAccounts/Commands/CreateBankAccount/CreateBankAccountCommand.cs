@@ -9,8 +9,8 @@ namespace SureBudgetRequest.Application.BankAccounts.Commands.CreateBankAccount;
 
 public sealed record CreateBankAccountCommand(
     string BankName,
-    string AccountNumber,
-    string AccountHolderName) : IRequest<Result<Guid>>;
+    string? AccountNumber,
+    string? AccountHolderName) : IRequest<Result<Guid>>;
 
 public sealed class CreateBankAccountCommandHandler
     : IRequestHandler<CreateBankAccountCommand, Result<Guid>>

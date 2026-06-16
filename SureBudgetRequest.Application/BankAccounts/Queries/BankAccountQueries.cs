@@ -8,8 +8,8 @@ namespace SureBudgetRequest.Application.BankAccounts.Queries;
 public sealed record BankAccountDto(
     Guid Id,
     string BankName,
-    string AccountNumber,
-    string AccountHolderName,
+    string? AccountNumber,
+    string? AccountHolderName,
     bool IsActive,
     DateTime CreatedAt)
 {

@@ -121,12 +121,12 @@
                                placeholder="e.g. KBZ Bank" maxlength="200" />
                     </div>
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Account number</label>
+                        <label class="form-label text-sm font-semibold">Account number (optional)</label>
                         <input class="input" @bind="_formAccountNumber"
                                placeholder="e.g. 0012-3456-7890-1234" maxlength="100" />
                     </div>
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Account holder name</label>
+                        <label class="form-label text-sm font-semibold">Account holder name (optional)</label>
                         <input class="input" @bind="_formAccountHolderName"
                                placeholder="e.g. aSure Co., Ltd." maxlength="200" />
                     </div>
@@ -227,8 +227,8 @@
             ? _accounts.ToList()
             : _accounts
                 .Where(a => a.BankName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
-                         || a.AccountNumber.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
-                         || a.AccountHolderName.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                         || a.AccountNumber?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                         || a.AccountHolderName?.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
                 .ToList();
     }
 
@@ -247,8 +247,8 @@
     {
         _editingId = a.Id;
         _formBankName = a.BankName;
-        _formAccountNumber = a.AccountNumber;
-        _formAccountHolderName = a.AccountHolderName;
+        _formAccountNumber = a.AccountNumber ?? "";
+        _formAccountHolderName = a.AccountHolderName ?? "";
         _formIsActive = a.IsActive;
         _formError = null;
         _showForm = true;
@@ -265,8 +265,6 @@
         _formError = null;
 
         if (string.IsNullOrWhiteSpace(_formBankName)) { _formError = "Bank name is required."; return; }
-        if (string.IsNullOrWhiteSpace(_formAccountNumber)) { _formError = "Account number is required."; return; }
-        if (string.IsNullOrWhiteSpace(_formAccountHolderName)) { _formError = "Account holder name is required."; return; }
 
         _saving = true;
         try
