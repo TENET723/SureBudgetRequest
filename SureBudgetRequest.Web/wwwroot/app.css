@@ -638,3 +638,16 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .tl-stage-name { font-size: 14px; font-weight: 600; color: var(--color-text-dark); }
 .tl-meta { font-size: 13px; color: var(--color-text-muted); margin-top: 2px; }
 .tl-comment { font-size: 13px; color: var(--color-text-muted); font-style: italic; margin-top: 3px; }
+
+/* Full-screen loading overlay (BusyState / LoadingOverlay) */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-3);
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(1px);
+}
+.loading-overlay .spinner { width: 36px; height: 36px; border-width: 4px; }
+.loading-overlay-text { color: white; font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
+
+/* Inline button spinner (AsyncButton / guarded buttons) */
+.btn .spinner-sm { display: inline-block; vertical-align: middle; margin-right: var(--space-2); }

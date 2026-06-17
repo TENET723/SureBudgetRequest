@@ -1,0 +1,53 @@
+@inject BusyState Busy
+
+@* Drop-in replacement for a <button> whose @onclick calls an API.
+   - Synchronous re-entrancy guard (_busy) is the real duplicate-click protection:
+     it is checked before the first await, so a second click queued before the
+     disabled attribute has rendered is still ignored.
+   - Disables itself + prepends a .spinner-sm to the unchanged label (stable width).
+   - Optional external Disabled lets a parent gate the button (e.g. validation).
+   - Global=true also raises the full-screen LoadingOverlay for the click's duration. *@
+<button type="@Type"
+        class="@Class"
+        disabled="@(_busy || Disabled)"
+        @onclick="HandleClickAsync"
+        @attributes="Extra">
+    @if (_busy)
+    {
+        <span class="spinner spinner-sm" aria-hidden="true"></span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string Class { get; set; } = "btn btn-primary";
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>When true, also raises the full-screen overlay while the click runs.</summary>
+    [Parameter] public bool Global { get; set; }
+
+    /// <summary>Pass-through for extra attributes (title, aria-*, data-*, etc.).</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Extra { get; set; }
+
+    private bool _busy;
+
+    private async Task HandleClickAsync()
+    {
+        if (_busy) return;          // synchronous guard — runs before any await
+        _busy = true;
+        if (Global) Busy.Begin();
+        try
+        {
+            await OnClick.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+            if (Global) Busy.End();
+        }
+    }
+}

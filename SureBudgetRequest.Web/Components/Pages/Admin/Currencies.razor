@@ -160,7 +160,7 @@
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
                     <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -317,6 +317,7 @@
         if (string.IsNullOrWhiteSpace(_formName)) { _formError = "Name is required."; return; }
         if (_formRate <= 0) { _formError = "Rate must be greater than zero."; return; }
 
+        if (_saving) return;
         _saving = true;
         try
         {

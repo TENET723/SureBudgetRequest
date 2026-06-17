@@ -147,7 +147,7 @@
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
                     <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -274,6 +274,7 @@
 
         var desc = string.IsNullOrWhiteSpace(_formDescription) ? null : _formDescription;
 
+        if (_saving) return;
         _saving = true;
         try
         {
@@ -302,6 +303,7 @@
     private async Task DoDeactivate()
     {
         if (_deactivatingCoa is null) return;
+        if (_saving) return;
         _saving = true;
         var result = await Mediator.Send(new DeactivateCoaCommand(_deactivatingCoa.Id));
         _saving = false;
@@ -312,6 +314,7 @@
 
     private async Task DoReactivate(CoaDto c)
     {
+        if (_saving) return;
         _saving = true;
         var result = await Mediator.Send(new ReactivateCoaCommand(c.Id));
         _saving = false;

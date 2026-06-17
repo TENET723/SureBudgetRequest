@@ -75,7 +75,7 @@
                                 }
                                 else
                                 {
-                                    <button class="badge badge-inactive" @onclick="() => DoReactivate(a)" title="Click to activate" disabled="@_saving">Inactive</button>
+                                    <AsyncButton Class="badge badge-inactive" OnClick="@(() => DoReactivate(a))" title="Click to activate">Inactive</AsyncButton>
                                 }
                             </td>
                             <td class="text-end">
@@ -121,12 +121,12 @@
                                placeholder="e.g. KBZ Bank" maxlength="200" />
                     </div>
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Account number (optional)</label>
+                        <label class="form-label text-sm font-semibold">Account number</label>
                         <input class="input" @bind="_formAccountNumber"
                                placeholder="e.g. 0012-3456-7890-1234" maxlength="100" />
                     </div>
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Account holder name (optional)</label>
+                        <label class="form-label text-sm font-semibold">Account holder name</label>
                         <input class="input" @bind="_formAccountHolderName"
                                placeholder="e.g. aSure Co., Ltd." maxlength="200" />
                     </div>
@@ -140,10 +140,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
-                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
-                        Save
-                    </button>
+                    <AsyncButton Class="btn btn-primary btn-sm" OnClick="SaveForm">Save</AsyncButton>
                 </div>
             </div>
         </div>
@@ -169,7 +166,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingAccount = null">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                    <AsyncButton Class="btn btn-danger btn-sm" OnClick="DoDeactivate">Deactivate</AsyncButton>
                 </div>
             </div>
         </div>

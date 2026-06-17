@@ -53,9 +53,7 @@
                 }
             </button>
             <div class="toolbar-right">
-                <button class="btn btn-success btn-sm" @onclick="ExportAsync" disabled="@_loading">
-                    Export to Excel
-                </button>
+                <AsyncButton Class="btn btn-success btn-sm" OnClick="ExportAsync" Disabled="@_loading">Export to Excel</AsyncButton>
             </div>
         </div>
 

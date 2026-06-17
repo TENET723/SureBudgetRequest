@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject BusyState Busy
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest
@@ -274,7 +275,7 @@ else
                             {
                                 @* DeptHead and Management approvals are one-click. *@
                                 <button class="btn btn-success btn-sm" @onclick="DoApprove" disabled="@_actioning">
-                                    @if (_actioning && _actionTarget == "approve") { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                                    @if (_actioning && _actionTarget == "approve") { <span class="spinner spinner-sm mr-1"></span> }
                                     Approve
                                 </button>
                             }
@@ -690,7 +691,7 @@ else
                     <button class="btn btn-success btn-sm"
                             @onclick="DoApproveAsFinance"
                             disabled="@(_actioning || string.IsNullOrWhiteSpace(_selectedCoaId))">
-                        @if (_actioning) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
                         Confirm Approval
                     </button>
                 </div>
@@ -935,7 +936,7 @@ else
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
                     <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@_usageBusy">
-                        @if (_usageBusy) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_usageBusy) { <span class="spinner spinner-sm mr-1"></span> }
                         Save
                     </button>
                 </div>
@@ -1481,6 +1482,7 @@ else
 
     private async Task DoSubmit()
     {
+        if (_actioning) return;
         _actioning = true; _actionTarget = "submit";
         var result = await Mediator.Send(new SubmitRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
@@ -1490,6 +1492,7 @@ else
 
     private async Task DoApprove()
     {
+        if (_actioning) return;
         _actioning = true; _actionTarget = "approve";
         var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
@@ -1554,6 +1557,7 @@ else
             deadline = _reconciliationDeadline;
         }
 
+        if (_actioning) return;
         _actioning = true; _actionTarget = "approve";
         var result = await Mediator.Send(new ApproveRequestCommand(Id, CurrentUser.UserId, coaId, deadline));
         _actioning = false;
@@ -1574,6 +1578,7 @@ else
     private async Task DoReject()
     {
         if (string.IsNullOrWhiteSpace(_rejectComment)) { _actionError = "A rejection reason is required."; _showRejectModal = false; return; }
+        if (_actioning) return;
         _actioning = true; _actionTarget = "reject"; _showRejectModal = false;
         var result = await Mediator.Send(new RejectRequestCommand(Id, CurrentUser.UserId, _rejectComment));
         _actioning = false; _rejectComment = "";
@@ -1584,6 +1589,7 @@ else
     private async Task DoSendBack()
     {
         if (string.IsNullOrWhiteSpace(_sendBackComment)) { _actionError = "A comment is required when sending back."; _showSendBackModal = false; return; }
+        if (_actioning) return;
         _actioning = true; _showSendBackModal = false;
         var result = await Mediator.Send(new SendBackRequestCommand(Id, CurrentUser.UserId, _sendBackComment));
         _actioning = false; _sendBackComment = "";
@@ -1611,6 +1617,14 @@ else
 
     private async Task DoRecordPayment()
     {
+        if (_actioning) return;
+        Busy.Begin();
+        try { await DoRecordPaymentCore(); }
+        finally { Busy.End(); }
+    }
+
+    private async Task DoRecordPaymentCore()
+    {
         _paymentError = null;
         if (_paymentAmount <= 0) { _paymentError = "Amount must be greater than zero."; return; }
         if (_request is not null && !_request.AllowsPartialPayment && _paymentAmount != _request.RemainingBalance)
@@ -1619,6 +1633,7 @@ else
             return;
         }
 
+        if (_actioning) return;
         _actioning = true;
         try
         {
@@ -1698,6 +1713,7 @@ else
 
     private async Task DoCancel()
     {
+        if (_actioning) return;
         _actioning = true; _showCancelModal = false;
         var result = await Mediator.Send(new CancelRequestCommand(Id, CurrentUser.UserId));
         _actioning = false;
@@ -1803,6 +1819,7 @@ else
         // No cap: over-spending the advance is permitted and resolves to a
         // reimbursement at reconciliation-submit time.
 
+        if (_usageBusy) return;
         _usageBusy = true;
         try
         {
@@ -1863,6 +1880,7 @@ else
 
     private async Task DoRemoveUsage(Guid usageId)
     {
+        if (_actioning) return;
         _actioning = true;
         var res = await Mediator.Send(new RemoveAdvanceUsageCommand(Id, usageId, CurrentUser.UserId));
         _actioning = false;
@@ -1893,6 +1911,7 @@ else
 
     private async Task DoSubmitReconciliation()
     {
+        if (_actioning) return;
         _actioning = true; _showSubmitReconModal = false;
         var res = await Mediator.Send(new SubmitReconciliationCommand(Id, CurrentUser.UserId));
         _actioning = false;
@@ -1911,6 +1930,7 @@ else
     private async Task DoRecordRefund()
     {
         _refundError = null;
+        if (_actioning) return;
         _actioning = true;
         var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount, _refundDate));
         _actioning = false;
@@ -1931,6 +1951,7 @@ else
     private async Task DoRecordReimbursement()
     {
         _reimbursementError = null;
+        if (_actioning) return;
         _actioning = true;
         var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount, _reimbursementDate));
         _actioning = false;
@@ -1950,6 +1971,7 @@ else
     private async Task DoExtendDeadline()
     {
         _extendError = null;
+        if (_actioning) return;
         _actioning = true;
         var res = await Mediator.Send(new ExtendReconciliationDeadlineCommand(Id, CurrentUser.UserId, _newDeadline));
         _actioning = false;

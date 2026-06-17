@@ -81,6 +81,8 @@ builder.Services.AddScoped<ICurrentUser>(sp =>
         : sp.GetRequiredService<CurrentUserService>();
 });
 builder.Services.AddScoped<SureBudgetRequest.Web.Services.ToastService>();
+// Circuit-scoped global busy signal for the full-screen LoadingOverlay.
+builder.Services.AddScoped<BusyState>();
 
 var app = builder.Build();
 

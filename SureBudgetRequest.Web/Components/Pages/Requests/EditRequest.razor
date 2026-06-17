@@ -296,7 +296,7 @@
                 {
                     <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: false)"
                             disabled="@(_saving || HasValidationErrors)">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
                         Update
                     </button>
                 }
@@ -304,13 +304,13 @@
                 {
                     <button class="btn btn-outline btn-sm" @onclick="() => OnSaveClicked(submit: false)"
                             disabled="@(_saving || HasValidationErrors)">
-                        @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving && !_submitting) { <span class="spinner spinner-sm mr-1"></span> }
                         @SaveLabel
                     </button>
                     <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: true)"
                             title="@(SelectedMethodRequiresAttachment && !HasBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload at least one banking file before submitting." : null)"
                             disabled="@(_saving || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasBankingAttachment))">
-                        @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving && _submitting) { <span class="spinner spinner-sm mr-1"></span> }
                         @SubmitLabel
                     </button>
                 }
@@ -349,7 +349,7 @@
                     <button class="btn btn-primary btn-sm"
                             @onclick="ConfirmOverrunAndSave"
                             disabled="@(_saving || string.IsNullOrWhiteSpace(_monthlyOverrunJustification))">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
                         @ConfirmLabel
                     </button>
                 </div>
@@ -648,6 +648,7 @@
     {
         if (_request is null) return;
 
+        if (_saving) return;
         _saving = true;
         _submitting = submit;
         try

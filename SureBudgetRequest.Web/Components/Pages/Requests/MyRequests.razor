@@ -416,6 +416,7 @@
     private async Task DoCancel()
     {
         if (_cancellingRequest is null) return;
+        if (_saving) return;
         _saving = true;
         var result = await Mediator.Send(new CancelRequestCommand(_cancellingRequest.Id, CurrentUser.UserId));
         _saving = false;

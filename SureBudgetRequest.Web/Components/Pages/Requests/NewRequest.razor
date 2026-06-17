@@ -241,14 +241,14 @@
             <button class="btn btn-outline btn-sm"
                     @onclick="() => OnSaveClicked(submit: false)"
                     disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors)">
-                @if (_saving && !_submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                @if (_saving && !_submitting) { <span class="spinner spinner-sm"></span> }
                 Save Draft
             </button>
             <button class="btn btn-primary btn-sm"
                     @onclick="() => OnSaveClicked(submit: true)"
                     title="@(SelectedMethodRequiresAttachment ? "This withdraw method requires a banking-info attachment. Save the draft first, then upload the file before submitting." : null)"
                     disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors || SelectedMethodRequiresAttachment)">
-                @if (_saving && _submitting) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                @if (_saving && _submitting) { <span class="spinner spinner-sm"></span> }
                 Submit
             </button>
         </div>
@@ -285,7 +285,7 @@
                     <button class="btn btn-primary btn-sm"
                             @onclick="ConfirmOverrunAndSave"
                             disabled="@(_saving || string.IsNullOrWhiteSpace(_monthlyOverrunJustification))">
-                        @if (_saving) { <span class="spinner-border spinner-border-sm mr-1"></span> }
+                        @if (_saving) { <span class="spinner spinner-sm"></span> }
                         @(_pendingSubmit ? "Confirm and Submit" : "Confirm and Save Draft")
                     </button>
                 </div>
@@ -463,6 +463,7 @@
 
     private async Task OnSaveClicked(bool submit)
     {
+        if (_saving) return;          // synchronous guard — drop duplicate clicks before any await
         _error = null;
         if (!ValidateForm()) return;
 
@@ -492,6 +493,7 @@
 
     private async Task ConfirmOverrunAndSave()
     {
+        if (_saving) return;          // synchronous guard — drop duplicate clicks before any await
         if (string.IsNullOrWhiteSpace(_monthlyOverrunJustification)) return;
         // Keep the modal open until the save completes; the domain will validate again.
         await DoSave(_pendingSubmit);

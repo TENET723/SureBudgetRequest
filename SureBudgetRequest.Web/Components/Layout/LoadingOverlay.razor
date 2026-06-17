@@ -1,0 +1,22 @@
+@implements IDisposable
+@inject BusyState Busy
+
+@* Full-screen blocking overlay shown while any Global guarded operation runs.
+   Rendered once from MainLayout. The synchronous re-entrancy guards on buttons/
+   handlers remain the actual duplicate-call protection — this is visual feedback
+   plus a pointer-events block for genuinely blocking operations (e.g. RecordPayment). *@
+@if (Busy.IsBusy)
+{
+    <div class="loading-overlay" role="status" aria-busy="true" aria-live="polite">
+        <div class="spinner"></div>
+        <span class="loading-overlay-text">Working…</span>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Busy.Changed += OnBusyChanged;
+
+    private void OnBusyChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Busy.Changed -= OnBusyChanged;
+}
