@@ -96,6 +96,18 @@
         if (eye) eye.style.display = showing ? '' : 'none';
         if (eyeOff) eyeOff.style.display = showing ? 'none' : '';
     }
+
+    // Prevent a second login POST from a double-click or repeated Enter while the
+    // first request is in flight. Runs on submit (POST already underway), so disabling
+    // the button doesn't cancel it; a validation/credentials error re-renders the whole
+    // page, which resets the button automatically.
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (form.dataset.submitting === '1') { e.preventDefault(); return; }
+        form.dataset.submitting = '1';
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+    }, true);
 </script>
 
 @code {
