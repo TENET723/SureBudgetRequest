@@ -377,7 +377,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.Role is not (UserRole.Admin or UserRole.Finance))
+        if (CurrentUser.Role is not (UserRole.Admin or UserRole.Finance or UserRole.Support))
         {
             Nav.NavigateTo("/", replace: true);
             return;
