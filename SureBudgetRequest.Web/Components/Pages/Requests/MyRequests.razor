@@ -1,6 +1,7 @@
 @page "/requests/mine"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -346,7 +347,7 @@
         !string.IsNullOrWhiteSpace(_search),
         _fromDate.HasValue,
         _toDate.HasValue,
-        _selectedStatuses.Count > 0,
+        _selectedStatuses.Count > 0,    
         _selectedTypes.Count > 0,
     }.Count(x => x);
 
@@ -356,7 +357,15 @@
         await LoadPageAsync(1);
     }
 
-    protected override async Task OnInitializedAsync() => await LoadPageAsync(1);
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role == UserRole.Support)
+        {
+            Nav.NavigateTo("/admin/users", replace: true);
+            return;
+        }
+        await LoadPageAsync(1);
+    }
 
     private async Task LoadPageAsync(int page)
     {

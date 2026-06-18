@@ -7,6 +7,7 @@
 @using SureBudgetRequest.Application.Users.Commands.CreateUser
 @using SureBudgetRequest.Application.Users.Commands.UpdateUser
 @using SureBudgetRequest.Application.Users.Commands.DeactivateUser
+@using SureBudgetRequest.Application.Users.Commands.ReactivateUser
 @using SureBudgetRequest.Application.Users.Commands.ResetUserPassword
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Web.Components.Shared
@@ -113,7 +114,7 @@
                                 }
                                 else
                                 {
-                                    <span class="badge badge-inactive">Inactive</span>
+                                    <button class="badge badge-inactive" @onclick="() => ConfirmReactivate(u)" title="Click to reactivate">Inactive</button>
                                 }
                             </td>
                             <td class="text-sm">@(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("g") : "—")</td>
@@ -312,6 +313,28 @@
     </div>
 }
 
+@* ── Reactivate Confirm ──────────────────────────────────────────────────────── *@
+@if (_reactivatingUser is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Reactivate User</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _reactivatingUser = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Reactivate <strong>@_reactivatingUser.FullName</strong>? They will be able to log in and submit requests again.
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _reactivatingUser = null">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="DoReactivate" disabled="@_saving">Reactivate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<UserDto> _allUsers = new();
     private List<UserDto> _filtered = new();
@@ -343,6 +366,9 @@
 
     // Deactivate
     private UserDto? _deactivatingUser;
+
+    // Reactivate
+    private UserDto? _reactivatingUser;
 
     // Reset password
     private UserDto? _resettingUser;
@@ -498,6 +524,20 @@
         _deactivatingUser = null;
         if (result.IsFailure) { _errorMessage = result.Error.Message; }
         else { _successMessage = "User deactivated."; await LoadUsers(); }
+    }
+
+    private void ConfirmReactivate(UserDto u) => _reactivatingUser = u;
+
+    private async Task DoReactivate()
+    {
+        if (_reactivatingUser is null) return;
+        if (_saving) return;
+        _saving = true;
+        var result = await Mediator.Send(new ReactivateUserCommand(_reactivatingUser.Id));
+        _saving = false;
+        _reactivatingUser = null;
+        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        else { _successMessage = "User reactivated."; await LoadUsers(); }
     }
 
     private void OpenReset(UserDto u)

@@ -77,7 +77,7 @@
                         <path d="M19 4v4h-4M5 20v-4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </button>
-                <a href="requests/new" class="btn btn-primary btn-sm">+ New Request</a>
+                <a href="requests/new" class="btn btn-primary btn-sm" style="@(CurrentUser.Role == UserRole.Support ? "display:none" : "")">+ New Request</a>
             </div>
         </div>
 
@@ -204,6 +204,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (CurrentUser.Role == UserRole.Support)
+        {
+            Nav.NavigateTo("/admin/users", replace: true);
+            return;
+        }
         await LoadAsync();
         SetDefaultTab();
     }

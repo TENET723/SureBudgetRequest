@@ -384,6 +384,12 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (CurrentUser.Role == UserRole.Support)
+        {
+            Nav.NavigateTo("/admin/users", replace: true);
+            return;
+        }
+
         _withdrawerName = CurrentUser.FullName;
 
         // Load active currencies for the selector

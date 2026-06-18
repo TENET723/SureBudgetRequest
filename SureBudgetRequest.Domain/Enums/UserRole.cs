@@ -13,5 +13,11 @@ public enum UserRole
     /// Read-only is enforced at the command boundary — no command handler gates on
     /// this value, so every write path fails for Accounting by construction.
     /// </summary>
-    Accounting = 5
+    Accounting = 5,
+
+    /// <summary>
+    /// Support role: can create, update, and deactivate users only.
+    /// Cannot submit budget requests or access any other part of the system.
+    /// </summary>
+    Support = 6
 }
