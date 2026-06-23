@@ -41,6 +41,10 @@
                         @onclick='() => SwitchView("overdue")'>
                     Overdue advances
                 </button>
+                <button class="btn @(_view == "settle" ? "btn-primary" : "btn-outline-primary")"
+                        @onclick='() => SwitchView("settle")'>
+                    Awaiting settlement
+                </button>
             </div>
         }
 
@@ -288,7 +292,16 @@
     private int _currentPage = 1;
     private int _pageSize = 20;
     private bool _loading = true;
-    private string _view = "inbox";   // "inbox" | "overdue"
+    private string _view = "inbox";   // "inbox" | "overdue" | "settle"
+
+    // Reconciled advances awaiting their closing money movement — one combined
+    // bucket (refund in / reimbursement out), the same set surfaced on the
+    // dashboard's "To Settle" queue.
+    private static readonly RequestStatus[] SettlementStatuses =
+    {
+        RequestStatus.AwaitingRefund,
+        RequestStatus.AwaitingReimbursement
+    }; 
 
     // ── Sorting ── default: submission time, newest first (inbox view).
     // The overdue view defaults to deadline ascending (most-overdue first).
@@ -528,6 +541,34 @@
                 _result = null;
             }
         }
+        else if (_view == "settle")
+        {
+            // Advances awaiting their closing money movement (refund in /
+            // reimbursement out). Both directions in one queue, newest first.
+            var settle = await Mediator.Send(new SearchBudgetRequestsQuery(
+                DepartmentId: deptFilter,
+                Statuses: SettlementStatuses,
+                SubmittedFromUtc: fromUtc,
+                SubmittedUntilUtc: untilUtc,
+                Types: types,
+                AmountInMmkFrom: amountFrom,
+                AmountInMmkTo: amountTo,
+                SearchTerm: term,
+                SortBy: _sortBy,
+                SortDescending: _sortDescending,
+                Page: page,
+                PageSize: _pageSize));
+
+            if (settle.IsSuccess)
+            {
+                _result = settle.Value;
+                _currentPage = _result.Page;
+            }
+            else
+            {
+                _result = null;
+            }
+        }
         else
         {
             var statusFilter = CurrentUser.Role switch
@@ -568,20 +609,26 @@
         _loading = false;
     }
 
-    private string InboxDescription() => _view == "overdue"
-        ? "Advance requests whose reconciliation deadline has already passed."
-        : CurrentUser.Role switch
+    private string InboxDescription() => _view switch
+    {
+        "overdue" => "Advance requests whose reconciliation deadline has already passed.",
+        "settle"  => "Reconciled advances awaiting a refund received or reimbursement paid.",
+        _ => CurrentUser.Role switch
         {
             UserRole.DepartmentHead => "Requests from your department awaiting your approval.",
             UserRole.Management     => "Over-limit requests awaiting Management Team approval.",
             UserRole.Finance        => "Requests awaiting finance processing.",
             UserRole.Admin          => "All pending requests.",
             _                       => ""
-        };
+        }
+    };
 
-    private string EmptyText() => _view == "overdue"
-        ? "No overdue advances. 🎉"
-        : "Your inbox is empty. 🎉";
+    private string EmptyText() => _view switch
+    {
+        "overdue" => "No overdue advances. 🎉",
+        "settle"  => "Nothing awaiting settlement. 🎉",
+        _ => "Your inbox is empty. 🎉"
+    };
 
     private static Guid? ParseGuid(string s) =>
         Guid.TryParse(s, out var g) ? g : null;

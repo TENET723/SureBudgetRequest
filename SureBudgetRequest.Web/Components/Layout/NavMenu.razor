@@ -40,12 +40,20 @@
 
             @if (CurrentUser.Role is not UserRole.Employee and not UserRole.Accounting)
             {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="requests/inbox" title="Inbox">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="8" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 8l3-5h8l3 5" stroke="currentColor" stroke-width="1.5"/><path d="M5 11h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        @if (!Collapsed) { <span>Inbox</span> }
-                    </NavLink>
-                </div>
+
+                if (!(CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="requests/inbox" title="Inbox">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="8" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.5" /><path d="M1 8l3-5h8l3 5" stroke="currentColor" stroke-width="1.5" /><path d="M5 11h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                            @if (!Collapsed)
+                            {
+                                <span>Inbox</span>
+                            }
+                        </NavLink>
+                    </div>
+                }
+
             }
 
             @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting)

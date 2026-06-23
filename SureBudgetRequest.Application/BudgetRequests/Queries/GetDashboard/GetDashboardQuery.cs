@@ -65,6 +65,15 @@ public sealed class GetDashboardQueryHandler
         RequestStatus.PartiallyPaid
     };
 
+    // Reconciled advances awaiting their closing money movement. One combined
+    // bucket — refund (money in) and reimbursement (money out) are both Finance's
+    // to settle before the advance can reach Reconciled.
+    private static readonly RequestStatus[] SettlementStatuses =
+    {
+        RequestStatus.AwaitingRefund,
+        RequestStatus.AwaitingReimbursement
+    };
+
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly ICurrentUser _currentUser;
@@ -150,6 +159,7 @@ public sealed class GetDashboardQueryHandler
         // action-framed and Accounting never approves.
 
         PaymentQueueDto? paymentQueue = null;
+        SettlementQueueDto? settlementQueue = null;
         FinanceMetricsDto? financeMetrics = null;
         if (role is UserRole.Finance or UserRole.Accounting)
         {
@@ -160,6 +170,19 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingPayment.Count,
                 TopItems: awaitingPayment
                     .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt) // oldest first
+                    .Select(BudgetRequestSummaryDto.FromEntity)
+                    .ToList());
+
+            // Advances awaiting refund / reimbursement — one combined "to settle"
+            // queue, ordered by reconciliation deadline (most pressing first),
+            // falling back to oldest activity when no deadline is set.
+            var awaitingSettlement = await _budgetRequestRepository.ListAsync(
+                statuses: SettlementStatuses, cancellationToken: ct);
+
+            settlementQueue = new SettlementQueueDto(
+                TotalCount: awaitingSettlement.Count,
+                TopItems: awaitingSettlement
+                    .OrderBy(r => r.ReconciliationDeadline ?? r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
                     .Select(BudgetRequestSummaryDto.FromEntity)
                     .ToList());
 
@@ -209,6 +232,7 @@ public sealed class GetDashboardQueryHandler
         AddIds(allRequesterIds, myCompleted);
         if (myApprovalQueue is not null) AddIds(allRequesterIds, myApprovalQueue.TopItems);
         if (paymentQueue is not null) AddIds(allRequesterIds, paymentQueue.TopItems);
+        if (settlementQueue is not null) AddIds(allRequesterIds, settlementQueue.TopItems);
         if (stuckRequests is not null) AddIds(allRequesterIds, stuckRequests.TopItems);
 
         var requesterNames = new Dictionary<Guid, string>();
@@ -226,6 +250,7 @@ public sealed class GetDashboardQueryHandler
             Employee: employee,
             MyApprovalQueue: myApprovalQueue,
             PaymentQueue: paymentQueue,
+            SettlementQueue: settlementQueue,
             FinanceMetrics: financeMetrics,
             StuckRequests: stuckRequests,
             RequesterNames: requesterNames);

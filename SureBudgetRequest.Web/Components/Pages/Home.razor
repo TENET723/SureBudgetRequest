@@ -56,6 +56,16 @@
             {
                 <button class="dash-tab @(_activeTab == "pay" ? "active" : "")" @onclick='() => SetTab("pay")'>@PayLabel</button>
             }
+            @if (ShowSettle)
+            {
+                <button class="dash-tab @(_activeTab == "settle" ? "active" : "")" @onclick='() => SetTab("settle")'>
+                    @SettleLabel
+                    @if (_data.SettlementQueue!.TotalCount > 0)
+                    {
+                        <span class="topbar-count-badge ml-1">@_data.SettlementQueue.TotalCount</span>
+                    }
+                </button>
+            }
             <button class="dash-tab @(_activeTab == "actions"   ? "active" : "")" @onclick='() => SetTab("actions")'>My Actions</button>
             <button class="dash-tab @(_activeTab == "inflight"  ? "active" : "")" @onclick='() => SetTab("inflight")'>In Flight</button>
             <button class="dash-tab @(_activeTab == "completed" ? "active" : "")" @onclick='() => SetTab("completed")'>Recently Completed</button>
@@ -196,11 +206,17 @@
 
     private bool ShowPay => _data?.PaymentQueue is not null;   // Finance + Accounting
 
+    private bool ShowSettle =>
+        _data?.SettlementQueue is not null;   // Finance + Accounting
+
     private bool ShowStuck => _data?.StuckRequests is not null; // Admin
 
     // Accounting is read-only — frame the queue as awareness, not action.
     private string PayLabel =>
         CurrentUser.Role == UserRole.Accounting ? "Awaiting Payment" : "To Pay";
+
+    private string SettleLabel =>
+        CurrentUser.Role == UserRole.Accounting ? "Awaiting Settlement" : "To Settle";
 
     protected override async Task OnInitializedAsync()
     {
@@ -243,6 +259,7 @@
 
         if (ShowApprove && _data.MyApprovalQueue!.TotalCount > 0)      _activeTab = "approve";
         else if (ShowPay && _data.PaymentQueue!.TotalCount > 0)        _activeTab = "pay";
+        else if (ShowSettle && _data.SettlementQueue!.TotalCount > 0)  _activeTab = "settle";
         else if (ShowStuck && _data.StuckRequests!.TotalCount > 0)     _activeTab = "stuck";
         else if (_data.Employee.ActionRequired.Count > 0)              _activeTab = "actions";
         else                                                           _activeTab = "inflight";
@@ -310,6 +327,7 @@
         {
             "approve"   => _data.MyApprovalQueue?.TopItems ?? empty,
             "pay"       => _data.PaymentQueue?.TopItems ?? empty,
+            "settle"    => _data.SettlementQueue?.TopItems ?? empty,
             "actions"   => _data.Employee.ActionRequired,
             "inflight"  => _data.Employee.InFlight,
             "completed" => _data.Employee.RecentlyCompleted,
