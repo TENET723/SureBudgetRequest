@@ -128,17 +128,33 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
-    public Result SendBack(Guid financeUserId, string comment)
+    public Result SendBack(Guid approverId, string comment)
     {
-        if (Status != RequestStatus.PendingFinance)
-            return Result.Failure("Send-back is only allowed at the Finance stage.");
+        // Send-back is available at every approval stage. The action is recorded
+        // against whichever stage the request currently sits at (mirrors Reject()).
+        var stage = Status switch
+        {
+            RequestStatus.PendingDeptHead   => (ApprovalStage?)ApprovalStage.DeptHead,
+            RequestStatus.PendingManagement => ApprovalStage.Management,
+            RequestStatus.PendingFinance    => ApprovalStage.Finance,
+            _                               => null
+        };
+
+        if (stage is null)
+            return Result.Failure($"Cannot send back a request in status '{Status}'.");
 
         if (string.IsNullOrWhiteSpace(comment))
             return Result.Failure("A comment is required when sending back.");
 
+        // Strict: only the assigned dept head may send back at the DeptHead stage
+        // (mirrors ApproveBy's assignee check). Management and Finance allow ANY
+        // user with the matching role — that role check happens in the Application layer.
+        if (stage == ApprovalStage.DeptHead && approverId != DeptHeadIdAtSubmission)
+            return Result.Failure("This user is not the assigned approver for the current stage.");
+
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
-            Id, ApprovalStage.Finance, ApprovalDecision.SentBack, financeUserId, comment, actionedAt: now));
+            Id, stage.Value, ApprovalDecision.SentBack, approverId, comment, actionedAt: now));
 
         Status = RequestStatus.SentBack;
         // CoaId intentionally preserved — used as a pre-fill hint for the next

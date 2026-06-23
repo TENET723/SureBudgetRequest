@@ -287,7 +287,7 @@ else
                             <button class="btn btn-danger btn-sm" @onclick="() => _showRejectModal = true">Reject</button>
                         }
 
-                        @* Send Back (Finance only) *@
+                        @* Send Back (any approver at their own stage) *@
                         @if (actions.Contains("sendback"))
                         {
                             <button class="btn btn-warning btn-sm" @onclick="() => _showSendBackModal = true">Send Back to Requester</button>
@@ -1459,14 +1459,16 @@ else
         {
             list.Add("approve");
             list.Add("reject");
+            list.Add("sendback");
             list.Add("edit");
         }
 
         if (r.Status == RequestStatus.PendingManagement && role == UserRole.Management)
-        { list.Add("approve"); list.Add("reject"); }
+        { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
 
-        // Approve / Reject / Send Back are Finance-Approver-only actions (Type 1).
-        // Payer-only (Type 2) Finance users don't see these buttons.
+        // Approve / Reject are role-gated per stage; at Finance, only Finance
+        // Approvers (Type 1) qualify. Send Back is available to every approver at
+        // their own stage (assigned dept head only at the DeptHead stage).
         if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance && CurrentUser.IsFinanceApprover)
         { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
 

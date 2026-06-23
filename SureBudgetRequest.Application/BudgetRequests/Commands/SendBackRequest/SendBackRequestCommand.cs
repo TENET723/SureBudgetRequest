@@ -10,7 +10,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest;
 
 public sealed record SendBackRequestCommand(
     Guid BudgetRequestId,
-    Guid FinanceUserId,
+    Guid ApproverId,
     string Comment) : IRequest<Result>;
 
 public sealed class SendBackRequestCommandHandler
@@ -42,23 +42,35 @@ public sealed class SendBackRequestCommandHandler
         if (budgetRequest is null)
             return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
-        var financeUser = await _userRepository.GetByIdAsync(command.FinanceUserId, cancellationToken);
-        if (financeUser is null || financeUser.Role != UserRole.Finance)
-            return Result.Failure(Error.Forbidden("BudgetRequest.OnlyFinanceCanSendBack", "Only a Finance user can send back a request."));
+        var approver = await _userRepository.GetByIdAsync(command.ApproverId, cancellationToken);
+        if (approver is null)
+            return Result.Failure(UserErrors.NotFound(command.ApproverId));
 
-        // Send-back is an approver action; payer-only (Type 2) Finance users cannot do it.
-        if (!financeUser.IsFinanceApprover)
+        var roleCheck = budgetRequest.Status switch
+        {
+            RequestStatus.PendingDeptHead   => approver.Role == UserRole.DepartmentHead,
+            RequestStatus.PendingManagement => approver.Role == UserRole.Management,
+            RequestStatus.PendingFinance    => approver.Role == UserRole.Finance,
+            _ => false
+        };
+
+        if (!roleCheck)
+            return Result.Failure(UserErrors.RoleUnauthorized(approver.Role.ToString(), budgetRequest.Status.ToString()));
+
+        // Finance-stage gate: only Finance Approvers (Type 1) may send back.
+        // Payer-only (Type 2) Finance users can record payments but cannot send back.
+        if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
             return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
 
         var previousStatus = budgetRequest.Status;
-        var result = budgetRequest.SendBack(command.FinanceUserId, command.Comment);
+        var result = budgetRequest.SendBack(command.ApproverId, command.Comment);
         if (result.IsFailure) return result;
 
         await _dispatcher.DispatchAsync(
             budgetRequest,
             previousStatus,
-            command.FinanceUserId,
-            actorName: financeUser.FullName,
+            command.ApproverId,
+            actorName: approver.FullName,
             comment: command.Comment,
             cancellationToken);
 

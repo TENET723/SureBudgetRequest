@@ -126,11 +126,13 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             trigger = NotificationTrigger.FinancePaidToRequester;
             recipients = new[] { request.RequesterId };
         }
-        // --- Finance sent back ---
-        else if (previousStatus == RequestStatus.PendingFinance
+        // --- Sent back (any approval stage) ---
+        else if (previousStatus is RequestStatus.PendingDeptHead
+                     or RequestStatus.PendingManagement
+                     or RequestStatus.PendingFinance
                  && request.Status == RequestStatus.SentBack)
         {
-            trigger = NotificationTrigger.FinanceSentBackToRequester;
+            trigger = NotificationTrigger.SentBackToRequester;
             recipients = new[] { request.RequesterId };
         }
 
