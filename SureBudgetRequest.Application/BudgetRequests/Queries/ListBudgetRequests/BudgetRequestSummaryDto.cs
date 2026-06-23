@@ -40,7 +40,12 @@ public sealed record BudgetRequestSummaryDto(
     // snapshot (set at CreateDraft, so populated even for drafts). List pages
     // render this directly instead of resolving names per-user — consistent
     // with the snapshot principle: show who submitted, not their current name.
-    string RequesterName = "")
+    string RequesterName = "",
+    // Advance reconciliation settlement amounts, in the request's own currency.
+    // Refund = amount the requester owes back; Reimbursement = amount owed to the
+    // requester. Both 0 for non-advances and before reconciliation.
+    decimal RefundAmount = 0m,
+    decimal ReimbursementAmount = 0m)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -107,5 +112,7 @@ public sealed record BudgetRequestSummaryDto(
         e.WithdrawMethodId,
         withdrawMethod?.Name,
         e.ReconciliationDeadline,
-        e.RequesterNameAtSubmission);
+        e.RequesterNameAtSubmission,
+        e.RefundAmount,
+        e.ReimbursementAmount);
 }

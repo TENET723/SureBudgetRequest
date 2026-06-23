@@ -107,7 +107,10 @@ public sealed class ExportBudgetRequestsQueryHandler
                 CoaCode: r.CoaCode,
                 CoaName: r.CoaName,
                 WithdrawMethodName: r.WithdrawMethodName,
-                ReconciliationDeadline: r.ReconciliationDeadline))
+                ReconciliationDeadline: r.ReconciliationDeadline,
+                RefundAmount: r.RefundAmount,
+                ReimbursementAmount: r.ReimbursementAmount,
+                ActualSpent: ActualSpent(r.Status, r.ApprovedAmount, r.RefundAmount, r.ReimbursementAmount)))
             .ToList();
 
         // Resolve which columns to write (and in what order). Null/empty → all.
@@ -164,6 +167,23 @@ public sealed class ExportBudgetRequestsQueryHandler
 
         return ordered.ThenByDescending(r => r.CreatedAt);
     }
+
+    /// <summary>
+    /// Actual amount spent on a settled advance, in the request's own currency.
+    /// Only advances that have reached reconciliation carry a real figure — refund
+    /// and reimbursement are set at reconciliation and persist through settlement —
+    /// so every other row returns null and the export column is left blank rather
+    /// than implying a spend that didn't happen. Equivalent to the entity's
+    /// TotalUsageRecorded, but computed from scalar columns the list query already
+    /// loads (no AdvanceUsages include, so no extra DB cost).
+    /// </summary>
+    private static decimal? ActualSpent(
+        RequestStatus status, decimal approvedAmount, decimal refundAmount, decimal reimbursementAmount) =>
+        status is RequestStatus.Reconciled
+                or RequestStatus.AwaitingRefund
+                or RequestStatus.AwaitingReimbursement
+            ? approvedAmount - refundAmount + reimbursementAmount
+            : null;
 
     /// <summary>
     /// Human-friendly request-type label. Kept in sync with the report page's

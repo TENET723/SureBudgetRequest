@@ -89,8 +89,13 @@ public sealed class ClosedXmlReportExporter : IReportExporter
                 break;
 
             case ExportValueKind.Amount:
-                cell.Value = ToDecimal(value);
-                cell.Style.NumberFormat.Format = AmountFormat;
+                // A decimal? accessor that returns null (e.g. Actual Spent on a
+                // non-settled row) leaves the cell blank; a real 0 still writes 0.
+                if (value is decimal amount)
+                {
+                    cell.Value = amount;
+                    cell.Style.NumberFormat.Format = AmountFormat;
+                }
                 break;
 
             case ExportValueKind.DateTime:

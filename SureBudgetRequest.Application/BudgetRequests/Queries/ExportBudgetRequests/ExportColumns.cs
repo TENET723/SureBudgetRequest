@@ -23,7 +23,10 @@ public enum ExportColumn
     CoaCode,
     CoaName,
     WithdrawMethod,
-    ReconciliationDeadline
+    ReconciliationDeadline,
+    RefundAmount,
+    ReimbursementAmount,
+    ActualSpent
 }
 
 /// <summary>
@@ -84,6 +87,13 @@ public static class ExportColumns
         new ExportColumnSpec(ExportColumn.CoaName,               "COA Name",                    ExportValueKind.Text,     r => r.CoaName),
         new ExportColumnSpec(ExportColumn.WithdrawMethod,        "Withdraw Method",             ExportValueKind.Text,     r => r.WithdrawMethodName),
         new ExportColumnSpec(ExportColumn.ReconciliationDeadline,"Reconciliation Deadline",     ExportValueKind.Date,     r => r.ReconciliationDeadline),
+        // Advance settlement amounts, in the request's own currency. Not summable
+        // — rows may mix currencies (same reason as Requested Amount).
+        new ExportColumnSpec(ExportColumn.RefundAmount,          "Refund Amount",               ExportValueKind.Amount,   r => r.RefundAmount),
+        new ExportColumnSpec(ExportColumn.ReimbursementAmount,   "Reimbursement Amount",        ExportValueKind.Amount,   r => r.ReimbursementAmount),
+        // Actual spent on a settled advance (request's own currency). Blank for
+        // non-advances / unreconciled advances. Not summable (mixed currencies).
+        new ExportColumnSpec(ExportColumn.ActualSpent,           "Actual Spent",                ExportValueKind.Amount,   r => r.ActualSpent),
     };
 
     private static readonly IReadOnlyDictionary<ExportColumn, ExportColumnSpec> ByKey =

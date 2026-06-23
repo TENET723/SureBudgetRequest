@@ -29,7 +29,14 @@ public sealed record BudgetRequestExportRow(
     string? CoaName,
     string? WithdrawMethodName,
     // Date-only deadline (advance reconciliation). Null for non-advances.
-    DateTime? ReconciliationDeadline);
+    DateTime? ReconciliationDeadline,
+    // Advance settlement amounts in the request's own currency (0 when N/A).
+    decimal RefundAmount,
+    decimal ReimbursementAmount,
+    // Actual amount spent on a settled advance (ApprovedAmount − Refund +
+    // Reimbursement). Null for non-advances and advances not yet reconciled, so
+    // the column renders blank for them rather than implying a spend.
+    decimal? ActualSpent);
 
 /// <summary>
 /// A generated file ready to be streamed to the browser by a Web endpoint.
