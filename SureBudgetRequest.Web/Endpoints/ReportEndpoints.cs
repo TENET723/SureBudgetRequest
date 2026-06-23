@@ -39,7 +39,8 @@ public static class ReportEndpoints
                 decimal? amountTo,
                 bool? periodOverrun,
                 string? sortBy,
-                bool? sortDesc) =>
+                bool? sortDesc,
+                string[]? columns) =>
             {
                 // Identity is read from HttpContext.User (populated by cookie auth
                 // on this HTTP request), NOT from ICurrentUser — that service is
@@ -119,6 +120,22 @@ public static class ReportEndpoints
                     ? sb
                     : BudgetRequestSortBy.SubmittedAt;
 
+                // Column selection — ordered list of column keys. Order is
+                // preserved (repeated query params keep their sequence), invalid
+                // keys are dropped, and an empty result falls back to all columns
+                // in the handler. Same parse-and-drop-invalid shape as statuses.
+                IReadOnlyCollection<ExportColumn>? columnSelection = null;
+                if (columns is { Length: > 0 })
+                {
+                    var parsedColumns = columns
+                        .Select(c => Enum.TryParse<ExportColumn>(c, out var ec) ? ec : (ExportColumn?)null)
+                        .Where(ec => ec.HasValue)
+                        .Select(ec => ec!.Value)
+                        .ToList();
+                    if (parsedColumns.Count > 0)
+                        columnSelection = parsedColumns;
+                }
+
                 var result = await mediator.Send(new ExportBudgetRequestsQuery(
                     RequesterId: requesterId,
                     DepartmentId: departmentId,
@@ -135,7 +152,8 @@ public static class ReportEndpoints
                     PeriodOverrunOnly: periodOverrun == true ? true : null,
                     SearchTerm: string.IsNullOrWhiteSpace(search) ? null : search,
                     SortBy: sortColumn,
-                    SortDescending: sortDesc ?? true), ct);
+                    SortDescending: sortDesc ?? true,
+                    Columns: columnSelection), ct);
 
                 if (result.IsFailure || result.Value is null)
                     return Results.BadRequest(new { error = result.Error.Message ?? "Export failed." });

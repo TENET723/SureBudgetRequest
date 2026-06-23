@@ -5,6 +5,7 @@
 @inject IJSRuntime JS
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ExportBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
 @using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Coas.Queries
@@ -53,7 +54,7 @@
                 }
             </button>
             <div class="toolbar-right">
-                <AsyncButton Class="btn btn-success btn-sm" OnClick="ExportAsync" Disabled="@_loading">Export to Excel</AsyncButton>
+                <button class="btn btn-success btn-sm" @onclick="OpenColumnModal" disabled="@_loading">Export to Excel</button>
             </div>
         </div>
 
@@ -379,6 +380,69 @@
     </div>
 }
 
+@* ── Export column picker ─────────────────────────────────────────────────── *@
+@if (_showColumnModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Choose export columns</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showColumnModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-sm text-muted">
+                        Tick the columns to include, and drag the handle (⠿) to reorder them.
+                        The order here is the order they appear in the file.
+                    </p>
+
+                    <div class="mb-3">
+                        <button class="btn btn-outline btn-sm" style="margin-right:.5rem" @onclick="SelectAllColumns">Select all</button>
+                        <button class="btn btn-outline btn-sm" @onclick="SelectNoColumns">Select none</button>
+                    </div>
+
+                    <ul class="column-picker" @ref="_pickerRef">
+                        @for (var i = 0; i < _columns.Count; i++)
+                        {
+                            var index = i;
+                            var col = _columns[index];
+                            <li class="column-picker-item @(_dragIndex == index ? "is-dragging" : "")"
+                                draggable="true"
+                                @ondragstart="() => OnDragStart(index)"
+                                @ondragenter="() => OnDragEnter(index)"
+                                @ondragover:preventDefault="true"
+                                @ondragend="OnDragEnd">
+                                <span class="column-picker-handle" title="Drag to reorder">⠿</span>
+                                <label class="column-picker-label">
+                                    <input type="checkbox" @bind="col.Selected" />
+                                    <span>@col.Header</span>
+                                </label>
+                            </li>
+                        }
+                    </ul>
+
+                    <p class="text-sm text-muted mb-0">@SelectedColumnCount of @_columns.Count columns selected.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showColumnModal = false">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="ExportAsync" disabled="@(SelectedColumnCount == 0)">Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .column-picker { list-style: none; margin: 0; padding: 0; max-height: 22rem; overflow-y: auto; border: 1px solid var(--border, #e2e2e2); border-radius: .5rem; }
+        .column-picker-item { display: flex; align-items: center; gap: .5rem; padding: .4rem .6rem; border-bottom: 1px solid var(--border, #eee); background: var(--surface, #fff); cursor: default; }
+        .column-picker-item:last-child { border-bottom: none; }
+        .column-picker-item.is-dragging { opacity: .5; cursor: grabbing; }
+        .column-picker-handle { cursor: grab; user-select: none; color: var(--text-muted, #999); font-size: 1rem; line-height: 1; }
+        .column-picker-handle:active { cursor: grabbing; }
+        .column-picker-item.is-dragging .column-picker-handle { cursor: grabbing; }
+        .column-picker-label { display: flex; align-items: center; gap: .5rem; margin: 0; flex: 1; cursor: pointer; }
+    </style>
+}
+
 @code {
     // ── Filter state ─────────────────────────────────────────────────────────
     private string _search = "";
@@ -637,6 +701,79 @@
         return RunQueryAsync();
     }
 
+    // ── Export column picker ──────────────────────────────────────────────────
+    private bool _showColumnModal;
+    private int? _dragIndex;
+    private List<ColumnChoice> _columns = new();
+    private ElementReference _pickerRef;
+    private bool _dndWired;
+
+    private int SelectedColumnCount => _columns.Count(c => c.Selected);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Wire the native drag-cursor handlers onto the picker list once it's in
+        // the DOM. The list is a fresh element each time the modal opens, so we
+        // re-wire per open (tracked by _dndWired, reset in OpenColumnModal).
+        if (_showColumnModal && !_dndWired)
+        {
+            _dndWired = true;
+            await JS.InvokeVoidAsync("columnPickerDnd.enable", _pickerRef);
+        }
+    }
+
+    private void OpenColumnModal()
+    {
+        // No persistence: rebuild from the canonical registry on every open —
+        // all columns selected, in default order.
+        _columns = ExportColumns.DefaultOrder
+            .Select(c => new ColumnChoice(c.Key, c.Header))
+            .ToList();
+        _dragIndex = null;
+        _dndWired = false;   // re-wire the native handlers on the new list element
+        _showColumnModal = true;
+    }
+
+    private void SelectAllColumns() { foreach (var c in _columns) c.Selected = true; }
+    private void SelectNoColumns()  { foreach (var c in _columns) c.Selected = false; }
+
+    // Native HTML5 drag-and-drop reorder — no JS library.
+    //
+    // The list reorders LIVE as the dragged row passes over another row
+    // (ondragenter); we deliberately do NOT rely on the ondrop event. ondrop only
+    // fires when the drop target cancels the dragover/dragenter default, which is
+    // unreliable here because each row contains interactive children (checkbox +
+    // label) that the browser treats as the event target — so drops get swallowed.
+    // Reordering on dragenter sidesteps that entirely; ondragend just clears state.
+    private void OnDragStart(int index) => _dragIndex = index;
+    private void OnDragEnd() => _dragIndex = null;
+
+    private void OnDragEnter(int index)
+    {
+        if (_dragIndex is not int from || from == index
+            || from < 0 || from >= _columns.Count
+            || index < 0 || index >= _columns.Count)
+            return;
+
+        var item = _columns[from];
+        _columns.RemoveAt(from);
+        _columns.Insert(index, item);
+        _dragIndex = index;   // the dragged item now lives at the row it entered
+    }
+
+    private sealed class ColumnChoice
+    {
+        public ColumnChoice(ExportColumn key, string header)
+        {
+            Key = key;
+            Header = header;
+        }
+
+        public ExportColumn Key { get; }
+        public string Header { get; }
+        public bool Selected { get; set; } = true;
+    }
+
     private async Task ExportAsync()
     {
         var query = new List<string>();
@@ -674,11 +811,18 @@
         Add("sortBy", _sortBy.ToString());
         Add("sortDesc", _sortDescending ? "true" : "false");
 
+        // Selected export columns, in the user's chosen (drag-ordered) order.
+        // Repeated params preserve order server-side. None selected → no params →
+        // the endpoint falls back to all columns.
+        foreach (var c in _columns.Where(c => c.Selected))
+            Add("columns", c.Key.ToString());
+
         var url = "/api/reports/budget-requests/export";
         if (query.Count > 0)
             url += "?" + string.Join("&", query);
 
         await JS.InvokeVoidAsync("open", url, "_blank");
+        _showColumnModal = false;
     }
 
     private async Task ClearAsync()

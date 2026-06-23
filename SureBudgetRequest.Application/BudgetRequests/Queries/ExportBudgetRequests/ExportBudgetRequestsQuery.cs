@@ -36,7 +36,9 @@ public sealed record ExportBudgetRequestsQuery(
     bool? PeriodOverrunOnly = null,
     string? SearchTerm = null,
     BudgetRequestSortBy SortBy = BudgetRequestSortBy.SubmittedAt,
-    bool SortDescending = true) : IRequest<Result<FileDownload>>;
+    bool SortDescending = true,
+    // Ordered list of columns to include. Null/empty = all columns, default order.
+    IReadOnlyCollection<ExportColumn>? Columns = null) : IRequest<Result<FileDownload>>;
 
 public sealed class ExportBudgetRequestsQueryHandler
     : IRequestHandler<ExportBudgetRequestsQuery, Result<FileDownload>>
@@ -91,6 +93,8 @@ public sealed class ExportBudgetRequestsQueryHandler
         var rows = ApplySort(listResult.Value, request.SortBy, request.SortDescending)
             .Select(r => new BudgetRequestExportRow(
                 Reference: r.Reference,
+                TypeLabel: TypeLabel(r.Type),
+                RequestDate: r.RequestDate,
                 SubmittedAt: r.SubmittedAt,
                 RequesterName: r.RequesterName,
                 DepartmentName: departmentNames.TryGetValue(r.DepartmentIdAtSubmission, out var dept) ? dept : "—",
@@ -102,10 +106,14 @@ public sealed class ExportBudgetRequestsQueryHandler
                 IsOverLimit: r.IsOverLimit,
                 CoaCode: r.CoaCode,
                 CoaName: r.CoaName,
-                WithdrawMethodName: r.WithdrawMethodName))
+                WithdrawMethodName: r.WithdrawMethodName,
+                ReconciliationDeadline: r.ReconciliationDeadline))
             .ToList();
 
-        var bytes = _exporter.ExportBudgetRequests(rows);
+        // Resolve which columns to write (and in what order). Null/empty → all.
+        var columns = ExportColumns.Resolve(request.Columns);
+
+        var bytes = _exporter.ExportBudgetRequests(rows, columns);
 
         return Result<FileDownload>.Success(new FileDownload(
             bytes,
@@ -156,6 +164,19 @@ public sealed class ExportBudgetRequestsQueryHandler
 
         return ordered.ThenByDescending(r => r.CreatedAt);
     }
+
+    /// <summary>
+    /// Human-friendly request-type label. Kept in sync with the report page's
+    /// <c>TypeLabel</c> switch so the exported "Type" column reads identically.
+    /// </summary>
+    private static string TypeLabel(BudgetRequestType t) => t switch
+    {
+        BudgetRequestType.Urgent          => "Urgent",
+        BudgetRequestType.Standard        => "Standard",
+        BudgetRequestType.ProjectProposal => "Project Proposal",
+        BudgetRequestType.Advance         => "Advance",
+        _                                 => t.ToString()
+    };
 
     /// <summary>
     /// Human-friendly status label. Kept here (Application layer) and in sync
