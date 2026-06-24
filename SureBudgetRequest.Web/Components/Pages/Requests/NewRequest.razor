@@ -139,6 +139,13 @@
             </div>
 
             <div class="mb-4">
+                <label class="form-label text-sm font-semibold">External References</label>
+                <textarea class="textarea" rows="2"
+                          @bind="_externalReferences"
+                          placeholder="Optional — voucher / transaction numbers, related references…"></textarea>
+            </div>
+
+            <div class="mb-4">
                 <label class="form-label text-sm font-semibold">Department Head (approver)</label>
                 <input class="input"
                        value="@(string.IsNullOrEmpty(_deptHeadName) ? "— not assigned —" : _deptHeadName)"
@@ -323,6 +330,7 @@
     private decimal _selectedRate = 1m;
     private decimal _systemRate = 1m;
     private string _reason = "";
+    private string _externalReferences = "";
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
     private Guid _deptHeadId;
@@ -563,7 +571,10 @@
                 ManualExchangeRate: manualRate,
                 BudgetCategoryId: string.IsNullOrEmpty(_budgetCategoryId)
                     ? (Guid?)null
-                    : Guid.Parse(_budgetCategoryId)));
+                    : Guid.Parse(_budgetCategoryId),
+                ExternalReferences: string.IsNullOrWhiteSpace(_externalReferences)
+                    ? null
+                    : _externalReferences));
 
             if (draftResult.IsFailure) { _error = draftResult.Error.Message; return; }
 

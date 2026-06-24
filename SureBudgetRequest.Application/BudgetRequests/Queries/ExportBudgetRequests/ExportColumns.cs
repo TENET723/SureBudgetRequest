@@ -26,7 +26,8 @@ public enum ExportColumn
     ReconciliationDeadline,
     RefundAmount,
     ReimbursementAmount,
-    ActualSpent
+    ActualSpent,
+    ExternalReferences
 }
 
 /// <summary>
@@ -94,6 +95,7 @@ public static class ExportColumns
         // Actual spent on a settled advance (request's own currency). Blank for
         // non-advances / unreconciled advances. Not summable (mixed currencies).
         new ExportColumnSpec(ExportColumn.ActualSpent,           "Actual Spent",                ExportValueKind.Amount,   r => r.ActualSpent),
+        new ExportColumnSpec(ExportColumn.ExternalReferences,    "External References",         ExportValueKind.Text,     r => r.ExternalReferences),
     };
 
     private static readonly IReadOnlyDictionary<ExportColumn, ExportColumnSpec> ByKey =

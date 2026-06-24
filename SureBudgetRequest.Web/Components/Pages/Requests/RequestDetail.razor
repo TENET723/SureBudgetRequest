@@ -141,6 +141,13 @@ else
                         <div class="text-sm text-muted">Reason</div>
                         <div>@_request.Reasons</div>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(_request.ExternalReferences))
+                    {
+                        <div>
+                            <div class="text-sm text-muted">External references</div>
+                            <div style="white-space: pre-wrap">@_request.ExternalReferences</div>
+                        </div>
+                    }
                     @if (!string.IsNullOrWhiteSpace(_request.MonthlyOverrunJustification))
                     {
                         <div>

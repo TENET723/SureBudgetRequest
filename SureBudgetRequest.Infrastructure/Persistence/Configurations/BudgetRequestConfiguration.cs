@@ -24,6 +24,9 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Property(r => r.AllowsPartialPayment).IsRequired();
         builder.Property(r => r.PartialPaymentDetail).HasMaxLength(1000);
 
+        // Optional free-text external references (voucher / transaction numbers).
+        builder.Property(r => r.ExternalReferences).HasMaxLength(2000);
+
         // Nullable — only populated when the dept has a monthly limit AND the
         // requested amount would push them over. Validated by Submit().
         builder.Property(r => r.MonthlyOverrunJustification).HasMaxLength(2000);

@@ -169,6 +169,13 @@
                     }
                 </div>
 
+                <div class="mb-4">
+                    <label class="form-label text-sm font-semibold">External References</label>
+                    <textarea class="textarea" rows="2"
+                              @bind="_externalReferences"
+                              placeholder="Optional — voucher / transaction numbers, related references…"></textarea>
+                </div>
+
                 @if (SelectedMethodRequiresAttachment)
                 {
                     <div class="mb-4">
@@ -401,6 +408,7 @@
     private List<BudgetCategoryDto> _budgetCategories = new();
     private string _budgetCategoryId = "";
     private string _reason = "";
+    private string _externalReferences = "";
     private string? _modificationNote;
     private string _withdrawerName = "";
     private string _withdrawerTitle = "";
@@ -492,6 +500,7 @@
             _amount = _request.RequestedAmount;
             _currencyCode = _request.CurrencyCode;
             _reason = _request.Reasons;
+            _externalReferences = _request.ExternalReferences ?? "";
             _withdrawerName = _request.WithdrawerName;
             _withdrawerTitle = _request.WithdrawerJobTitle;
             _allowsPartial = _request.AllowsPartialPayment;
@@ -677,7 +686,10 @@
                 BudgetCategoryId: string.IsNullOrEmpty(_budgetCategoryId)
                     ? (Guid?)null
                     : Guid.Parse(_budgetCategoryId),
-                Note: IsDhModifying ? _modificationNote : null));
+                Note: IsDhModifying ? _modificationNote : null,
+                ExternalReferences: string.IsNullOrWhiteSpace(_externalReferences)
+                    ? null
+                    : _externalReferences));
 
             if (updateResult.IsFailure) { _error = updateResult.Error.Message; return; }
 

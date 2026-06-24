@@ -110,7 +110,8 @@ public sealed class ExportBudgetRequestsQueryHandler
                 ReconciliationDeadline: r.ReconciliationDeadline,
                 RefundAmount: r.RefundAmount,
                 ReimbursementAmount: r.ReimbursementAmount,
-                ActualSpent: ActualSpent(r.Status, r.ApprovedAmount, r.RefundAmount, r.ReimbursementAmount)))
+                ActualSpent: ActualSpent(r.Status, r.ApprovedAmount, r.RefundAmount, r.ReimbursementAmount),
+                ExternalReferences: r.ExternalReferences))
             .ToList();
 
         // Resolve which columns to write (and in what order). Null/empty → all.

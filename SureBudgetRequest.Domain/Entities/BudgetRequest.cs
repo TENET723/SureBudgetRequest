@@ -23,6 +23,10 @@ public partial class BudgetRequest
     public bool AllowsPartialPayment { get; private set; }
     public string? PartialPaymentDetail { get; private set; }
 
+    // Free-text external references (e.g. voucher / transaction numbers).
+    // Optional, editable wherever Reasons is editable (Draft/SentBack/PendingDeptHead).
+    public string? ExternalReferences { get; private set; }
+
     /// <summary>
     /// Free-text justification from the requester for why a request that would
     /// push the department over its monthly limit is still necessary. Set on

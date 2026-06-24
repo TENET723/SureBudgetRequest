@@ -36,7 +36,9 @@ public sealed record BudgetRequestExportRow(
     // Actual amount spent on a settled advance (ApprovedAmount − Refund +
     // Reimbursement). Null for non-advances and advances not yet reconciled, so
     // the column renders blank for them rather than implying a spend.
-    decimal? ActualSpent);
+    decimal? ActualSpent,
+    // Optional free-text external references (voucher / transaction numbers).
+    string? ExternalReferences);
 
 /// <summary>
 /// A generated file ready to be streamed to the browser by a Web endpoint.

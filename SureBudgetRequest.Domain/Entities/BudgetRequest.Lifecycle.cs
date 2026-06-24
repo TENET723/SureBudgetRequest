@@ -29,7 +29,8 @@ public partial class BudgetRequest
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null,
         decimal? manualExchangeRate = null,
-        Guid? budgetCategoryId = null)
+        Guid? budgetCategoryId = null,
+        string? externalReferences = null)
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
@@ -67,6 +68,7 @@ public partial class BudgetRequest
             WithdrawMethodId = withdrawMethodId,
             AllowsPartialPayment = allowsPartialPayment,
             PartialPaymentDetail = partialPaymentDetail,
+            ExternalReferences = string.IsNullOrWhiteSpace(externalReferences) ? null : externalReferences.Trim(),
             MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification),
             BudgetCategoryId = budgetCategoryId,
             Status = RequestStatus.Draft,
@@ -89,7 +91,8 @@ public partial class BudgetRequest
         string? partialPaymentDetail,
         string? monthlyOverrunJustification = null,
         decimal? manualExchangeRate = null,
-        Guid? budgetCategoryId = null)
+        Guid? budgetCategoryId = null,
+        string? externalReferences = null)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
@@ -121,6 +124,7 @@ public partial class BudgetRequest
         WithdrawMethodId = withdrawMethodId;
         AllowsPartialPayment = allowsPartialPayment;
         PartialPaymentDetail = partialPaymentDetail;
+        ExternalReferences = string.IsNullOrWhiteSpace(externalReferences) ? null : externalReferences.Trim();
         MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
         BudgetCategoryId = budgetCategoryId;
 

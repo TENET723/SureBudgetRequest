@@ -24,7 +24,8 @@ public sealed record UpdateBudgetRequestCommand(
     string? MonthlyOverrunJustification = null,
     decimal? ManualExchangeRate = null,
     Guid? BudgetCategoryId = null,
-    string? Note = null) : IRequest<Result>;
+    string? Note = null,
+    string? ExternalReferences = null) : IRequest<Result>;
 
 public sealed class UpdateBudgetRequestCommandHandler
     : IRequestHandler<UpdateBudgetRequestCommand, Result>
@@ -121,7 +122,8 @@ public sealed class UpdateBudgetRequestCommandHandler
             command.PartialPaymentDetail,
             command.MonthlyOverrunJustification,
             command.ManualExchangeRate,
-            command.BudgetCategoryId);
+            command.BudgetCategoryId,
+            command.ExternalReferences);
 
         if (result.IsFailure) return result;
 
