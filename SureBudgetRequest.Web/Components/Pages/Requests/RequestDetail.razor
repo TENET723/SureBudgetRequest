@@ -19,6 +19,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordReimbursement
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
@@ -417,21 +418,27 @@ else
                                             </td>
                                             <td class="text-muted-cell">@(p.Reference ?? "—")</td>
                                             <td>
-                                                @if (p.AttachmentId.HasValue)
+                                                @if (p.AttachmentIds.Any())
                                                 {
-                                                    var receipt = FindAttachment(p.AttachmentId);
-                                                    var receiptUrl = $"/api/attachments/{p.AttachmentId.Value}";
-
-                                                    @if (receipt is not null && IsImage(receipt.ContentType))
-                                                    {
-                                                        <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
-                                                            <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
-                                                        </a>
-                                                    }
-                                                    else
-                                                    {
-                                                        <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs">View</a>
-                                                    }
+                                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                                        @foreach (var attId in p.AttachmentIds)
+                                                        {
+                                                            var receipt = FindAttachment(attId);
+                                                            var receiptUrl = $"/api/attachments/{attId}";
+                                                            if (receipt is not null && IsImage(receipt.ContentType))
+                                                            {
+                                                                <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                                    <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
+                                                                </a>
+                                                            }
+                                                            else
+                                                            {
+                                                                <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs" title="@(receipt?.FileName ?? "Receipt")">
+                                                                    View
+                                                                </a>
+                                                            }
+                                                        }
+                                                    </div>
                                                 }
                                                 else
                                                 {
@@ -816,25 +823,75 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">
-                            Receipt <span class="text-muted fw-normal">(optional)</span>
+                            Receipts <span class="text-muted fw-normal">(optional, multiple files allowed)</span>
                         </label>
-                        <InputFile OnChange="OnPaymentReceiptSelected" class="input" />
-                        <div class="form-hint">
-                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <InputFile OnChange="OnPaymentReceiptsSelected"
+                                       disabled="@_uploadingReceipts"
+                                       multiple
+                                       class="input" />
+                            @if (_uploadingReceipts)
+                            {
+                                <span class="text-muted small">Uploading…</span>
+                            }
                         </div>
-                        @if (!string.IsNullOrEmpty(_paymentPreviewUrl))
+                        <div class="form-hint mb-3">
+                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file. PDF, images, Word, Excel, text, CSV.
+                        </div>
+
+                        @if (_pendingPaymentReceipts.Count > 0)
                         {
-                            <div class="mt-2">
-                                <span class="text-sm d-block mb-1 text-muted">Preview:</span>
-                                <img src="@_paymentPreviewUrl" alt="Payment Receipt Preview"
-                                     style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
-                            </div>
+                            var images = _pendingPaymentReceipts.Where(a => IsImage(a.ContentType)).ToList();
+                            var files = _pendingPaymentReceipts.Where(a => !IsImage(a.ContentType)).ToList();
+
+                            @if (images.Count > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    @foreach (var img in images)
+                                    {
+                                        <div style="position:relative;">
+                                            <a href="@($"/api/attachments/{img.Id}")" target="_blank" rel="noopener" title="@img.FileName">
+                                                <img src="@($"/api/attachments/{img.Id}")" alt="@img.FileName"
+                                                     style="max-width:140px;max-height:140px;object-fit:contain;display:block;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                                            </a>
+                                            <button type="button" class="btn btn-sm"
+                                                    disabled="@_uploadingReceipts"
+                                                    @onclick="() => RemovePaymentReceipt(img.Id)"
+                                                    title="Remove"
+                                                    style="position:absolute;top:4px;right:4px;width:24px;height:24px;padding:0;line-height:1;background:rgba(255,255,255,0.92);border:1px solid #dee2e6;border-radius:50%;color:#dc3545;font-size:0.85rem;">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (files.Count > 0)
+                            {
+                                <ul class="list-group list-group-flush mb-2">
+                                    @foreach (var att in files)
+                                    {
+                                        <li class="list-group-item d-flex align-items-center px-2 py-1 border rounded mb-1 bg-light">
+                                            <a href="@($"/api/attachments/{att.Id}")" target="_blank" rel="noopener" class="text-decoration-none flex-grow-1 d-flex align-items-center gap-2" style="min-width:0;">
+                                                <span>@FileIcon(att.ContentType)</span>
+                                                <span class="text-truncate text-dark small font-semibold">@att.FileName</span>
+                                            </a>
+                                            <span class="text-muted small me-3">@FormatSize(att.SizeBytes)</span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                                    disabled="@_uploadingReceipts"
+                                                    @onclick="() => RemovePaymentReceipt(att.Id)" title="Remove">
+                                                ✕
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                         }
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showPaymentModal = false">Cancel</button>
-                    <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@_actioning">Record Payment</button>
+                    <button class="btn btn-outline btn-sm" @onclick="CancelPaymentModal" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@(_actioning || _uploadingReceipts)">Record Payment</button>
                 </div>
             </div>
         </div>
@@ -1359,8 +1416,8 @@ else
     private DateTime _paymentDate = DateTime.Today;
     private string? _paymentRef;
     private string? _paymentNote;
-    private IBrowserFile? _paymentReceiptFile;
-    private string? _paymentPreviewUrl;
+    private List<AttachmentDto> _pendingPaymentReceipts = new();
+    private bool _uploadingReceipts;
     private string? _paymentError;
     // Source bank account picker for the payment modal. Empty = none (cash).
     private List<BankAccountDto> _bankAccounts = new();
@@ -1419,6 +1476,22 @@ else
     private static bool IsImage(string? contentType) =>
         !string.IsNullOrEmpty(contentType) &&
         contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    private static string FileIcon(string contentType) => contentType switch
+    {
+        "application/pdf" => "📄",
+        "application/msword" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => "📝",
+        "application/vnd.ms-excel" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "📊",
+        "text/plain" or "text/csv" => "📃",
+        _ => "📎",
+    };
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
 
     // Lowercase noun for the request's cumulative-cap cadence at submission,
 
@@ -1609,8 +1682,8 @@ else
     private async Task OpenPaymentModal()
     {
         _paymentError = null;
-        _paymentReceiptFile = null;
-        _paymentPreviewUrl = null;
+        _pendingPaymentReceipts.Clear();
+        _uploadingReceipts = false;
         _selectedBankAccountId = "";
         // When partial isn't allowed, force the amount to the full remaining balance.
         _paymentAmount = (_request is not null && !_request.AllowsPartialPayment)
@@ -1626,7 +1699,7 @@ else
 
     private async Task DoRecordPayment()
     {
-        if (_actioning) return;
+        if (_actioning || _uploadingReceipts) return;
         Busy.Begin();
         try { await DoRecordPaymentCore(); }
         finally { Busy.End(); }
@@ -1642,46 +1715,12 @@ else
             return;
         }
 
-        if (_actioning) return;
+        if (_actioning || _uploadingReceipts) return;
         _actioning = true;
         try
         {
-            Guid? attachmentId = null;
-            if (_paymentReceiptFile is not null)
-            {
-                if (_paymentReceiptFile.Size > AttachmentConstraints.MaxBytes)
-                {
-                    _paymentError = $"Receipt is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
-                    _actioning = false;
-                    return;
-                }
-                if (!AttachmentConstraints.IsAllowedContentType(_paymentReceiptFile.ContentType))
-                {
-                    _paymentError = $"Receipt file type '{_paymentReceiptFile.ContentType}' is not allowed.";
-                    _actioning = false;
-                    return;
-                }
-
-                await using var stream = _paymentReceiptFile.OpenReadStream(AttachmentConstraints.MaxBytes);
-                var upload = await Mediator.Send(new UploadAttachmentCommand(
-                    Id,
-                    CurrentUser.UserId,
-                    _paymentReceiptFile.Name,
-                    _paymentReceiptFile.ContentType,
-                    _paymentReceiptFile.Size,
-                    stream,
-                    AttachmentCategory.PaymentReceipt));
-
-                if (upload.IsFailure)
-                {
-                    _paymentError = upload.Error.Message;
-                    _actioning = false;
-                    return;
-                }
-                attachmentId = upload.Value;
-            }
-
             Guid? sourceBankAccountId = Guid.TryParse(_selectedBankAccountId, out var baId) ? baId : null;
+            var attachmentIds = _pendingPaymentReceipts.Select(a => a.Id).ToList();
 
             var result = await Mediator.Send(new RecordPaymentCommand(
                 Id,
@@ -1690,7 +1729,7 @@ else
                 _paymentDate,
                 _paymentRef,
                 _paymentNote,
-                attachmentId,
+                attachmentIds.Any() ? attachmentIds : null,
                 sourceBankAccountId));
 
             if (result.IsFailure)
@@ -1704,8 +1743,7 @@ else
             _paymentAmount = 0;
             _paymentRef = null;
             _paymentNote = null;
-            _paymentReceiptFile = null;
-            _paymentPreviewUrl = null;
+            _pendingPaymentReceipts.Clear();
             _selectedBankAccountId = "";
             _actionSuccess = "Payment recorded.";
             await LoadRequest();
@@ -1718,6 +1756,118 @@ else
         {
             _actioning = false;
         }
+    }
+
+    private async Task OnPaymentReceiptsSelected(InputFileChangeEventArgs e)
+    {
+        _paymentError = null;
+        var files = e.GetMultipleFiles(10).ToList();
+        if (!files.Any()) return;
+
+        _uploadingReceipts = true;
+        StateHasChanged();
+
+        try
+        {
+            foreach (var file in files)
+            {
+                if (file.Size > AttachmentConstraints.MaxBytes)
+                {
+                    _paymentError = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                    continue;
+                }
+
+                if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
+                {
+                    _paymentError = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
+                    continue;
+                }
+
+                await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
+                var cmd = new UploadAttachmentCommand(
+                    Id,
+                    CurrentUser.UserId,
+                    file.Name,
+                    file.ContentType,
+                    file.Size,
+                    stream,
+                    AttachmentCategory.PaymentReceipt);
+
+                var result = await Mediator.Send(cmd);
+                if (result.IsFailure)
+                {
+                    _paymentError = result.Error.Message;
+                }
+                else
+                {
+                    var newAttachmentId = result.Value;
+                    var req = await Mediator.Send(new GetBudgetRequestQuery(Id));
+                    if (req.IsSuccess)
+                    {
+                        var attDto = req.Value.Attachments.FirstOrDefault(a => a.Id == newAttachmentId);
+                        if (attDto is not null && !_pendingPaymentReceipts.Any(a => a.Id == newAttachmentId))
+                        {
+                            _pendingPaymentReceipts.Add(attDto);
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _paymentError = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _uploadingReceipts = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RemovePaymentReceipt(Guid attachmentId)
+    {
+        _paymentError = null;
+        _uploadingReceipts = true;
+        try
+        {
+            var cmd = new RemoveAttachmentCommand(Id, attachmentId, CurrentUser.UserId);
+            var res = await Mediator.Send(cmd);
+            if (res.IsSuccess)
+            {
+                _pendingPaymentReceipts.RemoveAll(a => a.Id == attachmentId);
+            }
+            else
+            {
+                _paymentError = res.Error.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _paymentError = $"Failed to remove receipt: {ex.Message}";
+        }
+        finally
+        {
+            _uploadingReceipts = false;
+        }
+    }
+
+    private async Task CancelPaymentModal()
+    {
+        if (_pendingPaymentReceipts.Any())
+        {
+            _uploadingReceipts = true;
+            foreach (var att in _pendingPaymentReceipts.ToList())
+            {
+                try
+                {
+                    await Mediator.Send(new RemoveAttachmentCommand(Id, att.Id, CurrentUser.UserId));
+                }
+                catch { /* ignore cleanup errors */ }
+            }
+            _pendingPaymentReceipts.Clear();
+            _uploadingReceipts = false;
+        }
+        _showPaymentModal = false;
     }
 
     private async Task DoCancel()
@@ -1777,25 +1927,8 @@ else
         _usagePreviewUrl = null;
     }
 
-    private async Task OnPaymentReceiptSelected(InputFileChangeEventArgs e)
-    {
-        _paymentReceiptFile = e.File;
-        _paymentError = null;
-        _paymentPreviewUrl = null;
 
-        if (_paymentReceiptFile.ContentType.StartsWith("image/"))
-        {
-            try
-            {
-                var resizedFile = await _paymentReceiptFile.RequestImageFileAsync(_paymentReceiptFile.ContentType, 400, 400);
-                await using var stream = resizedFile.OpenReadStream();
-                var buffer = new byte[resizedFile.Size];
-                await stream.ReadExactlyAsync(buffer);
-                _paymentPreviewUrl = $"data:{_paymentReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
-            }
-            catch { /* ignore preview failures */ }
-        }
-    }
+
 
     private async Task OnUsageReceiptSelected(InputFileChangeEventArgs e)
     {

@@ -23,24 +23,26 @@ public class AdvanceUsage
 
     public string Description { get; private set; } = null!;
 
-    /// <summary>Optional FK to the receipt <see cref="Attachment"/> backing this line.</summary>
-    public Guid? AttachmentId { get; private set; }
-
     public DateTime RecordedAt { get; private set; }
     public Guid RecordedByUserId { get; private set; }
+
+    // Navigation — receipt attachments linked to this usage line item.
+    // EF Core uses this to determine INSERT ordering (usage before attachments).
+    private readonly List<Attachment> _receipts = new();
+    public IReadOnlyList<Attachment> Receipts => _receipts.AsReadOnly();
 
     // For EF Core
     private AdvanceUsage() { }
 
+    /// <summary>Links an already-tracked attachment to this usage via navigation.</summary>
+    internal void AddReceipt(Attachment attachment) => _receipts.Add(attachment);
+
     // Internal: only Domain code (BudgetRequest.AddAdvanceUsage) can create usages.
-    // The Id is generated here (rather than left to EF) so AddAdvanceUsage can
-    // return it synchronously, before SaveChanges.
     internal AdvanceUsage(
         Guid budgetRequestId,
         DateTime spentOn,
         decimal amount,
         string description,
-        Guid? attachmentId,
         DateTime recordedAt,
         Guid recordedByUserId)
     {
@@ -49,7 +51,6 @@ public class AdvanceUsage
         SpentOn = spentOn;
         Amount = amount;
         Description = description;
-        AttachmentId = attachmentId;
         RecordedAt = recordedAt;
         RecordedByUserId = recordedByUserId;
     }
@@ -60,11 +61,10 @@ public class AdvanceUsage
     /// calling this; <see cref="RecordedAt"/> / <see cref="RecordedByUserId"/>
     /// are intentionally left unchanged (they record the original entry).
     /// </summary>
-    internal void Update(DateTime spentOn, decimal amount, string description, Guid? attachmentId)
+    internal void Update(DateTime spentOn, decimal amount, string description)
     {
         SpentOn = spentOn;
         Amount = amount;
         Description = description;
-        AttachmentId = attachmentId;
     }
 }

@@ -11,7 +11,7 @@ public partial class BudgetRequest
         DateTime paidAt,
         string? reference,
         string? note,
-        Guid? attachmentId = null,
+        IEnumerable<Guid>? attachmentIds = null,
         Guid? sourceBankAccountId = null,
         string? sourceBankName = null,
         string? sourceAccountNumber = null,
@@ -38,9 +38,20 @@ public partial class BudgetRequest
                 $"Payment exceeds remaining balance. Remaining: {remaining}, attempted: {amount}.");
         }
 
-        _payments.Add(new Payment(
-            Id, amount, paidAt, financeUserId, reference, note, attachmentId,
-            sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName));
+        var payment = new Payment(
+            Id, amount, paidAt, financeUserId, reference, note,
+            sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName);
+
+        _payments.Add(payment);
+
+        if (attachmentIds is not null)
+        {
+            var attSet = attachmentIds.ToHashSet();
+            foreach (var att in _attachments.Where(a => attSet.Contains(a.Id)))
+            {
+                payment.AddReceipt(att);
+            }
+        }
 
         // R15: status auto-transition based on totals
         if (newTotal == ApprovedAmount)

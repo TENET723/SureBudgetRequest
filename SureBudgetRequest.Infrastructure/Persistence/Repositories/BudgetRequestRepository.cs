@@ -20,8 +20,10 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         return await _context.BudgetRequests
             .Include(r => r.ApprovalActions)
             .Include(r => r.Payments)
+                .ThenInclude(p => p.Receipts)
             .Include(r => r.Attachments)
             .Include(r => r.AdvanceUsages)
+                .ThenInclude(u => u.Receipts)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
@@ -79,6 +81,7 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         var query = _context.BudgetRequests
             .Include(r => r.ApprovalActions)
             .Include(r => r.Payments)
+                .ThenInclude(p => p.Receipts)
             .Include(r => r.Attachments)
             .AsQueryable();
 

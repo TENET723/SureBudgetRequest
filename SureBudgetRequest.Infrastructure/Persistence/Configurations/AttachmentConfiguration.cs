@@ -26,6 +26,17 @@ public class AttachmentConfiguration : IEntityTypeConfiguration<Attachment>
                .HasConversion<int>()
                .HasDefaultValue(Domain.Enums.AttachmentCategory.General);
 
+        builder.Property(a => a.PaymentId).IsRequired(false);
+        builder.Property(a => a.AdvanceUsageId).IsRequired(false);
+
+        // Payment→Attachment relationship is configured in PaymentConfiguration
+        // via the Receipts navigation property (provides EF Core ordering info).
+
+        // AdvanceUsage→Attachment relationship is configured in AdvanceUsageConfiguration
+        // via the Receipts navigation property (provides EF Core ordering info).
+
         builder.HasIndex(a => a.BudgetRequestId);
+        builder.HasIndex(a => a.PaymentId);
+        builder.HasIndex(a => a.AdvanceUsageId);
     }
 }

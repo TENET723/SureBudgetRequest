@@ -15,7 +15,7 @@ public sealed record RecordPaymentCommand(
     DateTime PaidAt,
     string? Reference,
     string? Note,
-    Guid? AttachmentId = null,
+    IReadOnlyList<Guid>? AttachmentIds = null,
     Guid? SourceBankAccountId = null) : IRequest<Result>;
 
 public sealed class RecordPaymentCommandHandler
@@ -82,7 +82,7 @@ public sealed class RecordPaymentCommandHandler
             DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.Reference,
             command.Note,
-            command.AttachmentId,
+            command.AttachmentIds,
             sourceBankAccountId,
             sourceBankName,
             sourceAccountNumber,

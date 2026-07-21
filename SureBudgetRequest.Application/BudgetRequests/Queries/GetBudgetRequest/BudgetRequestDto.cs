@@ -137,9 +137,9 @@ public sealed record BudgetRequestDto(
         e.BudgetCategoryId,
         budgetCategory?.Name,
         e.ApprovalActions.Select(ApprovalActionDto.FromEntity).ToList(),
-        e.Payments.Select(PaymentDto.FromEntity).ToList(),
+        e.Payments.Select(p => PaymentDto.FromEntity(p, p.Receipts.Select(a => a.Id).ToList())).ToList(),
         e.Attachments.Select(AttachmentDto.FromEntity).ToList(),
-        e.AdvanceUsages.Select(AdvanceUsageDto.FromEntity).ToList(),
+        e.AdvanceUsages.Select(u => AdvanceUsageDto.FromEntity(u, u.Receipts.Select(a => a.Id).ToList())).ToList(),
         e.ReconciliationDeadline,
         e.ReconciliationSubmittedAt,
         e.RefundAmount,
@@ -155,10 +155,14 @@ public sealed record AdvanceUsageDto(
     decimal Amount,
     string Description,
     Guid? AttachmentId,
-    DateTime RecordedAt)
+    DateTime RecordedAt,
+    IReadOnlyList<Guid> AttachmentIds = null!)
 {
-    public static AdvanceUsageDto FromEntity(AdvanceUsage e) => new(
-        e.Id, e.SpentOn, e.Amount, e.Description, e.AttachmentId, e.RecordedAt);
+    public static AdvanceUsageDto FromEntity(AdvanceUsage e, IReadOnlyList<Guid>? attachmentIds = null)
+    {
+        var ids = attachmentIds ?? Array.Empty<Guid>();
+        return new(e.Id, e.SpentOn, e.Amount, e.Description, ids.FirstOrDefault() == Guid.Empty ? null : (Guid?)ids.FirstOrDefault(), e.RecordedAt, ids);
+    }
 }
 
 public sealed record ApprovalActionDto(
@@ -180,15 +184,15 @@ public sealed record PaymentDto(
     Guid RecordedByUserId,
     string? Reference,
     string? Note,
-    Guid? AttachmentId,
+    IReadOnlyList<Guid> AttachmentIds,
     // Source company bank account — snapshotted at payment time. Null for cash.
     Guid? SourceBankAccountId,
     string? SourceBankName,
     string? SourceAccountNumber,
     string? SourceAccountHolderName)
 {
-    public static PaymentDto FromEntity(Payment e) => new(
-        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, e.AttachmentId,
+    public static PaymentDto FromEntity(Payment e, IReadOnlyList<Guid>? attachmentIds = null) => new(
+        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, attachmentIds ?? Array.Empty<Guid>(),
         e.SourceBankAccountId, e.SourceBankName, e.SourceAccountNumber, e.SourceAccountHolderName);
 }
 
@@ -199,8 +203,10 @@ public sealed record AttachmentDto(
     long SizeBytes,
     Guid UploadedByUserId,
     DateTime UploadedAt,
-    AttachmentCategory Category)
+    AttachmentCategory Category,
+    Guid? PaymentId = null,
+    Guid? AdvanceUsageId = null)
 {
     public static AttachmentDto FromEntity(Attachment e) => new(
-        e.Id, e.FileName, e.ContentType, e.SizeBytes, e.UploadedByUserId, e.UploadedAt, e.Category);
+        e.Id, e.FileName, e.ContentType, e.SizeBytes, e.UploadedByUserId, e.UploadedAt, e.Category, e.PaymentId, e.AdvanceUsageId);
 }

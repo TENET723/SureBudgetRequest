@@ -9,7 +9,6 @@ public class Payment
     public Guid RecordedByUserId { get; private set; }
     public string? Reference { get; private set; }
     public string? Note { get; private set; }
-    public Guid? AttachmentId { get; private set; }
 
     // Source company bank account — set for bank transfers, null for cash.
     // The account's details are snapshotted onto the payment row so payment
@@ -19,8 +18,16 @@ public class Payment
     public string? SourceAccountNumber { get; private set; }
     public string? SourceAccountHolderName { get; private set; }
 
+    // Navigation — receipt attachments linked to this payment.
+    // EF Core uses this to determine INSERT ordering (payment before attachments).
+    private readonly List<Attachment> _receipts = new();
+    public IReadOnlyList<Attachment> Receipts => _receipts.AsReadOnly();
+
     // For EF Core
     private Payment() { }
+
+    /// <summary>Links an already-tracked attachment to this payment via navigation.</summary>
+    internal void AddReceipt(Attachment attachment) => _receipts.Add(attachment);
 
     // Internal: only Domain code (BudgetRequest.RecordPayment) can create payments.
     internal Payment(
@@ -30,7 +37,6 @@ public class Payment
         Guid recordedByUserId,
         string? reference,
         string? note,
-        Guid? attachmentId,
         Guid? sourceBankAccountId,
         string? sourceBankName,
         string? sourceAccountNumber,
@@ -43,7 +49,6 @@ public class Payment
         RecordedByUserId = recordedByUserId;
         Reference = reference;
         Note = note;
-        AttachmentId = attachmentId;
         SourceBankAccountId = sourceBankAccountId;
         SourceBankName = sourceBankName;
         SourceAccountNumber = sourceAccountNumber;

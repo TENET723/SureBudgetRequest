@@ -47,8 +47,15 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(description))
             return Result<Guid>.Failure("A description is required for each usage line item.");
 
-        var usage = new AdvanceUsage(Id, spentOn, amount, description.Trim(), attachmentId, now, userId);
+        var usage = new AdvanceUsage(Id, spentOn, amount, description.Trim(), now, userId);
         _advanceUsages.Add(usage);
+
+        if (attachmentId.HasValue)
+        {
+            var att = _attachments.FirstOrDefault(a => a.Id == attachmentId.Value);
+            if (att is not null) usage.AddReceipt(att);
+        }
+
         return Result<Guid>.Success(usage.Id);
     }
 
@@ -77,7 +84,14 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(description))
             return Result.Failure("A description is required for each usage line item.");
 
-        usage.Update(spentOn, amount, description.Trim(), attachmentId);
+        usage.Update(spentOn, amount, description.Trim());
+
+        if (attachmentId.HasValue)
+        {
+            var att = _attachments.FirstOrDefault(a => a.Id == attachmentId.Value);
+            if (att is not null) usage.AddReceipt(att);
+        }
+
         return Result.Success();
     }
 

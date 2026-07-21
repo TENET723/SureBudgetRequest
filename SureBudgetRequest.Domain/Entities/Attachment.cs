@@ -23,6 +23,16 @@ public class Attachment
     /// </summary>
     public AttachmentCategory Category { get; private set; }
 
+    /// <summary>
+    /// Optional FK linking this attachment to a specific <see cref="Payment"/> record when Category is PaymentReceipt.
+    /// </summary>
+    public Guid? PaymentId { get; private set; }
+
+    /// <summary>
+    /// Optional FK linking this attachment to a specific <see cref="AdvanceUsage"/> line item when Category is UsageReceipt.
+    /// </summary>
+    public Guid? AdvanceUsageId { get; private set; }
+
     // For EF Core
     private Attachment() { }
 
@@ -33,7 +43,9 @@ public class Attachment
         string contentType,
         long sizeBytes,
         Guid uploadedByUserId,
-        AttachmentCategory category = AttachmentCategory.General)
+        AttachmentCategory category = AttachmentCategory.General,
+        Guid? paymentId = null,
+        Guid? advanceUsageId = null)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -44,5 +56,17 @@ public class Attachment
         UploadedByUserId = uploadedByUserId;
         UploadedAt = DateTime.UtcNow;
         Category = category;
+        PaymentId = paymentId;
+        AdvanceUsageId = advanceUsageId;
+    }
+
+    internal void AttachToPayment(Guid paymentId)
+    {
+        PaymentId = paymentId;
+    }
+
+    internal void AttachToAdvanceUsage(Guid advanceUsageId)
+    {
+        AdvanceUsageId = advanceUsageId;
     }
 }

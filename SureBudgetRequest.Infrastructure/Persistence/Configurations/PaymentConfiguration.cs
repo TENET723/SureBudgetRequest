@@ -18,7 +18,6 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.RecordedByUserId).IsRequired();
         builder.Property(p => p.Reference).HasMaxLength(200);
         builder.Property(p => p.Note).HasMaxLength(1000);
-        builder.Property(p => p.AttachmentId).IsRequired(false);
 
         // Source bank account — nullable snapshot (filled for bank transfers,
         // null for cash). The id is kept for traceability; the name/number/holder
@@ -30,5 +29,16 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
 
         builder.HasIndex(p => p.BudgetRequestId);
         builder.HasIndex(p => p.SourceBankAccountId);
+
+        // Navigation to receipt attachments — tells EF Core that Payment must
+        // be INSERTed before any attachment UPDATE that sets payment_id.
+        builder.HasMany(p => p.Receipts)
+               .WithOne()
+               .HasForeignKey(a => a.PaymentId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(p => p.Receipts)
+               .HasField("_receipts")
+               .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

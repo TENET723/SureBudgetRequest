@@ -311,8 +311,9 @@ public partial class BudgetRequest
         if (sizeBytes <= 0)
             return Result.Failure("File size must be greater than zero.");
 
-        if (_attachments.Count >= MaxAttachmentsPerRequest)
-            return Result.Failure($"Cannot add more than {MaxAttachmentsPerRequest} attachments to a request.");
+        var countInCategory = _attachments.Count(a => a.Category == category);
+        if (countInCategory >= MaxAttachmentsPerRequest)
+            return Result.Failure($"Cannot add more than {MaxAttachmentsPerRequest} {category} attachments to a request.");
 
         _attachments.Add(new Attachment(Id, fileName, storedPath, contentType, sizeBytes, uploadedByUserId, category));
         return Result.Success();
@@ -325,15 +326,25 @@ public partial class BudgetRequest
     /// </summary>
     public Result<string> RemoveAttachment(Guid attachmentId, Guid byUserId)
     {
-        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
-            return Result<string>.Failure($"Attachments can only be removed while the request is in Draft or SentBack (current: '{Status}').");
-
-        if (byUserId != RequesterId)
-            return Result<string>.Failure("Only the requester can remove attachments from their request.");
-
         var attachment = _attachments.FirstOrDefault(a => a.Id == attachmentId);
         if (attachment is null)
             return Result<string>.Failure("Attachment not found on this request.");
+
+        var isPaymentReceipt = attachment.Category == AttachmentCategory.PaymentReceipt
+            && Status is RequestStatus.Approved or RequestStatus.PartiallyPaid;
+
+        var isReconciliationReceipt = attachment.Category == AttachmentCategory.UsageReceipt
+            && Status == RequestStatus.PendingReconciliation;
+
+        if (Status is not RequestStatus.Draft and not RequestStatus.SentBack
+            && !isPaymentReceipt
+            && !isReconciliationReceipt)
+        {
+            return Result<string>.Failure($"Attachments can only be removed while the request is in Draft or SentBack (current: '{Status}').");
+        }
+
+        if (!isPaymentReceipt && byUserId != RequesterId)
+            return Result<string>.Failure("Only the requester can remove attachments from their request.");
 
         var storedPath = attachment.StoredPath;
         _attachments.Remove(attachment);

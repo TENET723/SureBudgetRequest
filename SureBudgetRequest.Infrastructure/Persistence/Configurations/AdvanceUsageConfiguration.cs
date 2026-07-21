@@ -19,21 +19,21 @@ public class AdvanceUsageConfiguration : IEntityTypeConfiguration<AdvanceUsage>
         builder.Property(u => u.RecordedAt).IsRequired();
         builder.Property(u => u.RecordedByUserId).IsRequired();
 
-        // ── Receipt attachment FK (optional) ──────────────────────────────────
-        // Nullable — a usage line item may have no receipt. Restrict on delete:
-        // a receipt that backs a usage row cannot be hard-deleted out from under
-        // it. (UsageReceipt attachments aren't removable via the normal path
-        // anyway — RemoveAttachment only runs while Draft/SentBack.)
-        builder.Property(u => u.AttachmentId);
-        builder.HasOne<Attachment>()
-               .WithMany()
-               .HasForeignKey(u => u.AttachmentId)
-               .OnDelete(DeleteBehavior.Restrict);
-
         // The BudgetRequest → AdvanceUsages relationship (incl. its FK delete
         // behaviour) is configured on the BudgetRequest side in
         // BudgetRequestConfiguration, mirroring how Payments are wired.
 
         builder.HasIndex(u => u.BudgetRequestId);
+
+        // Navigation to receipt attachments — tells EF Core that AdvanceUsage must
+        // be INSERTed before any attachment UPDATE that sets advance_usage_id.
+        builder.HasMany(u => u.Receipts)
+               .WithOne()
+               .HasForeignKey(a => a.AdvanceUsageId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.Receipts)
+               .HasField("_receipts")
+               .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
