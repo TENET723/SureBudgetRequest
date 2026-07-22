@@ -323,7 +323,7 @@
 }
 
 @code {
-    private DateTime _requestDate = DateTime.Today;
+    private DateTime _requestDate = DateTimeExtensions.MyanmarToday;
     private BudgetRequestType _type = BudgetRequestType.Standard;
     private decimal _amount;
     private string _currencyCode = "MMK";

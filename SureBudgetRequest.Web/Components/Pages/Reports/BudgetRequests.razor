@@ -111,7 +111,7 @@
                             <tr>
                                 <td class="text-muted text-sm">@((_result.Page - 1) * _result.PageSize + i + 1)</td>
                                 <td class="text-sm"><strong>@(r.Reference ?? "—")</strong></td>
-                                <td class="text-sm text-muted">@TimeDisplay.Mm(r.SubmittedAt)</td>
+                                <td class="text-sm text-muted">@r.SubmittedAt.ToMyanmarTime()</td>
                                 <td class="text-sm">@LookupUser(r.RequesterId)</td>
                                 <td class="text-sm">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
                                 <td>@Truncate(r.Reasons, 40)</td>
@@ -536,9 +536,11 @@
             return;
         }
 
-        var nowUtc = DateTime.UtcNow;
-        _fromDate = new DateTime(nowUtc.Year, nowUtc.Month, 1);
-        _toDate = nowUtc.Date;
+        // Use Myanmar business time so the default month/day is correct even
+        // when opened between 00:00-06:30 AM MMT (where UTC is still yesterday).
+        var nowMm = DateTime.UtcNow.ToMyanmarDateTime();
+        _fromDate = new DateTime(nowMm.Year, nowMm.Month, 1);
+        _toDate = nowMm.Date;
 
         if (CurrentUser.Role == UserRole.DepartmentHead)
         {

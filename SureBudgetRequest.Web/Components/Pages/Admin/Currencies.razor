@@ -67,7 +67,7 @@
                             <td><strong>@c.Code</strong></td>
                             <td>@c.Name</td>
                             <td class="text-end">@c.RateToMmk.ToString("N2")</td>
-                            <td><span class="text-sm text-muted">@c.RateUpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span></td>
+                            <td><span class="text-sm text-muted">@c.RateUpdatedAt.ToMyanmarTime()</span></td>
                             <td>
                                 @if (c.IsActive)
                                 {
@@ -204,7 +204,7 @@
                                 {
                                     var delta = h.NewRate - h.OldRate;
                                     <tr>
-                                        <td class="text-sm">@h.ChangedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td class="text-sm">@h.ChangedAt.ToMyanmarTime()</td>
                                         <td class="text-end">@h.OldRate.ToString("N2")</td>
                                         <td class="text-end">@h.NewRate.ToString("N2")</td>
                                         <td class="text-end @(delta >= 0 ? "text-success" : "text-danger")">

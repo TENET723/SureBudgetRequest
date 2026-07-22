@@ -17,8 +17,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.RecordReimbursem
 public sealed record RecordReimbursementCommand(
     Guid BudgetRequestId,
     Guid FinanceUserId,
-    decimal Amount,
-    DateTime PaidAt) : IRequest<Result>;
+    decimal Amount) : IRequest<Result>;
 
 public sealed class RecordReimbursementCommandHandler
     : IRequestHandler<RecordReimbursementCommand, Result>
@@ -55,7 +54,6 @@ public sealed class RecordReimbursementCommandHandler
 
         var result = budgetRequest.RecordReimbursement(
             command.Amount,
-            DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.FinanceUserId);
 
         if (result.IsFailure) return result;

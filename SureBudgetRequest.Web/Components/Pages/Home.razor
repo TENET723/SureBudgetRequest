@@ -142,7 +142,7 @@
                                 <td class="text-sm"><strong>@(r.Reference ?? ShortId(r.Id))</strong></td>
                                 <td class="text-sm">@RequesterName(r.RequesterId)</td>
                                 <td class="text-sm text-muted">
-                                    @TimeDisplay.Mm(r.SubmittedAt)
+                                    @r.SubmittedAt.ToMyanmarTime()
                                 </td>
                                 <td class="text-sm text-muted">@Truncate(r.Reasons, 40)</td>
                                 <td><span class="@StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span></td>

@@ -45,11 +45,13 @@ public sealed class ExportBudgetRequestsQueryHandler
 {
     private readonly IMediator _mediator;
     private readonly IReportExporter _exporter;
+    private readonly IDateTimeProvider _dateTimeProvider;
 
-    public ExportBudgetRequestsQueryHandler(IMediator mediator, IReportExporter exporter)
+    public ExportBudgetRequestsQueryHandler(IMediator mediator, IReportExporter exporter, IDateTimeProvider dateTimeProvider)
     {
         _mediator = mediator;
         _exporter = exporter;
+        _dateTimeProvider = dateTimeProvider;
     }
 
     public async Task<Result<FileDownload>> Handle(
@@ -121,7 +123,7 @@ public sealed class ExportBudgetRequestsQueryHandler
 
         return Result<FileDownload>.Success(new FileDownload(
             bytes,
-            $"budget-requests_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx",
+            $"budget-requests_{_dateTimeProvider.BusinessNow:yyyyMMdd_HHmmss}.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
     }
 

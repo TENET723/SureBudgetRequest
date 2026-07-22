@@ -198,7 +198,7 @@ else
                     {
                         <div>
                             <div class="text-sm text-muted">Submitted</div>
-                            <div>@TimeDisplay.Mm(_request.SubmittedAt.Value)</div>
+                            <div>@_request.SubmittedAt.ToMyanmarTime()</div>
                         </div>
                     }
                     <div>
@@ -337,7 +337,7 @@ else
                                     </div>
                                     <div class="tl-meta">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
-                                        · @TimeDisplay.Mm(a.ActionedAt)
+                                        · @a.ActionedAt.ToMyanmarTime()
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
                                     {
@@ -399,7 +399,7 @@ else
                                     @foreach (var p in _request.Payments.OrderBy(x => x.PaidAt))
                                     {
                                         payNo++;
-                                        var paidLocal = TimeDisplay.ToMyanmar(p.PaidAt);
+                                        var paidLocal = p.PaidAt.ToMyanmarDateTime();
                                         <tr>
                                             <td class="col-no">@payNo</td>
                                             <td class="nowrap">@paidLocal.ToString("d/M/yyyy")</td>
@@ -524,14 +524,14 @@ else
                             {
                                 <span>
                                     Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
-                                    received on @TimeDisplay.Mm(_request.RefundReceivedAt.Value).
+                                    received on @_request.RefundReceivedAt.ToMyanmarTime().
                                 </span>
                             }
                             @if (_request.ReimbursementPaidAt.HasValue)
                             {
                                 <span>
                                     Reimbursement of @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode
-                                    paid on @TimeDisplay.Mm(_request.ReimbursementPaidAt.Value).
+                                    paid on @_request.ReimbursementPaidAt.ToMyanmarTime().
                                 </span>
                             }
                         </div>
@@ -796,10 +796,7 @@ else
                             }
                         }
                     </div>
-                    <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Payment Date</label>
-                        <input class="input" type="date" @bind="_paymentDate" />
-                    </div>
+
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">
                             Source bank account <span class="text-muted fw-normal">(optional)</span>
@@ -1072,10 +1069,7 @@ else
                             @_request.RefundAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Date received</label>
-                        <input class="input" type="date" @bind="_refundDate" />
-                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
@@ -1109,10 +1103,7 @@ else
                             @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
-                    <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Date paid</label>
-                        <input class="input" type="date" @bind="_reimbursementDate" />
-                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _showReimbursementModal = false" disabled="@_actioning">Cancel</button>
@@ -1193,7 +1184,7 @@ else
                                         histNo++;
                                         <tr>
                                             <td class="col-no">@histNo</td>
-                                            <td class="nowrap">@TimeDisplay.Mm(h.ModifiedAt)</td>
+                                            <td class="nowrap">@h.ModifiedAt.ToMyanmarTime()</td>
                                             <td>@h.ModifiedByUserName</td>
                                             <td class="text-muted-cell">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>
@@ -1413,7 +1404,6 @@ else
     private string _sendBackComment = "";
     private bool _showPaymentModal;
     private decimal _paymentAmount;
-    private DateTime _paymentDate = DateTime.Today;
     private string? _paymentRef;
     private string? _paymentNote;
     private List<AttachmentDto> _pendingPaymentReceipts = new();
@@ -1430,12 +1420,12 @@ else
     private bool _coasLoading;
     private string _selectedCoaId = "";   // bound to the <select>; empty = "no selection"
     private string? _approveError;
-    private DateTime _reconciliationDeadline = DateTime.Today.AddDays(30);
+    private DateTime _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(30);
 
     // Advance reconciliation — add/edit usage modal
     private bool _showUsageModal;
     private Guid? _editingUsageId;                 // null = adding a new row
-    private DateTime _usageSpentOn = DateTime.Today;
+    private DateTime _usageSpentOn = DateTimeExtensions.MyanmarToday;
     private decimal _usageAmount;
     private string _usageDescription = "";
     private IBrowserFile? _usageReceiptFile;
@@ -1448,14 +1438,12 @@ else
     private bool _showSubmitReconModal;
     private bool _showRefundModal;
     private decimal _refundAmount;
-    private DateTime _refundDate = DateTime.Today;
     private string? _refundError;
     private bool _showReimbursementModal;
     private decimal _reimbursementAmount;
-    private DateTime _reimbursementDate = DateTime.Today;
     private string? _reimbursementError;
     private bool _showExtendModal;
-    private DateTime _newDeadline = DateTime.Today;
+    private DateTime _newDeadline = DateTimeExtensions.MyanmarToday;
     private string? _extendError;
 
     // Reconciliation visibility helpers
@@ -1585,7 +1573,7 @@ else
     private async Task OpenFinanceApproveModal()
     {
         _approveError = null;
-        _reconciliationDeadline = DateTime.Today.AddDays(30);
+        _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(30);
         _coasLoading = true;
         _availableCoas = new();
         // Pre-fill with the previously selected COA (e.g. after a send-back) so the
@@ -1631,7 +1619,7 @@ else
         DateTime? deadline = null;
         if (_request?.Type == BudgetRequestType.Advance)
         {
-            if (_reconciliationDeadline.Date <= DateTime.UtcNow.Date)
+            if (_reconciliationDeadline.Date <= DateTimeExtensions.MyanmarToday)
             {
                 _approveError = "The reconciliation deadline must be a future date.";
                 return;
@@ -1726,7 +1714,6 @@ else
                 Id,
                 CurrentUser.UserId,
                 _paymentAmount,
-                _paymentDate,
                 _paymentRef,
                 _paymentNote,
                 attachmentIds.Any() ? attachmentIds : null,
@@ -1888,7 +1875,7 @@ else
             || _request.Status != RequestStatus.PendingReconciliation)
             return "";
 
-        var days = (_request.ReconciliationDeadline.Value.Date - DateTime.UtcNow.Date).Days;
+        var days = (_request.ReconciliationDeadline.Value.Date - DateTimeExtensions.MyanmarToday).Days;
         if (days < 0) return $"{-days} day(s) overdue";
         if (days == 0) return "Due today";
         return $"{days} day(s) remaining";
@@ -1897,7 +1884,7 @@ else
     private void OpenAddUsageModal()
     {
         _editingUsageId = null;
-        _usageSpentOn = DateTime.Today;
+        _usageSpentOn = DateTimeExtensions.MyanmarToday;
         _usageAmount = 0m;
         _usageDescription = "";
         _usageReceiptFile = null;
@@ -2065,7 +2052,6 @@ else
     {
         _refundError = null;
         _refundAmount = _request?.RefundAmount ?? 0m;
-        _refundDate = DateTime.Today;
         _showRefundModal = true;
     }
 
@@ -2074,7 +2060,7 @@ else
         _refundError = null;
         if (_actioning) return;
         _actioning = true;
-        var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount, _refundDate));
+        var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount));
         _actioning = false;
         if (res.IsFailure) { _refundError = res.Error.Message; return; }
         _showRefundModal = false;
@@ -2086,7 +2072,6 @@ else
     {
         _reimbursementError = null;
         _reimbursementAmount = _request?.ReimbursementAmount ?? 0m;
-        _reimbursementDate = DateTime.Today;
         _showReimbursementModal = true;
     }
 
@@ -2095,7 +2080,7 @@ else
         _reimbursementError = null;
         if (_actioning) return;
         _actioning = true;
-        var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount, _reimbursementDate));
+        var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount));
         _actioning = false;
         if (res.IsFailure) { _reimbursementError = res.Error.Message; return; }
         _showReimbursementModal = false;
@@ -2106,7 +2091,7 @@ else
     private void OpenExtendModal()
     {
         _extendError = null;
-        _newDeadline = (_request?.ReconciliationDeadline ?? DateTime.Today).AddDays(7);
+        _newDeadline = (_request?.ReconciliationDeadline ?? DateTimeExtensions.MyanmarToday).AddDays(7);
         _showExtendModal = true;
     }
 

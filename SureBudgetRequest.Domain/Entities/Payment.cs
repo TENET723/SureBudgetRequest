@@ -33,7 +33,6 @@ public class Payment
     internal Payment(
         Guid budgetRequestId,
         decimal amount,
-        DateTime paidAt,
         Guid recordedByUserId,
         string? reference,
         string? note,
@@ -45,7 +44,7 @@ public class Payment
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
         Amount = amount;
-        PaidAt = paidAt;
+        PaidAt = DateTime.UtcNow;
         RecordedByUserId = recordedByUserId;
         Reference = reference;
         Note = note;

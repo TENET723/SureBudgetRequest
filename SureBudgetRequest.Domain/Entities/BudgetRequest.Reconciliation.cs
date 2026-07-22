@@ -157,7 +157,7 @@ public partial class BudgetRequest
     /// v1. On success the advance reaches the terminal
     /// <see cref="RequestStatus.Reconciled"/> state.
     /// </summary>
-    public Result RecordRefund(decimal amount, DateTime receivedAt, Guid receivedByUserId)
+    public Result RecordRefund(decimal amount, Guid receivedByUserId)
     {
         if (Status != RequestStatus.AwaitingRefund)
             return Result.Failure(
@@ -168,10 +168,11 @@ public partial class BudgetRequest
                 $"The refund amount must exactly match the outstanding refund of {RefundAmount}. " +
                 "Partial refunds are not supported.");
 
-        RefundReceivedAt = receivedAt;
+        var now = DateTime.UtcNow;
+        RefundReceivedAt = now;
         RefundReceivedByUserId = receivedByUserId;
         Status = RequestStatus.Reconciled;
-        FinalizedAt = receivedAt;
+        FinalizedAt = now;
 
         return Result.Success();
     }
@@ -183,7 +184,7 @@ public partial class BudgetRequest
     /// supported. On success the advance reaches the terminal
     /// <see cref="RequestStatus.Reconciled"/> state.
     /// </summary>
-    public Result RecordReimbursement(decimal amount, DateTime paidAt, Guid paidByUserId)
+    public Result RecordReimbursement(decimal amount, Guid paidByUserId)
     {
         if (Status != RequestStatus.AwaitingReimbursement)
             return Result.Failure(
@@ -194,10 +195,11 @@ public partial class BudgetRequest
                 $"The reimbursement amount must exactly match the outstanding reimbursement of {ReimbursementAmount}. " +
                 "Partial reimbursements are not supported.");
 
-        ReimbursementPaidAt = paidAt;
+        var now = DateTime.UtcNow;
+        ReimbursementPaidAt = now;
         ReimbursementPaidByUserId = paidByUserId;
         Status = RequestStatus.Reconciled;
-        FinalizedAt = paidAt;
+        FinalizedAt = now;
 
         return Result.Success();
     }
