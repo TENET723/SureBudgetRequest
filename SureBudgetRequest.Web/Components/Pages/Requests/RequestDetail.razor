@@ -492,7 +492,7 @@ else
                     {
                         <div class="mb-4">
                             <div class="text-sm text-muted">Reconciliation deadline</div>
-                            <div class="font-semibold">@_request.ReconciliationDeadline.Value.ToString("dd MMM yyyy")</div>
+                            <div class="font-semibold">@_request.ReconciliationDeadline.ToMyanmarTime()</div>
                             @if (!string.IsNullOrEmpty(CountdownText()))
                             {
                                 <div class="text-sm @(_request.IsOverdue ? "text-danger" : "text-muted")">@CountdownText()</div>
@@ -694,8 +694,7 @@ else
                             <label class="form-label text-sm font-semibold">Reconciliation deadline</label>
                             <input class="input" type="date" @bind="_reconciliationDeadline" />
                             <div class="form-hint">
-                                The requester must report how this advance was spent by this date.
-                                Must be a future date.
+                                Default is 3 days from today. Deadline expires at this exact time of day (N × 24 hours).
                             </div>
                         </div>
                     }
@@ -1130,8 +1129,7 @@ else
                         <div class="alert alert-error">@_extendError</div>
                     }
                     <p class="text-sm text-muted">
-                        Current deadline:
-                        <strong>@(_request.ReconciliationDeadline?.ToString("dd MMM yyyy") ?? "—")</strong>.
+                        Current deadline: <strong>@_request.ReconciliationDeadline.ToMyanmarTime()</strong>.
                         The new deadline must be later than the current one.
                     </p>
                     <label class="form-label text-sm font-semibold">New deadline</label>
@@ -1420,7 +1418,7 @@ else
     private bool _coasLoading;
     private string _selectedCoaId = "";   // bound to the <select>; empty = "no selection"
     private string? _approveError;
-    private DateTime _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(30);
+    private DateTime _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(3);
 
     // Advance reconciliation — add/edit usage modal
     private bool _showUsageModal;
@@ -1573,7 +1571,7 @@ else
     private async Task OpenFinanceApproveModal()
     {
         _approveError = null;
-        _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(30);
+        _reconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(3);
         _coasLoading = true;
         _availableCoas = new();
         // Pre-fill with the previously selected COA (e.g. after a send-back) so the
@@ -1614,17 +1612,18 @@ else
             return;
         }
 
-        // Advance requests carry a reconciliation deadline; the domain rejects a
-        // past one, but check here too so the user gets the error in the modal.
+        // Advance requests carry a reconciliation deadline; calculate exact 24-hour day blocks
+        // from the current approval time based on the selected target date.
         DateTime? deadline = null;
         if (_request?.Type == BudgetRequestType.Advance)
         {
-            if (_reconciliationDeadline.Date <= DateTimeExtensions.MyanmarToday)
+            var days = (_reconciliationDeadline.Date - DateTimeExtensions.MyanmarToday).Days;
+            if (days <= 0)
             {
                 _approveError = "The reconciliation deadline must be a future date.";
                 return;
             }
-            deadline = _reconciliationDeadline;
+            deadline = DateTime.UtcNow.AddDays(days);
         }
 
         if (_actioning) return;
@@ -1875,10 +1874,18 @@ else
             || _request.Status != RequestStatus.PendingReconciliation)
             return "";
 
-        var days = (_request.ReconciliationDeadline.Value.Date - DateTimeExtensions.MyanmarToday).Days;
-        if (days < 0) return $"{-days} day(s) overdue";
-        if (days == 0) return "Due today";
-        return $"{days} day(s) remaining";
+        var diff = _request.ReconciliationDeadline.Value - DateTime.UtcNow;
+        if (diff < TimeSpan.Zero)
+        {
+            var overdue = DateTime.UtcNow - _request.ReconciliationDeadline.Value;
+            return overdue.TotalHours < 24
+                ? $"{(int)Math.Max(1, overdue.TotalHours)} hour(s) overdue"
+                : $"{(int)overdue.TotalDays} day(s) overdue";
+        }
+
+        return diff.TotalHours < 24
+            ? $"{(int)Math.Max(1, diff.TotalHours)} hour(s) remaining"
+            : $"{(int)diff.TotalDays} day(s) remaining";
     }
 
     private void OpenAddUsageModal()

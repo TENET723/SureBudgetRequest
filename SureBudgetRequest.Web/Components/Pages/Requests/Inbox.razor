@@ -228,7 +228,7 @@
                                 <td class="text-sm @(_view == "overdue" ? "text-danger font-semibold" : "text-muted")">
                                     @if (_view == "overdue")
                                     {
-                                        @(r.ReconciliationDeadline?.ToString("dd MMM yyyy"))
+                                        @r.ReconciliationDeadline.ToMyanmarTime()
                                     }
                                     else
                                     {
