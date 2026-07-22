@@ -16,7 +16,7 @@ public sealed record AddAdvanceUsageCommand(
     DateTime SpentOn,
     decimal Amount,
     string Description,
-    Guid? AttachmentId) : IRequest<Result<Guid>>;
+    IReadOnlyList<Guid>? AttachmentIds = null) : IRequest<Result<Guid>>;
 
 public sealed class AddAdvanceUsageCommandHandler
     : IRequestHandler<AddAdvanceUsageCommand, Result<Guid>>
@@ -48,7 +48,7 @@ public sealed class AddAdvanceUsageCommandHandler
             DateTime.SpecifyKind(command.SpentOn, DateTimeKind.Utc),
             command.Amount,
             command.Description,
-            command.AttachmentId,
+            command.AttachmentIds,
             command.UserId,
             DateTime.UtcNow);
 

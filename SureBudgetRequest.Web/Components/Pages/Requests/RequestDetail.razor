@@ -562,21 +562,27 @@ else
                                             <td class="text-end font-semibold tabular">@u.Amount.ToString("N2")</td>
                                             <td>@u.Description</td>
                                             <td>
-                                                @if (u.AttachmentId.HasValue)
+                                                @if (u.AttachmentIds.Any())
                                                 {
-                                                    var receipt = FindAttachment(u.AttachmentId);
-                                                    var receiptUrl = $"/api/attachments/{u.AttachmentId.Value}";
-
-                                                    @if (receipt is not null && IsImage(receipt.ContentType))
-                                                    {
-                                                        <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
-                                                            <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
-                                                        </a>
-                                                    }
-                                                    else
-                                                    {
-                                                        <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs">View</a>
-                                                    }
+                                                    <div class="d-flex flex-wrap gap-1 align-items-center">
+                                                        @foreach (var attId in u.AttachmentIds)
+                                                        {
+                                                            var receipt = FindAttachment(attId);
+                                                            var receiptUrl = $"/api/attachments/{attId}";
+                                                            if (receipt is not null && IsImage(receipt.ContentType))
+                                                            {
+                                                                <a href="@receiptUrl" target="_blank" rel="noopener" title="@receipt.FileName">
+                                                                    <img src="@receiptUrl" alt="@receipt.FileName" loading="lazy" class="receipt-thumb" />
+                                                                </a>
+                                                            }
+                                                            else
+                                                            {
+                                                                <a href="@receiptUrl" target="_blank" rel="noopener" class="btn btn-outline btn-xs" title="@(receipt?.FileName ?? "Receipt")">
+                                                                    View
+                                                                </a>
+                                                            }
+                                                        }
+                                                    </div>
                                                 }
                                                 else
                                                 {
@@ -952,50 +958,75 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">
-                            Receipt <span class="text-muted fw-normal">(optional)</span>
+                            Receipts <span class="text-muted fw-normal">(optional, multiple files allowed)</span>
                         </label>
-                        @if (_editingUsageId.HasValue && _usageExistingAttachmentId.HasValue)
-                        {
-                            
-                                var currentReceipt = FindAttachment(_usageExistingAttachmentId);
-                                var currentReceiptUrl = $"/api/attachments/{_usageExistingAttachmentId.Value}";
-                            
-                            <div class="text-sm mb-1">
-                                @if (currentReceipt is not null && IsImage(currentReceipt.ContentType))
-                                {
-                                    <div class="mb-1">Current receipt:</div>
-                                    <a href="@currentReceiptUrl" target="_blank" rel="noopener" title="@currentReceipt.FileName">
-                                        <img src="@currentReceiptUrl" alt="@currentReceipt.FileName" loading="lazy"
-                                             style="max-width:200px;max-height:200px;object-fit:contain;display:block;
-                                                    border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
-                                    </a>
-                                    <div class="text-muted mt-1">Choosing a new file replaces it.</div>
-                                }
-                                else
-                                {
-                                    <span>Current: </span>
-                                    <a href="@currentReceiptUrl" target="_blank" rel="noopener">view receipt</a>
-                                    <span class="text-muted"> — choosing a new file replaces it.</span>
-                                }
-                            </div>
-                        }
-                        <InputFile OnChange="OnUsageReceiptSelected" class="input" />
-                        <div class="form-hint">
-                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB. PDF, images, Word, Excel, text, CSV.
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <InputFile OnChange="OnUsageReceiptsSelected"
+                                       disabled="@(_usageBusy || _uploadingUsageReceipts)"
+                                       multiple
+                                       class="input" />
+                            @if (_uploadingUsageReceipts)
+                            {
+                                <span class="text-muted small">Uploading…</span>
+                            }
                         </div>
-                        @if (!string.IsNullOrEmpty(_usagePreviewUrl))
+                        <div class="form-hint mb-3">
+                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file. PDF, images, Word, Excel, text, CSV.
+                        </div>
+
+                        @if (_pendingUsageReceipts.Count > 0)
                         {
-                            <div class="mt-2">
-                                <span class="text-sm d-block mb-1 text-muted">Preview:</span>
-                                <img src="@(_usagePreviewUrl)" alt="Usage Receipt Preview"
-                                     style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
-                            </div>
+                            var images = _pendingUsageReceipts.Where(a => IsImage(a.ContentType)).ToList();
+                            var files = _pendingUsageReceipts.Where(a => !IsImage(a.ContentType)).ToList();
+
+                            @if (images.Count > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    @foreach (var img in images)
+                                    {
+                                        <div style="position:relative;">
+                                            <a href="@($"/api/attachments/{img.Id}")" target="_blank" rel="noopener" title="@img.FileName">
+                                                <img src="@($"/api/attachments/{img.Id}")" alt="@img.FileName"
+                                                     style="max-width:140px;max-height:140px;object-fit:contain;display:block;border:1px solid #dee2e6;border-radius:6px;background:#f8f9fa;" />
+                                            </a>
+                                            <button type="button" class="btn btn-sm"
+                                                    disabled="@(_usageBusy || _uploadingUsageReceipts)"
+                                                    @onclick="() => RemoveUsageReceipt(img.Id)"
+                                                    title="Remove"
+                                                    style="position:absolute;top:4px;right:4px;width:24px;height:24px;padding:0;line-height:1;background:rgba(255,255,255,0.92);border:1px solid #dee2e6;border-radius:50%;color:#dc3545;font-size:0.85rem;">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @if (files.Count > 0)
+                            {
+                                <ul class="list-group list-group-flush mb-2">
+                                    @foreach (var att in files)
+                                    {
+                                        <li class="list-group-item d-flex align-items-center px-2 py-1 border rounded mb-1 bg-light">
+                                            <a href="@($"/api/attachments/{att.Id}")" target="_blank" rel="noopener" class="text-decoration-none flex-grow-1 d-flex align-items-center gap-2" style="min-width:0;">
+                                                <span>@FileIcon(att.ContentType)</span>
+                                                <span class="text-truncate text-dark small font-semibold">@att.FileName</span>
+                                            </a>
+                                            <span class="text-muted small me-3">@FormatSize(att.SizeBytes)</span>
+                                            <button type="button" class="btn btn-sm btn-link text-danger p-0"
+                                                    disabled="@(_usageBusy || _uploadingUsageReceipts)"
+                                                    @onclick="() => RemoveUsageReceipt(att.Id)" title="Remove">
+                                                ✕
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
                         }
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
-                    <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@_usageBusy">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@(_usageBusy || _uploadingUsageReceipts)">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@(_usageBusy || _uploadingUsageReceipts)">
                         @if (_usageBusy) { <span class="spinner spinner-sm mr-1"></span> }
                         Save
                     </button>
@@ -1426,9 +1457,9 @@ else
     private DateTime _usageSpentOn = DateTimeExtensions.MyanmarToday;
     private decimal _usageAmount;
     private string _usageDescription = "";
-    private IBrowserFile? _usageReceiptFile;
-    private string? _usagePreviewUrl;
-    private Guid? _usageExistingAttachmentId;      // the row's current receipt when editing
+    private List<AttachmentDto> _pendingUsageReceipts = new();
+    private List<Guid> _initialUsageAttachmentIds = new();
+    private bool _uploadingUsageReceipts;
     private string? _usageError;
     private bool _usageBusy;
 
@@ -1894,9 +1925,8 @@ else
         _usageSpentOn = DateTimeExtensions.MyanmarToday;
         _usageAmount = 0m;
         _usageDescription = "";
-        _usageReceiptFile = null;
-        _usagePreviewUrl = null;
-        _usageExistingAttachmentId = null;
+        _pendingUsageReceipts.Clear();
+        _initialUsageAttachmentIds.Clear();
         _usageError = null;
         _showUsageModal = true;
     }
@@ -1907,43 +1937,132 @@ else
         _usageSpentOn = u.SpentOn;
         _usageAmount = u.Amount;
         _usageDescription = u.Description;
-        _usageReceiptFile = null;
-        _usagePreviewUrl = null;
-        _usageExistingAttachmentId = u.AttachmentId;
+        _pendingUsageReceipts.Clear();
+        if (_request is not null)
+        {
+            var existingAtts = _request.Attachments
+                .Where(a => u.AttachmentIds.Contains(a.Id))
+                .ToList();
+            _pendingUsageReceipts.AddRange(existingAtts);
+        }
+        _initialUsageAttachmentIds = u.AttachmentIds.ToList();
         _usageError = null;
         _showUsageModal = true;
     }
 
-    private void CloseUsageModal()
+    private async Task CloseUsageModal()
     {
+        var newlyUploaded = _pendingUsageReceipts
+            .Where(a => !_initialUsageAttachmentIds.Contains(a.Id))
+            .ToList();
+
+        if (newlyUploaded.Any())
+        {
+            _uploadingUsageReceipts = true;
+            foreach (var att in newlyUploaded)
+            {
+                try
+                {
+                    await Mediator.Send(new RemoveAttachmentCommand(Id, att.Id, CurrentUser.UserId));
+                }
+                catch { /* ignore cleanup errors */ }
+            }
+            _uploadingUsageReceipts = false;
+        }
+
+        _pendingUsageReceipts.Clear();
+        _initialUsageAttachmentIds.Clear();
         _showUsageModal = false;
-        _usageReceiptFile = null;
-        _usagePreviewUrl = null;
     }
 
-
-
-
-    private async Task OnUsageReceiptSelected(InputFileChangeEventArgs e)
+    private async Task OnUsageReceiptsSelected(InputFileChangeEventArgs e)
     {
-        _usageReceiptFile = e.File;
         _usageError = null;
-        _usagePreviewUrl = null;
+        var files = e.GetMultipleFiles(10).ToList();
+        if (!files.Any()) return;
 
-        if (_usageReceiptFile.ContentType.StartsWith("image/"))
+        _uploadingUsageReceipts = true;
+        StateHasChanged();
+
+        try
         {
-            try
+            foreach (var file in files)
             {
-                var resizedFile = await _usageReceiptFile.RequestImageFileAsync(_usageReceiptFile.ContentType, 400, 400);
-                await using var stream = resizedFile.OpenReadStream();
-                var buffer = new byte[resizedFile.Size];
-                await stream.ReadExactlyAsync(buffer);
-                _usagePreviewUrl = $"data:{_usageReceiptFile.ContentType};base64,{Convert.ToBase64String(buffer)}";
+                if (file.Size > AttachmentConstraints.MaxBytes)
+                {
+                    _usageError = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                    continue;
+                }
+
+                if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
+                {
+                    _usageError = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
+                    continue;
+                }
+
+                await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
+                var cmd = new UploadAttachmentCommand(
+                    Id,
+                    CurrentUser.UserId,
+                    file.Name,
+                    file.ContentType,
+                    file.Size,
+                    stream,
+                    AttachmentCategory.UsageReceipt);
+
+                var result = await Mediator.Send(cmd);
+                if (result.IsFailure)
+                {
+                    _usageError = result.Error.Message;
+                }
+                else
+                {
+                    var newAttachmentId = result.Value;
+                    var req = await Mediator.Send(new GetBudgetRequestQuery(Id));
+                    if (req.IsSuccess)
+                    {
+                        var attDto = req.Value.Attachments.FirstOrDefault(a => a.Id == newAttachmentId);
+                        if (attDto is not null && !_pendingUsageReceipts.Any(a => a.Id == newAttachmentId))
+                        {
+                            _pendingUsageReceipts.Add(attDto);
+                        }
+                    }
+                }
             }
-            catch { /* ignore preview failures */ }
+        }
+        catch (Exception ex)
+        {
+            _usageError = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            _uploadingUsageReceipts = false;
+            StateHasChanged();
         }
     }
 
+    private async Task RemoveUsageReceipt(Guid attachmentId)
+    {
+        _usageError = null;
+        _uploadingUsageReceipts = true;
+        try
+        {
+            if (!_initialUsageAttachmentIds.Contains(attachmentId))
+            {
+                var cmd = new RemoveAttachmentCommand(Id, attachmentId, CurrentUser.UserId);
+                await Mediator.Send(cmd);
+            }
+            _pendingUsageReceipts.RemoveAll(a => a.Id == attachmentId);
+        }
+        catch (Exception ex)
+        {
+            _usageError = $"Failed to remove receipt: {ex.Message}";
+        }
+        finally
+        {
+            _uploadingUsageReceipts = false;
+        }
+    }
 
     private async Task DoSaveUsage()
     {
@@ -1952,57 +2071,30 @@ else
 
         if (_usageAmount <= 0) { _usageError = "Amount must be greater than zero."; return; }
         if (string.IsNullOrWhiteSpace(_usageDescription)) { _usageError = "Description is required."; return; }
-        // No cap: over-spending the advance is permitted and resolves to a
-        // reimbursement at reconciliation-submit time.
 
         if (_usageBusy) return;
         _usageBusy = true;
         try
         {
-            // Resolve the receipt attachment: a newly chosen file is uploaded
-            // first; otherwise keep whatever the row already had (null when adding).
-            Guid? attachmentId = _usageExistingAttachmentId;
-            if (_usageReceiptFile is not null)
-            {
-                if (_usageReceiptFile.Size > AttachmentConstraints.MaxBytes)
-                {
-                    _usageError = $"Receipt is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
-                    return;
-                }
-                if (!AttachmentConstraints.IsAllowedContentType(_usageReceiptFile.ContentType))
-                {
-                    _usageError = $"Receipt file type '{_usageReceiptFile.ContentType}' is not allowed.";
-                    return;
-                }
-
-                await using var stream = _usageReceiptFile.OpenReadStream(AttachmentConstraints.MaxBytes);
-                var upload = await Mediator.Send(new UploadAttachmentCommand(
-                    _request.Id,
-                    CurrentUser.UserId,
-                    _usageReceiptFile.Name,
-                    _usageReceiptFile.ContentType,
-                    _usageReceiptFile.Size,
-                    stream,
-                    AttachmentCategory.UsageReceipt));
-                if (upload.IsFailure) { _usageError = upload.Error.Message; return; }
-                attachmentId = upload.Value;
-            }
+            var attachmentIds = _pendingUsageReceipts.Select(a => a.Id).ToList();
 
             if (_editingUsageId.HasValue)
             {
                 var res = await Mediator.Send(new UpdateAdvanceUsageCommand(
                     _request.Id, _editingUsageId.Value, CurrentUser.UserId,
-                    _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
+                    _usageSpentOn, _usageAmount, _usageDescription, attachmentIds));
                 if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
             else
             {
                 var res = await Mediator.Send(new AddAdvanceUsageCommand(
                     _request.Id, CurrentUser.UserId,
-                    _usageSpentOn, _usageAmount, _usageDescription, attachmentId));
+                    _usageSpentOn, _usageAmount, _usageDescription, attachmentIds));
                 if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
 
+            _pendingUsageReceipts.Clear();
+            _initialUsageAttachmentIds.Clear();
             _showUsageModal = false;
             _actionSuccess = "Usage saved.";
             await LoadRequest();

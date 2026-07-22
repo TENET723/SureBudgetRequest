@@ -30,7 +30,7 @@ public partial class BudgetRequest
         DateTime spentOn,
         decimal amount,
         string description,
-        Guid? attachmentId,
+        IEnumerable<Guid>? attachmentIds,
         Guid userId,
         DateTime now)
     {
@@ -50,10 +50,17 @@ public partial class BudgetRequest
         var usage = new AdvanceUsage(Id, spentOn, amount, description.Trim(), now, userId);
         _advanceUsages.Add(usage);
 
-        if (attachmentId.HasValue)
+        if (attachmentIds is not null)
         {
-            var att = _attachments.FirstOrDefault(a => a.Id == attachmentId.Value);
-            if (att is not null) usage.AddReceipt(att);
+            foreach (var attachmentId in attachmentIds)
+            {
+                var att = _attachments.FirstOrDefault(a => a.Id == attachmentId);
+                if (att is not null)
+                {
+                    usage.AddReceipt(att);
+                    att.AttachToAdvanceUsage(usage.Id);
+                }
+            }
         }
 
         return Result<Guid>.Success(usage.Id);
@@ -68,7 +75,7 @@ public partial class BudgetRequest
         DateTime spentOn,
         decimal amount,
         string description,
-        Guid? attachmentId)
+        IEnumerable<Guid>? attachmentIds)
     {
         if (Status != RequestStatus.PendingReconciliation)
             return Result.Failure(
@@ -86,10 +93,26 @@ public partial class BudgetRequest
 
         usage.Update(spentOn, amount, description.Trim());
 
-        if (attachmentId.HasValue)
+        var targetIds = (attachmentIds ?? Enumerable.Empty<Guid>()).ToHashSet();
+
+        // Detach attachments that are no longer in targetIds
+        foreach (var att in _attachments.Where(a => a.AdvanceUsageId == usageId && !targetIds.Contains(a.Id)))
         {
-            var att = _attachments.FirstOrDefault(a => a.Id == attachmentId.Value);
-            if (att is not null) usage.AddReceipt(att);
+            att.AttachToAdvanceUsage(null);
+        }
+
+        // Attach target attachments to this usage
+        foreach (var attId in targetIds)
+        {
+            var att = _attachments.FirstOrDefault(a => a.Id == attId);
+            if (att is not null)
+            {
+                if (!usage.Receipts.Any(r => r.Id == attId))
+                {
+                    usage.AddReceipt(att);
+                }
+                att.AttachToAdvanceUsage(usage.Id);
+            }
         }
 
         return Result.Success();

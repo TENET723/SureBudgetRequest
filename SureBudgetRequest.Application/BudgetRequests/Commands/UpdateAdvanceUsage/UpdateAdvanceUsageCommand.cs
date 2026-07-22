@@ -17,7 +17,7 @@ public sealed record UpdateAdvanceUsageCommand(
     DateTime SpentOn,
     decimal Amount,
     string Description,
-    Guid? AttachmentId) : IRequest<Result>;
+    IReadOnlyList<Guid>? AttachmentIds = null) : IRequest<Result>;
 
 public sealed class UpdateAdvanceUsageCommandHandler
     : IRequestHandler<UpdateAdvanceUsageCommand, Result>
@@ -50,7 +50,7 @@ public sealed class UpdateAdvanceUsageCommandHandler
             DateTime.SpecifyKind(command.SpentOn, DateTimeKind.Utc),
             command.Amount,
             command.Description,
-            command.AttachmentId);
+            command.AttachmentIds);
 
         if (result.IsFailure) return result;
 

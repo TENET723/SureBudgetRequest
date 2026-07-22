@@ -65,7 +65,7 @@ public class Attachment
         PaymentId = paymentId;
     }
 
-    internal void AttachToAdvanceUsage(Guid advanceUsageId)
+    internal void AttachToAdvanceUsage(Guid? advanceUsageId)
     {
         AdvanceUsageId = advanceUsageId;
     }
