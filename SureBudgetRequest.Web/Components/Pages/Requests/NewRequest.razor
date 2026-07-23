@@ -3,15 +3,20 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 
+@using System.IO
+@using Microsoft.AspNetCore.Components.Forms
+@using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CreateDraft
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
-@using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Domain.Enums
+@implements IDisposable
 
 <PageTitle>New Budget Request</PageTitle>
 
@@ -222,12 +227,34 @@
                 }
                 @if (SelectedMethodRequiresAttachment)
                 {
-                    <div class="form-text text-sm text-warning mt-1">
-                        ⚠ This method requires a banking-info attachment. You'll be able to
-                        upload it after saving the draft. Submission will be blocked until
-                        at least one banking file is attached.
+                    <div class="mt-3">
+                        <label class="form-label text-sm font-semibold">
+                            Banking info <span class="text-danger">*</span>
+                        </label>
+                        <div class="form-text text-sm mb-2 text-muted">
+                            The chosen withdraw method requires at least one banking-info file (e.g. bank book photo, account details).
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <InputFile OnChange="@(e => OnFileSelected(e, AttachmentCategory.WithdrawMethod))"
+                                       multiple
+                                       class="input" />
+                        </div>
+                        @RenderPendingAttachments(AttachmentCategory.WithdrawMethod)
                     </div>
                 }
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Supporting documents</label>
+                <div class="form-text text-sm mb-2 text-muted">
+                    Quotes, receipts, contracts — anything that supports the request.
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <InputFile OnChange="@(e => OnFileSelected(e, AttachmentCategory.General))"
+                               multiple
+                               class="input" />
+                </div>
+                @RenderPendingAttachments(AttachmentCategory.General)
             </div>
 
             <div class="mb-4">
@@ -253,12 +280,86 @@
             </button>
             <button class="btn btn-primary btn-sm"
                     @onclick="() => OnSaveClicked(submit: true)"
-                    title="@(SelectedMethodRequiresAttachment ? "This withdraw method requires a banking-info attachment. Save the draft first, then upload the file before submitting." : null)"
-                    disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors || SelectedMethodRequiresAttachment)">
+                    title="@(SelectedMethodRequiresAttachment && !HasStagedBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload the file before submitting." : null)"
+                    disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasStagedBankingAttachment))">
                 @if (_saving && _submitting) { <span class="spinner spinner-sm"></span> }
                 Submit
             </button>
         </div>
+
+<style>
+    .pending-attachments-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    .pending-attachment-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        position: relative;
+        max-width: 280px;
+        width: 100%;
+        overflow: hidden;
+    }
+    .pending-thumb {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 4px;
+        border: 1px solid #cbd5e1;
+        flex-shrink: 0;
+    }
+    .pending-doc-icon {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 11px;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+    .pending-info {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        font-size: 12px;
+        flex-grow: 1;
+    }
+    .pending-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--color-slate-900, #1e293b);
+    }
+    .pending-size {
+        color: #64748b;
+    }
+    .pending-delete-btn {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+    .pending-delete-btn:hover {
+        color: #b91c1c;
+    }
+</style>
     </div>
 </div>
 
@@ -354,6 +455,11 @@
     // Overrun modal state
     private bool _showOverrunModal;
     private bool _pendingSubmit;  // true if modal was triggered by "Submit", false if by "Save Draft"
+
+    // Pending attachments state
+    private List<PendingAttachment> _pendingAttachments = new();
+    private bool HasStagedBankingAttachment =>
+        _pendingAttachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod);
 
     private decimal AmountInMmk => _amount * _selectedRate;
     private bool WouldOverflowPeriod =>
@@ -479,18 +585,7 @@
     {
         if (_saving) return;          // synchronous guard — drop duplicate clicks before any await
         _error = null;
-        if (!ValidateForm()) return;
-
-        // If the chosen method requires a banking attachment, direct submissions
-        // from this page can't succeed — attachments are added on the Edit page,
-        // which only exists after the draft is saved. Save-as-draft is fine and
-        // will land the user on the Edit page where they can upload + submit.
-        if (submit && SelectedMethodRequiresAttachment)
-        {
-            _error = "This withdraw method requires a banking-info attachment. " +
-                     "Save the draft first, then upload the banking file before submitting.";
-            return;
-        }
+        if (!ValidateForm(submit)) return;
 
         // Over monthly? Pop the justification modal and let the user fill it in.
         // Submission only proceeds after they hit "Confirm" in the modal.
@@ -524,7 +619,7 @@
         // if they re-open the modal.
     }
 
-    private bool ValidateForm()
+    private bool ValidateForm(bool submit)
     {
         // Buttons are disabled while errors exist, but keep this as a safety net.
         foreach (var f in RequiredFields) _touched.Add(f);
@@ -538,6 +633,12 @@
         { _error = "Withdraw method is required."; return false; }
         if (_deptHeadId == Guid.Empty || string.IsNullOrWhiteSpace(_deptHeadName))
         { _error = "Department head is not set for your department."; return false; }
+
+        if (submit && SelectedMethodRequiresAttachment && !HasStagedBankingAttachment)
+        {
+            _error = "This withdraw method requires a banking-info attachment.";
+            return false;
+        }
         return true;
     }
 
@@ -578,20 +679,280 @@
 
             if (draftResult.IsFailure) { _error = draftResult.Error.Message; return; }
 
+            var budgetRequestId = draftResult.Value;
+
+            // Upload pending attachments
+            var failedUploads = new List<string>();
+            foreach (var item in _pendingAttachments.ToList())
+            {
+                try
+                {
+                    if (File.Exists(item.TempFilePath))
+                    {
+                        await using var stream = new FileStream(item.TempFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
+                        
+                        var cmd = new UploadAttachmentCommand(
+                            BudgetRequestId: budgetRequestId,
+                            UploadedByUserId: CurrentUser.UserId,
+                            FileName: item.FileName,
+                            ContentType: item.ContentType,
+                            SizeBytes: item.SizeBytes,
+                            Content: stream,
+                            Category: item.Category);
+
+                        var uploadResult = await Mediator.Send(cmd);
+                        if (uploadResult.IsFailure)
+                        {
+                            failedUploads.Add($"\"{item.FileName}\" ({uploadResult.Error.Message})");
+                        }
+                        else
+                        {
+                            _pendingAttachments.Remove(item);
+                            try
+                            {
+                                File.Delete(item.TempFilePath);
+                            }
+                            catch {}
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failedUploads.Add($"\"{item.FileName}\" ({ex.Message})");
+                }
+            }
+
+            if (failedUploads.Any())
+            {
+                _error = $"The request draft was saved, but some attachments failed to upload: {string.Join(", ", failedUploads)}. Please try uploading them again on the edit page.";
+                Nav.NavigateTo($"requests/{budgetRequestId}/edit");
+                return;
+            }
+
             if (submit)
             {
-                var submitResult = await Mediator.Send(new SubmitRequestCommand(draftResult.Value, CurrentUser.UserId));
+                var submitResult = await Mediator.Send(new SubmitRequestCommand(budgetRequestId, CurrentUser.UserId));
                 if (submitResult.IsFailure) { _error = submitResult.Error.Message; return; }
 
                 // Submitted → go to read-only Detail page.
-                Nav.NavigateTo($"requests/{draftResult.Value}");
+                Nav.NavigateTo($"requests/{budgetRequestId}");
             }
             else
             {
                 // Draft saved → land on the Edit page so the user can attach files and review before submitting.
-                Nav.NavigateTo($"requests/{draftResult.Value}/edit");
+                Nav.NavigateTo($"requests/{budgetRequestId}/edit");
             }
         }
         finally { _saving = false; _submitting = false; }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e, AttachmentCategory category)
+    {
+        _error = null;
+        var files = e.GetMultipleFiles(maximumFileCount: AttachmentConstraints.MaxFilesPerRequest).ToList();
+
+        foreach (var file in files)
+        {
+            if (_pendingAttachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+            {
+                _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
+                break;
+            }
+
+            if (file.Size > AttachmentConstraints.MaxBytes)
+            {
+                _error = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                continue;
+            }
+
+            if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
+            {
+                _error = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
+                continue;
+            }
+
+            try
+            {
+                var tempPath = Path.Combine(Path.GetTempPath(), $"sb_upload_{Guid.NewGuid():N}.tmp");
+                
+                await using (var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                {
+                    await file.OpenReadStream(AttachmentConstraints.MaxBytes).CopyToAsync(fileStream);
+                }
+
+                string? previewBase64 = null;
+                if (IsImage(file.ContentType))
+                {
+                    try
+                    {
+                        var resizedImage = await file.RequestImageFileAsync(file.ContentType, 200, 200);
+                        await using var resizedStream = resizedImage.OpenReadStream(2 * 1024 * 1024);
+                        using var ms = new MemoryStream();
+                        await resizedStream.CopyToAsync(ms);
+                        var bytes = ms.ToArray();
+                        previewBase64 = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+                    }
+                    catch
+                    {
+                        // Resizing fallback
+                    }
+                }
+
+                _pendingAttachments.Add(new PendingAttachment
+                {
+                    FileName = file.Name,
+                    ContentType = file.ContentType,
+                    SizeBytes = file.Size,
+                    TempFilePath = tempPath,
+                    PreviewBase64 = previewBase64,
+                    Category = category
+                });
+            }
+            catch (Exception ex)
+            {
+                _error = $"Failed to stage file \"{file.Name}\": {ex.Message}";
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    private void RemovePendingAttachment(PendingAttachment item)
+    {
+        try
+        {
+            if (File.Exists(item.TempFilePath))
+            {
+                File.Delete(item.TempFilePath);
+            }
+        }
+        catch {}
+        _pendingAttachments.Remove(item);
+        StateHasChanged();
+    }
+
+    private RenderFragment RenderPendingAttachments(AttachmentCategory category) => builder =>
+    {
+        var list = _pendingAttachments.Where(a => a.Category == category).ToList();
+        if (list.Count == 0)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-muted small mt-2");
+            builder.AddMarkupContent(2, "<em>No attachments staged.</em>");
+            builder.CloseElement();
+            return;
+        }
+
+        builder.OpenElement(3, "div");
+        builder.AddAttribute(4, "class", "pending-attachments-list");
+
+        foreach (var item in list)
+        {
+            builder.OpenElement(5, "div");
+            builder.AddAttribute(6, "class", "pending-attachment-card");
+            builder.SetKey(item.Id);
+
+            if (IsImage(item.ContentType) && !string.IsNullOrEmpty(item.PreviewBase64))
+            {
+                builder.OpenElement(7, "img");
+                builder.AddAttribute(8, "src", item.PreviewBase64);
+                builder.AddAttribute(9, "class", "pending-thumb");
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.OpenElement(10, "div");
+                builder.AddAttribute(11, "class", "pending-doc-icon");
+                builder.AddAttribute(12, "style", $"background: {GetFileExtBgColor(item.FileName)}");
+                builder.AddContent(13, GetFileExt(item.FileName));
+                builder.CloseElement();
+            }
+
+            builder.OpenElement(14, "div");
+            builder.AddAttribute(15, "class", "pending-info");
+            
+            builder.OpenElement(16, "span");
+            builder.AddAttribute(17, "class", "pending-name");
+            builder.AddAttribute(18, "title", item.FileName);
+            builder.AddContent(19, item.FileName);
+            builder.CloseElement();
+
+            builder.OpenElement(20, "span");
+            builder.AddAttribute(21, "class", "pending-size");
+            builder.AddContent(22, FormatSize(item.SizeBytes));
+            builder.CloseElement();
+
+            builder.CloseElement(); // pending-info
+
+            builder.OpenElement(23, "button");
+            builder.AddAttribute(24, "type", "button");
+            builder.AddAttribute(25, "class", "pending-delete-btn");
+            builder.AddAttribute(26, "onclick", EventCallback.Factory.Create(this, () => RemovePendingAttachment(item)));
+            builder.AddAttribute(27, "title", "Remove staged file");
+            builder.AddContent(28, "✕");
+            builder.CloseElement();
+
+            builder.CloseElement(); // pending-attachment-card
+        }
+
+        builder.CloseElement(); // pending-attachments-list
+    };
+
+    private static bool IsImage(string contentType) =>
+        !string.IsNullOrEmpty(contentType) &&
+        contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+
+    private static string GetFileExt(string fileName)
+    {
+        var ext = Path.GetExtension(fileName).TrimStart('.').ToUpperInvariant();
+        return string.IsNullOrEmpty(ext) ? "FILE" : ext;
+    }
+
+    private static string GetFileExtBgColor(string fileName)
+    {
+        var ext = GetFileExt(fileName);
+        return ext switch
+        {
+            "PDF" => "#dc2626",                  // Red
+            "XLSX" or "XLS" or "CSV" => "#16a34a",// Green
+            "DOCX" or "DOC" => "#2563eb",         // Blue
+            "PPTX" or "PPT" => "#ea580c",         // Orange
+            "ZIP" or "RAR" or "7Z" => "#d97706",  // Amber
+            "TXT" => "#64748b",                  // Slate
+            _ => "#475569"                       // Dark Slate
+        };
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
+
+    public void Dispose()
+    {
+        foreach (var item in _pendingAttachments)
+        {
+            try
+            {
+                if (File.Exists(item.TempFilePath))
+                {
+                    File.Delete(item.TempFilePath);
+                }
+            }
+            catch {}
+        }
+    }
+
+    private sealed class PendingAttachment
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public string FileName { get; set; } = null!;
+        public string ContentType { get; set; } = null!;
+        public long SizeBytes { get; set; }
+        public string TempFilePath { get; set; } = null!;
+        public string? PreviewBase64 { get; set; }
+        public AttachmentCategory Category { get; set; }
     }
 }

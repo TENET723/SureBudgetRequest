@@ -42,78 +42,16 @@
     {
         <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
     }
-
-    @* ── Image previews ─────────────────────────────────────────────────── *@
-    @if (images.Count > 0)
+    else
     {
-        <div class="d-flex flex-wrap gap-2 mb-2">
-            @foreach (var img in images)
-            {
-                <div style="position:relative;">
-                    <a href="@($"/api/attachments/{img.Id}")"
-                       target="_blank"
-                       rel="noopener"
-                       title="@img.FileName">
-                        <img src="@($"/api/attachments/{img.Id}")"
-                             alt=""
-                             loading="lazy"
-                             style="max-width:240px;max-height:240px;object-fit:contain;
-                        display:block;border:1px solid #dee2e6;border-radius:6px;
-                        background:#f8f9fa;" />
-                    </a>
-                    @if (Editable)
-                    {
-                        <button type="button"
-                                class="btn btn-sm"
-                                disabled="@_busy"
-                                @onclick="() => OnRemoveClick(img.Id)"
-                                title="Remove"
-                                style="position:absolute;top:4px;right:4px;
-                            width:24px;height:24px;padding:0;line-height:1;
-                            background:rgba(255,255,255,0.92);
-                            border:1px solid #dee2e6;border-radius:50%;
-                            color:#dc3545;font-size:0.85rem;">
-                            ✕
-                        </button>
-                    }
-                </div>
-            }
+        <div class="my-2">
+            <AttachmentStackGallery Attachments="visible"
+                                   AllowDelete="Editable"
+                                   OnDelete="OnRemoveClick"
+                                   CardWidth="90px"
+                                   CardHeight="70px"
+                                   Disabled="_busy" />
         </div>
-    }
-
-    @* ── Non-image files ────────────────────────────────────────────────── *@
-    @if (files.Count > 0)
-    {
-        <ul class="list-group list-group-flush mb-2">
-            @foreach (var att in files)
-            {
-                <li class="list-group-item d-flex align-items-center px-0 py-2">
-                    <a href="@($"/api/attachments/{att.Id}")"
-                       target="_blank"
-                       rel="noopener"
-                       class="text-decoration-none flex-grow-1 d-flex align-items-center gap-2"
-                       style="min-width:0;">
-                        <span style="width:32px;height:32px;display:inline-flex;
-                            align-items:center;justify-content:center;
-                            font-size:1.3rem;flex-shrink:0;">
-                            @FileIcon(att.ContentType)
-                        </span>
-                        <span class="text-truncate">@att.FileName</span>
-                    </a>
-                    <span class="text-muted small me-3">@FormatSize(att.SizeBytes)</span>
-                    @if (Editable)
-                    {
-                        <button type="button"
-                                class="btn btn-sm btn-link text-danger p-0"
-                                disabled="@_busy"
-                                @onclick="() => OnRemoveClick(att.Id)"
-                                title="Remove">
-                            ✕
-                        </button>
-                    }
-                </li>
-            }
-        </ul>
     }
 
     @* ── Uploader ──────────────────────────────────────────────────────── *@

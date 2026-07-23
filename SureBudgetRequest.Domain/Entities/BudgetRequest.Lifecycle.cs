@@ -311,6 +311,27 @@ public partial class BudgetRequest
         if (sizeBytes <= 0)
             return Result.Failure("File size must be greater than zero.");
 
+        if (category == AttachmentCategory.UsageReceipt)
+        {
+            var oldOrphans = _attachments
+                .Where(a => a.Category == category && a.AdvanceUsageId == null && a.UploadedAt < DateTime.UtcNow.AddMinutes(-5))
+                .ToList();
+            foreach (var orphan in oldOrphans)
+            {
+                _attachments.Remove(orphan);
+            }
+        }
+        else if (category == AttachmentCategory.PaymentReceipt)
+        {
+            var oldOrphans = _attachments
+                .Where(a => a.Category == category && a.PaymentId == null && a.UploadedAt < DateTime.UtcNow.AddMinutes(-5))
+                .ToList();
+            foreach (var orphan in oldOrphans)
+            {
+                _attachments.Remove(orphan);
+            }
+        }
+
         var countInCategory = _attachments.Count(a => a.Category == category);
         if (countInCategory >= MaxAttachmentsPerRequest)
             return Result.Failure($"Cannot add more than {MaxAttachmentsPerRequest} {category} attachments to a request.");

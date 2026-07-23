@@ -95,10 +95,11 @@ public partial class BudgetRequest
 
         var targetIds = (attachmentIds ?? Enumerable.Empty<Guid>()).ToHashSet();
 
-        // Detach attachments that are no longer in targetIds
-        foreach (var att in _attachments.Where(a => a.AdvanceUsageId == usageId && !targetIds.Contains(a.Id)))
+        // Remove attachments that are no longer in targetIds
+        var detachedAtts = _attachments.Where(a => a.AdvanceUsageId == usageId && !targetIds.Contains(a.Id)).ToList();
+        foreach (var att in detachedAtts)
         {
-            att.AttachToAdvanceUsage(null);
+            _attachments.Remove(att);
         }
 
         // Attach target attachments to this usage
@@ -128,6 +129,12 @@ public partial class BudgetRequest
         var usage = _advanceUsages.FirstOrDefault(u => u.Id == usageId);
         if (usage is null)
             return Result.Failure("Usage line item not found on this request.");
+
+        var attachedFiles = _attachments.Where(a => a.AdvanceUsageId == usageId).ToList();
+        foreach (var file in attachedFiles)
+        {
+            _attachments.Remove(file);
+        }
 
         _advanceUsages.Remove(usage);
         return Result.Success();
