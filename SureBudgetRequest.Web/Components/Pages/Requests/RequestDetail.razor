@@ -2249,6 +2249,10 @@ else
                 if (uploadResult.IsFailure)
                 {
                     _paymentError = $"Failed to save receipt \"{item.FileName}\": {uploadResult.Error.Message}";
+                    foreach (var uploadedId in attachmentIds)
+                    {
+                        try { await Mediator.Send(new RemoveAttachmentCommand(Id, uploadedId, CurrentUser.UserId)); } catch {}
+                    }
                     _actioning = false;
                     return;
                 }
@@ -2450,6 +2454,10 @@ else
                 if (uploadResult.IsFailure)
                 {
                     _usageError = $"Failed to save receipt \"{item.FileName}\": {uploadResult.Error.Message}";
+                    foreach (var uploadedId in newAttachmentIds)
+                    {
+                        try { await Mediator.Send(new RemoveAttachmentCommand(Id, uploadedId, CurrentUser.UserId)); } catch {}
+                    }
                     _usageBusy = false;
                     return;
                 }

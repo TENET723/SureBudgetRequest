@@ -52,7 +52,11 @@ public partial class BudgetRequest
 
         if (attachmentIds is not null)
         {
-            foreach (var attachmentId in attachmentIds)
+            var targetIds = attachmentIds.ToList();
+            if (targetIds.Count > MaxAttachmentsPerRequest)
+                return Result<Guid>.Failure($"Cannot attach more than {MaxAttachmentsPerRequest} receipts to a single usage line item.");
+
+            foreach (var attachmentId in targetIds)
             {
                 var att = _attachments.FirstOrDefault(a => a.Id == attachmentId);
                 if (att is not null)
@@ -93,7 +97,11 @@ public partial class BudgetRequest
 
         usage.Update(spentOn, amount, description.Trim());
 
-        var targetIds = (attachmentIds ?? Enumerable.Empty<Guid>()).ToHashSet();
+        var targetList = (attachmentIds ?? Enumerable.Empty<Guid>()).ToList();
+        if (targetList.Count > MaxAttachmentsPerRequest)
+            return Result.Failure($"Cannot attach more than {MaxAttachmentsPerRequest} receipts to a single usage line item.");
+
+        var targetIds = targetList.ToHashSet();
 
         // Remove attachments that are no longer in targetIds
         var detachedAtts = _attachments.Where(a => a.AdvanceUsageId == usageId && !targetIds.Contains(a.Id)).ToList();

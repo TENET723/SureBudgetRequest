@@ -45,10 +45,15 @@ public partial class BudgetRequest
 
         if (attachmentIds is not null)
         {
-            var attSet = attachmentIds.ToHashSet();
+            var targetList = attachmentIds.ToList();
+            if (targetList.Count > MaxAttachmentsPerRequest)
+                return Result.Failure($"Cannot attach more than {MaxAttachmentsPerRequest} receipts to a single payment transaction.");
+
+            var attSet = targetList.ToHashSet();
             foreach (var att in _attachments.Where(a => attSet.Contains(a.Id)))
             {
                 payment.AddReceipt(att);
+                att.AttachToPayment(payment.Id);
             }
         }
 

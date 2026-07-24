@@ -57,7 +57,7 @@
         @* ── Minimal Uploader ──────────────────────────────────────────────── *@
         @if (Editable)
         {
-            var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
+            var currentCount = visibleExisting.Count + visiblePending.Count;
             <div style="display: @(currentCount < AttachmentConstraints.MaxFilesPerRequest ? "block" : "none");">
                 <label for="@_inputId" class="btn btn-outline btn-sm d-inline-flex align-items-center gap-2 mb-0 py-1 px-2 text-xs" style="cursor: pointer;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -71,7 +71,7 @@
                            multiple
                            style="display: none;" />
             </div>
-            @if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
+            @if ((visibleExisting.Count + visiblePending.Count) >= AttachmentConstraints.MaxFilesPerRequest)
             {
                 <span class="text-muted small text-xs d-inline-flex align-items-center gap-1">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning">
@@ -103,7 +103,7 @@
                     @onclick="ClearError"
                     style="cursor: pointer; border: 1px solid #fecaca; font-size: 9px; padding: 1px 6px; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; height: 18px;"
                     title="Clear error">
-                <Clear></Clear>
+                Clear
             </button>
         </div>
     }
@@ -127,12 +127,25 @@
         _error = null;
     }
 
+    private int GetCurrentCountForCategory()
+    {
+        var existingCount = Category.HasValue
+            ? Attachments.Count(a => a.Category == Category.Value && !PendingDeletions.Contains(a.Id))
+            : Attachments.Count(a => !PendingDeletions.Contains(a.Id));
+
+        var pendingCount = Category.HasValue
+            ? PendingAttachments.Count(p => p.Category == Category.Value)
+            : PendingAttachments.Count;
+
+        return existingCount + pendingCount;
+    }
+
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         _error = null;
         var files = e.GetMultipleFiles(maximumFileCount: AttachmentConstraints.MaxFilesPerRequest).ToList();
 
-        var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
+        var currentCount = GetCurrentCountForCategory();
         if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
         {
             _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
@@ -150,7 +163,7 @@
             {
                 var file = files[i];
 
-                if (Attachments.Count - PendingDeletions.Count + PendingAttachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+                if (GetCurrentCountForCategory() >= AttachmentConstraints.MaxFilesPerRequest)
                 {
                     _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
                     break;
