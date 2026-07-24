@@ -29,7 +29,7 @@ public sealed class LocalFileStorage : IFileStorage
     }
 
     public async Task<string> SaveAsync(
-        Guid budgetRequestId,
+        string folderPath,
         string originalFileName,
         Stream content,
         CancellationToken cancellationToken = default)
@@ -37,9 +37,9 @@ public sealed class LocalFileStorage : IFileStorage
         var uniqueName = $"{Guid.NewGuid():N}{SafeExtension(originalFileName)}";
 
         // Relative path is what we return + store in DB.
-        var relativePath = $"{budgetRequestId}/{uniqueName}";
+        var relativePath = $"{folderPath}/{uniqueName}";
 
-        var absoluteDir = Path.Combine(_rootPath, budgetRequestId.ToString());
+        var absoluteDir = Path.Combine(_rootPath, folderPath);
         Directory.CreateDirectory(absoluteDir);
 
         var absolutePath = Path.Combine(_rootPath, relativePath);
@@ -81,6 +81,11 @@ public sealed class LocalFileStorage : IFileStorage
             File.Delete(absolutePath);
 
         return Task.CompletedTask;
+    }
+
+    public Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+    {
+        throw new NotSupportedException("Local file storage is not configured for file moving.");
     }
 
     /// <summary>

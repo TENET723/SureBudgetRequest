@@ -22,7 +22,7 @@ public interface IFileStorage
     /// passing to <c>BudgetRequest.AddAttachment</c>.
     /// </summary>
     Task<string> SaveAsync(
-        Guid budgetRequestId,
+        string folderPath,
         string originalFileName,
         Stream content,
         CancellationToken cancellationToken = default);
@@ -32,4 +32,7 @@ public interface IFileStorage
 
     /// <summary>Deletes a stored file. No-op if the path does not exist.</summary>
     Task DeleteAsync(string storedPath, CancellationToken cancellationToken = default);
+
+    /// <summary>Moves/renames a file from a source path to a destination path.</summary>
+    Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default);
 }

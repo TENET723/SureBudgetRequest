@@ -1,24 +1,13 @@
-@using MediatR
 @using Microsoft.AspNetCore.Components.Forms
 @using SureBudgetRequest.Application.Abstractions
-@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
-@using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
+@using SureBudgetRequest.Application.Abstractions.Services
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Domain.Enums
 
-@inject IMediator Mediator
+@inject IJSRuntime JS
 @inject ICurrentUser CurrentUser
-
-@*
-    Reusable list of attachments + uploader.
-    -- Image attachments render as a wrapping gallery of large previews
-       (no filename), each clickable to open full size in a new tab.
-    -- Non-image attachments render as the familiar row with icon + filename + size.
-    -- Editable=true shows the InputFile and per-item Remove (✕).
-    The component calls OnChanged after a successful upload or remove so the
-    parent can refetch the latest attachment list.
-*@
+@inject IFileStorage FileStorage
 
 <div class="attachment-list">
 
@@ -28,36 +17,56 @@
     }
 
     @{
-        // Visible = the slice this section is responsible for rendering.
-        // When Category is null we keep the legacy behavior (show everything passed in).
-        var visible = Category.HasValue
-            ? Attachments.Where(a => a.Category == Category.Value).ToList()
-            : Attachments.ToList();
+        // Filter existing and pending attachments based on the category (General / WithdrawMethod)
+        var visibleExisting = Category.HasValue
+            ? Attachments.Where(a => a.Category == Category.Value && !PendingDeletions.Contains(a.Id)).ToList()
+            : Attachments.Where(a => !PendingDeletions.Contains(a.Id)).ToList();
 
-        var images = visible.Where(a => IsImage(a.ContentType)).ToList();
-        var files = visible.Where(a => !IsImage(a.ContentType)).ToList();
+        var visiblePending = Category.HasValue
+            ? PendingAttachments.Where(a => a.Category == Category.Value).ToList()
+            : PendingAttachments.ToList();
+
+        // Construct Dto list for the gallery
+        var pendingDtos = visiblePending.Select(p => new AttachmentDto(
+            Id: p.Id,
+            FileName: p.FileName,
+            ContentType: p.ContentType,
+            SizeBytes: p.SizeBytes,
+            UploadedByUserId: CurrentUser.UserId,
+            UploadedAt: DateTime.UtcNow,
+            Category: p.Category
+        )).ToList();
+
+        var allVisible = visibleExisting.Concat(pendingDtos).ToList();
+
+        // Create dictionary of preview URLs for the gallery (Guid -> blob Url)
+        var previewUrls = visiblePending
+            .Where(p => !string.IsNullOrEmpty(p.PreviewUrl))
+            .ToDictionary(p => p.Id, p => p.PreviewUrl!);
     }
 
-    @if (visible.Count == 0)
+    @if (allVisible.Count == 0)
     {
         <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
     }
     else
     {
         <div class="my-2">
-            <AttachmentStackGallery Attachments="visible"
-                                   AllowDelete="Editable"
-                                   OnDelete="OnRemoveClick"
-                                   CardWidth="90px"
-                                   CardHeight="70px"
-                                   Disabled="_busy" />
+            <AttachmentStackGallery Attachments="allVisible"
+                                    PreviewUrls="previewUrls"
+                                    AllowDelete="Editable"
+                                    OnDelete="OnRemoveClick"
+                                    CardWidth="90px"
+                                    CardHeight="70px"
+                                    Disabled="_busy" />
         </div>
     }
 
     @* ── Uploader ──────────────────────────────────────────────────────── *@
     @if (Editable)
     {
-        @if (Attachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+        var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
+        @if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
         {
             <div class="text-muted small">
                 Maximum @AttachmentConstraints.MaxFilesPerRequest files reached.
@@ -66,14 +75,11 @@
         else
         {
             <div class="d-flex align-items-center gap-2">
-                <InputFile OnChange="OnFileSelected"
+                <InputFile id="@_inputId"
+                           OnChange="OnFileSelected"
                            disabled="@_busy"
                            multiple
                            class="input" />
-                @if (_busy)
-                {
-                    <span class="text-muted small">Uploading…</span>
-                }
             </div>
             <div class="form-text small mt-1">
                 Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file.
@@ -81,145 +87,173 @@
             </div>
         }
     }
+
+    @if (PendingAttachments.Any(p => p.Uploading))
+    {
+        <div class="text-sm text-muted mt-2 d-flex align-items-center gap-2">
+            <span class="spinner spinner-sm"></span>
+            <span>Uploading attachments to storage...</span>
+        </div>
+    }
 </div>
 
 @code {
-    /// <summary>The request these attachments belong to.</summary>
-    [Parameter, EditorRequired] public Guid BudgetRequestId { get; set; }
-
-    /// <summary>Current list of attachments to render. Parent owns the list.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<AttachmentDto> Attachments { get; set; } = Array.Empty<AttachmentDto>();
-
-    /// <summary>True iff the request is in Draft or SentBack AND the viewer is the requester.</summary>
+    [Parameter] public List<PendingAttachment> PendingAttachments { get; set; } = new();
+    [Parameter] public HashSet<Guid> PendingDeletions { get; set; } = new();
     [Parameter] public bool Editable { get; set; }
-
-    /// <summary>
-    /// When set, the component renders only attachments of this category and
-    /// tags new uploads with it. When null (default), the component renders the
-    /// full <see cref="Attachments"/> list unfiltered and uploads tag as
-    /// <see cref="AttachmentCategory.General"/> — preserving the pre-category
-    /// single-section behavior for callers that pass a flat list.
-    ///
-    /// The file-count cap is always checked against the TOTAL attachment count
-    /// (across categories) so the limit is honored whichever section the upload
-    /// happens in.
-    /// </summary>
     [Parameter] public AttachmentCategory? Category { get; set; }
-
-    /// <summary>Fired after a successful upload or remove so the parent can refetch.</summary>
     [Parameter] public EventCallback OnChanged { get; set; }
 
+    private readonly string _inputId = $"file-input-{Guid.NewGuid():N}";
+    private readonly Guid _sessionId = Guid.NewGuid();
     private bool _busy;
     private string? _error;
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
         _error = null;
-
         var files = e.GetMultipleFiles(maximumFileCount: AttachmentConstraints.MaxFilesPerRequest).ToList();
 
-        foreach (var file in files)
+        var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
+        if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
         {
-            if (Attachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
-            {
-                _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
-                break;
-            }
-
-            if (file.Size > AttachmentConstraints.MaxBytes)
-            {
-                _error = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
-                continue;
-            }
-
-            if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
-            {
-                _error = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
-                continue;
-            }
-
-            _busy = true;
-            StateHasChanged();
-
-            try
-            {
-                await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
-
-                var cmd = new UploadAttachmentCommand(
-                    BudgetRequestId,
-                    CurrentUser.UserId,
-                    file.Name,
-                    file.ContentType,
-                    file.Size,
-                    stream,
-                    Category ?? AttachmentCategory.General);
-
-                var result = await Mediator.Send(cmd);
-                if (result.IsFailure)
-                {
-                    _error = result.Error.Message;
-                }
-                else
-                {
-                    await OnChanged.InvokeAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _error = $"Upload failed: {ex.Message}";
-            }
-            finally
-            {
-                _busy = false;
-                StateHasChanged();
-            }
+            _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
+            return;
         }
-    }
 
-    private async Task OnRemoveClick(Guid attachmentId)
-    {
-        _error = null;
         _busy = true;
+        StateHasChanged();
+
         try
         {
-            var cmd = new RemoveAttachmentCommand(BudgetRequestId, attachmentId, CurrentUser.UserId);
-            var result = await Mediator.Send(cmd);
-            if (result.IsFailure)
+            // Call JavaScript to generate object URLs for the selected files
+            var urls = await JS.InvokeAsync<List<string>>("attachmentPreview.createObjectUrls", _inputId);
+
+            for (int i = 0; i < files.Count; i++)
             {
-                _error = result.Error.Message;
-            }
-            else
-            {
+                var file = files[i];
+
+                if (Attachments.Count - PendingDeletions.Count + PendingAttachments.Count >= AttachmentConstraints.MaxFilesPerRequest)
+                {
+                    _error = $"Maximum {AttachmentConstraints.MaxFilesPerRequest} files reached.";
+                    break;
+                }
+
+                if (file.Size > AttachmentConstraints.MaxBytes)
+                {
+                    _error = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
+                    continue;
+                }
+
+                if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
+                {
+                    _error = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
+                    continue;
+                }
+
+                var url = (urls != null && i < urls.Count) ? urls[i] : null;
+
+                var pending = new PendingAttachment
+                {
+                    FileName = file.Name,
+                    ContentType = file.ContentType,
+                    SizeBytes = file.Size,
+                    PreviewUrl = url,
+                    Category = Category ?? AttachmentCategory.General,
+                    Uploading = true
+                };
+
+                PendingAttachments.Add(pending);
                 await OnChanged.InvokeAsync();
+
+                // Fire-and-forget background upload
+                _ = UploadFileAsync(file, pending);
             }
         }
         catch (Exception ex)
         {
-            _error = $"Remove failed: {ex.Message}";
+            _error = $"Failed to stage files: {ex.Message}";
         }
         finally
         {
             _busy = false;
+            StateHasChanged();
         }
     }
 
-    private static bool IsImage(string contentType) =>
-        !string.IsNullOrEmpty(contentType) &&
-        contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
-
-    private static string FileIcon(string contentType) => contentType switch
+    private async Task UploadFileAsync(IBrowserFile file, PendingAttachment pending)
     {
-        "application/pdf" => "📄",
-        "application/msword" or "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => "📝",
-        "application/vnd.ms-excel" or "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "📊",
-        "text/plain" or "text/csv" => "📃",
-        _ => "📎",
-    };
+        try
+        {
+            await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
+            var path = await FileStorage.SaveAsync($"temp/{_sessionId}", file.Name, stream);
+            pending.StoredPath = path;
+            pending.Uploading = false;
+        }
+        catch (Exception ex)
+        {
+            pending.Uploading = false;
+            pending.Error = ex.Message;
+            _error = $"Failed to upload \"{pending.FileName}\": {ex.Message}";
+        }
+        finally
+        {
+            await OnChanged.InvokeAsync();
+            StateHasChanged();
+        }
+    }
 
-    private static string FormatSize(long bytes)
+    private async Task OnRemoveClick(Guid id)
     {
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
-        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+        _error = null;
+
+        // Check if it is a pending staged file
+        var pending = PendingAttachments.FirstOrDefault(p => p.Id == id);
+        if (pending != null)
+        {
+            if (!string.IsNullOrEmpty(pending.PreviewUrl))
+            {
+                try
+                {
+                    await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", pending.PreviewUrl);
+                }
+                catch {}
+            }
+
+            if (!string.IsNullOrEmpty(pending.StoredPath))
+            {
+                try
+                {
+                    await FileStorage.DeleteAsync(pending.StoredPath);
+                }
+                catch {}
+            }
+
+            PendingAttachments.Remove(pending);
+            await OnChanged.InvokeAsync();
+            return;
+        }
+
+        // Check if it is an existing attachment
+        var existing = Attachments.FirstOrDefault(a => a.Id == id);
+        if (existing != null)
+        {
+            PendingDeletions.Add(id);
+            await OnChanged.InvokeAsync();
+        }
+    }
+
+    public sealed class PendingAttachment
+    {
+        public Guid Id { get; } = Guid.NewGuid();
+        public string FileName { get; set; } = null!;
+        public string ContentType { get; set; } = null!;
+        public long SizeBytes { get; set; }
+        public string? PreviewUrl { get; set; }
+        public string? StoredPath { get; set; }
+        public AttachmentCategory Category { get; set; }
+        public bool Uploading { get; set; }
+        public string? Error { get; set; }
     }
 }

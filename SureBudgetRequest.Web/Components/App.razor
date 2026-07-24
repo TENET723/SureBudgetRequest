@@ -46,6 +46,23 @@
                 });
             }
         };
+
+        window.attachmentPreview = {
+            createObjectUrls: function (inputId) {
+                var input = document.getElementById(inputId);
+                if (!input || !input.files) return [];
+                var urls = [];
+                for (var i = 0; i < input.files.length; i++) {
+                    urls.push(URL.createObjectURL(input.files[i]));
+                }
+                return urls;
+            },
+            revokeObjectURL: function (url) {
+                if (url) {
+                    URL.revokeObjectURL(url);
+                }
+            }
+        };
     </script>
 </body>
 

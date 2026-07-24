@@ -28,7 +28,8 @@ public sealed record UploadAttachmentCommand(
     string ContentType,
     long SizeBytes,
     Stream Content,
-    AttachmentCategory Category = AttachmentCategory.General) : IRequest<Result<Guid>>;
+    AttachmentCategory Category = AttachmentCategory.General,
+    string? PreUploadedPath = null) : IRequest<Result<Guid>>;
 
 public sealed class UploadAttachmentCommandHandler
     : IRequestHandler<UploadAttachmentCommand, Result<Guid>>
@@ -67,16 +68,30 @@ public sealed class UploadAttachmentCommandHandler
         if (budgetRequest is null)
             return Result<Guid>.Failure("Budget request not found.");
 
-        // 3. Save the file to storage first. If the aggregate rejects it in step 4,
+        // 3. Save or Move the file in storage. If the aggregate rejects it in step 4,
         //    we'll clean it up.
         string storedPath;
         try
         {
-            storedPath = await _fileStorage.SaveAsync(
-                command.BudgetRequestId,
-                command.FileName,
-                command.Content,
-                cancellationToken);
+            if (!string.IsNullOrEmpty(command.PreUploadedPath))
+            {
+                var ext = System.IO.Path.GetExtension(command.FileName).ToLowerInvariant();
+                if (ext is not ".pdf" and not ".png" and not ".jpg" and not ".jpeg" and not ".gif" and not ".webp"
+                    and not ".doc" and not ".docx" and not ".xls" and not ".xlsx" and not ".txt" and not ".csv")
+                {
+                    ext = ".bin";
+                }
+                storedPath = $"{command.BudgetRequestId}/{Guid.NewGuid():N}{ext}";
+                await _fileStorage.MoveAsync(command.PreUploadedPath, storedPath, cancellationToken);
+            }
+            else
+            {
+                storedPath = await _fileStorage.SaveAsync(
+                    command.BudgetRequestId.ToString(),
+                    command.FileName,
+                    command.Content,
+                    cancellationToken);
+            }
         }
         catch (Exception ex)
         {

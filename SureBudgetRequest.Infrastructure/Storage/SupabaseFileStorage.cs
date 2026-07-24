@@ -32,13 +32,13 @@ public sealed class SupabaseFileStorage : IFileStorage
     }
 
     public async Task<string> SaveAsync(
-        Guid budgetRequestId,
+        string folderPath,
         string originalFileName,
         Stream content,
         CancellationToken cancellationToken = default)
     {
         var ext = SafeExtension(originalFileName);
-        var relativePath = $"{budgetRequestId}/{Guid.NewGuid():N}{ext}";
+        var relativePath = $"{folderPath}/{Guid.NewGuid():N}{ext}";
 
         // POST /storage/v1/object/{bucket}/{path}
         using var request = new HttpRequestMessage(
@@ -103,6 +103,29 @@ public sealed class SupabaseFileStorage : IFileStorage
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException(
                 $"Supabase Storage delete failed: {(int)response.StatusCode} {response.ReasonPhrase}. Body: {body}");
+        }
+    }
+
+    public async Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/storage/v1/object/move");
+
+        var payload = new
+        {
+            bucketId = _options.AttachmentsBucket,
+            sourceKey = sourcePath,
+            destinationKey = destinationPath
+        };
+
+        request.Content = System.Net.Http.Json.JsonContent.Create(payload);
+
+        using var response = await _http.SendAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException(
+                $"Supabase Storage move failed: {(int)response.StatusCode} {response.ReasonPhrase}. Body: {body}");
         }
     }
 

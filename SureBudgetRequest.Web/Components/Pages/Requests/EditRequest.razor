@@ -7,12 +7,16 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ResubmitRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
 @using SureBudgetRequest.Application.Currencies.Queries
+@inject IJSRuntime JS
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Domain.Enums
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
+@using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Web.Components.Shared
 
 <PageTitle>Edit Request</PageTitle>
@@ -186,11 +190,12 @@
                             The chosen withdraw method requires at least one banking-info file
                             (e.g. bank book photo, account details).
                         </div>
-                        <AttachmentList BudgetRequestId="_request.Id"
-                                        Attachments="_request.Attachments"
+                        <AttachmentList Attachments="_request.Attachments"
+                                        PendingAttachments="_pendingAttachments"
+                                        PendingDeletions="_pendingDeletions"
                                         Category="AttachmentCategory.WithdrawMethod"
                                         Editable="true"
-                                        OnChanged="ReloadAsync" />
+                                        OnChanged="StateHasChanged" />
                     </div>
                 }
 
@@ -199,11 +204,12 @@
                     <div class="form-text text-sm mb-2">
                         Quotes, receipts, contracts — anything that supports the request.
                     </div>
-                    <AttachmentList BudgetRequestId="_request.Id"
-                                    Attachments="_request.Attachments"
+                    <AttachmentList Attachments="_request.Attachments"
+                                    PendingAttachments="_pendingAttachments"
+                                    PendingDeletions="_pendingDeletions"
                                     Category="AttachmentCategory.General"
                                     Editable="true"
-                                    OnChanged="ReloadAsync" />
+                                    OnChanged="StateHasChanged" />
                 </div>
                 <div class="mb-4">
                     <label class="form-label text-sm font-semibold">Department Head (approver)</label>
@@ -302,7 +308,7 @@
                 @if (IsDhModifying)
                 {
                     <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: false)"
-                            disabled="@(_saving || HasValidationErrors)">
+                            disabled="@(_saving || HasValidationErrors || _pendingAttachments.Any(p => p.Uploading))">
                         @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
                         Update
                     </button>
@@ -310,13 +316,13 @@
                 else
                 {
                     <button class="btn btn-outline btn-sm" @onclick="() => OnSaveClicked(submit: false)"
-                            disabled="@(_saving || HasValidationErrors)">
+                            disabled="@(_saving || HasValidationErrors || _pendingAttachments.Any(p => p.Uploading))">
                         @if (_saving && !_submitting) { <span class="spinner spinner-sm mr-1"></span> }
                         @SaveLabel
                     </button>
                     <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: true)"
                             title="@(SelectedMethodRequiresAttachment && !HasBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload at least one banking file before submitting." : null)"
-                            disabled="@(_saving || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasBankingAttachment))">
+                            disabled="@(_saving || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasBankingAttachment) || _pendingAttachments.Any(p => p.Uploading))">
                         @if (_saving && _submitting) { <span class="spinner spinner-sm mr-1"></span> }
                         @SubmitLabel
                     </button>
@@ -394,6 +400,8 @@
     private string? _error;
     private bool _saving;
     private bool _submitting;
+    private List<AttachmentList.PendingAttachment> _pendingAttachments = new();
+    private HashSet<Guid> _pendingDeletions = new();
 
     // Form state
     private DateTime _requestDate = DateTimeExtensions.MyanmarToday;
@@ -447,8 +455,16 @@
         !string.IsNullOrEmpty(_withdrawMethodId)
         && _withdrawMethods.Any(m => m.Id.ToString() == _withdrawMethodId && m.RequiresAttachment);
 
-    private bool HasBankingAttachment =>
-        _request?.Attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod) == true;
+    private bool HasBankingAttachment
+    {
+        get
+        {
+            if (_request == null) return false;
+            var existingBankCount = _request.Attachments.Count(a => a.Category == AttachmentCategory.WithdrawMethod && !_pendingDeletions.Contains(a.Id));
+            var stagedBankCount = _pendingAttachments.Count(a => a.Category == AttachmentCategory.WithdrawMethod);
+            return (existingBankCount + stagedBankCount) > 0;
+        }
+    }
 
     // ── Field-level validation (messages appear only after a field is touched) ──
     private readonly HashSet<string> _touched = new();
@@ -640,6 +656,12 @@
 
     private bool ValidateForm()
     {
+        if (_pendingAttachments.Any(p => p.Uploading))
+        {
+            _error = "Please wait for files to finish uploading before updating.";
+            return false;
+        }
+
         // Buttons are disabled while errors exist, but keep this as a safety net.
         foreach (var f in RequiredFields) _touched.Add(f);
         if (_amount <= 0) { _error = "Amount must be greater than zero."; return false; }
@@ -692,6 +714,68 @@
                     : _externalReferences));
 
             if (updateResult.IsFailure) { _error = updateResult.Error.Message; return; }
+
+            // 1. Delete attachments marked for deletion
+            foreach (var attId in _pendingDeletions)
+            {
+                var delResult = await Mediator.Send(new RemoveAttachmentCommand(Id, attId, CurrentUser.UserId));
+                if (delResult.IsFailure)
+                {
+                    _error = $"Failed to delete some attachments: {delResult.Error.Message}";
+                    return;
+                }
+            }
+            _pendingDeletions.Clear();
+
+            // 2. Move and save pending attachments
+            var failedUploads = new List<string>();
+            foreach (var item in _pendingAttachments.ToList())
+            {
+                try
+                {
+                    if (string.IsNullOrEmpty(item.StoredPath)) continue;
+
+                    var cmd = new UploadAttachmentCommand(
+                        BudgetRequestId: Id,
+                        UploadedByUserId: CurrentUser.UserId,
+                        FileName: item.FileName,
+                        ContentType: item.ContentType,
+                        SizeBytes: item.SizeBytes,
+                        Content: Stream.Null,
+                        Category: item.Category,
+                        PreUploadedPath: item.StoredPath);
+
+                    var uploadResult = await Mediator.Send(cmd);
+                    if (uploadResult.IsFailure)
+                    {
+                        failedUploads.Add($"\"{item.FileName}\" ({uploadResult.Error.Message})");
+                    }
+                    else
+                    {
+                        if (!string.IsNullOrEmpty(item.PreviewUrl))
+                        {
+                            try
+                            {
+                                await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", item.PreviewUrl);
+                            }
+                            catch {}
+                        }
+                        _pendingAttachments.Remove(item);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failedUploads.Add($"\"{item.FileName}\" ({ex.Message})");
+                }
+            }
+
+            if (failedUploads.Any())
+            {
+                _error = $"The request was updated, but some attachments failed to upload: {string.Join(", ", failedUploads)}.";
+                // Force a state change so the page stays on edit with the remaining files in the list
+                StateHasChanged();
+                return;
+            }
 
             if (submit)
             {
