@@ -4,6 +4,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Domain.Enums
+@using System.IO
 
 @inject IJSRuntime JS
 @inject ICurrentUser CurrentUser
@@ -11,13 +12,7 @@
 
 <div class="attachment-list">
 
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="alert alert-danger py-2 small mb-2">@_error</div>
-    }
-
     @{
-        // Filter existing and pending attachments based on the category (General / WithdrawMethod)
         var visibleExisting = Category.HasValue
             ? Attachments.Where(a => a.Category == Category.Value && !PendingDeletions.Contains(a.Id)).ToList()
             : Attachments.Where(a => !PendingDeletions.Contains(a.Id)).ToList();
@@ -26,7 +21,6 @@
             ? PendingAttachments.Where(a => a.Category == Category.Value).ToList()
             : PendingAttachments.ToList();
 
-        // Construct Dto list for the gallery
         var pendingDtos = visiblePending.Select(p => new AttachmentDto(
             Id: p.Id,
             FileName: p.FileName,
@@ -39,60 +33,78 @@
 
         var allVisible = visibleExisting.Concat(pendingDtos).ToList();
 
-        // Create dictionary of preview URLs for the gallery (Guid -> blob Url)
         var previewUrls = visiblePending
             .Where(p => !string.IsNullOrEmpty(p.PreviewUrl))
             .ToDictionary(p => p.Id, p => p.PreviewUrl!);
     }
 
-    @if (allVisible.Count == 0)
-    {
-        <div class="text-muted small mb-2"><em>No attachments yet.</em></div>
-    }
-    else
-    {
-        <div class="my-2">
+    <div class="d-flex align-items-center flex-wrap gap-3">
+        @if (allVisible.Count > 0)
+        {
             <AttachmentStackGallery Attachments="allVisible"
                                     PreviewUrls="previewUrls"
                                     AllowDelete="Editable"
                                     OnDelete="OnRemoveClick"
-                                    CardWidth="90px"
-                                    CardHeight="70px"
+                                    CardWidth="60px"
+                                    CardHeight="45px"
                                     Disabled="_busy" />
-        </div>
-    }
-
-    @* ── Uploader ──────────────────────────────────────────────────────── *@
-    @if (Editable)
-    {
-        var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
-        @if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
-        {
-            <div class="text-muted small">
-                Maximum @AttachmentConstraints.MaxFilesPerRequest files reached.
-            </div>
         }
-        else
+        else if (!Editable)
         {
-            <div class="d-flex align-items-center gap-2">
+            <div class="text-muted small"><em>No attachments yet.</em></div>
+        }
+
+        @* ── Minimal Uploader ──────────────────────────────────────────────── *@
+        @if (Editable)
+        {
+            var currentCount = Attachments.Count - PendingDeletions.Count + PendingAttachments.Count;
+            <div style="display: @(currentCount < AttachmentConstraints.MaxFilesPerRequest ? "block" : "none");">
+                <label for="@_inputId" class="btn btn-outline btn-sm d-inline-flex align-items-center gap-2 mb-0 py-1 px-2 text-xs" style="cursor: pointer;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                    <span>Add attachments</span>
+                </label>
                 <InputFile id="@_inputId"
                            OnChange="OnFileSelected"
                            disabled="@_busy"
                            multiple
-                           class="input" />
+                           style="display: none;" />
             </div>
-            <div class="form-text small mt-1">
-                Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file.
-                PDF, images, Word, Excel, plain text and CSV.
-            </div>
+            @if (currentCount >= AttachmentConstraints.MaxFilesPerRequest)
+            {
+                <span class="text-muted small text-xs d-inline-flex align-items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span>Maximum @AttachmentConstraints.MaxFilesPerRequest attachments reached.</span>
+                </span>
+            }
         }
-    }
+    </div>
 
+    @* ── Minimal Status Indicators ───────────────────────────────────────── *@
     @if (PendingAttachments.Any(p => p.Uploading))
     {
-        <div class="text-sm text-muted mt-2 d-flex align-items-center gap-2">
-            <span class="spinner spinner-sm"></span>
-            <span>Uploading attachments to storage...</span>
+        <div class="text-xs text-muted mt-1 d-flex align-items-center gap-1">
+            <span class="spinner spinner-xs"></span>
+            <span>Uploading...</span>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="text-xs text-danger mt-1 d-flex align-items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>Upload error: @_error</span>
+            <button type="button"
+                    @onclick="ClearError"
+                    style="cursor: pointer; border: 1px solid #fecaca; font-size: 9px; padding: 1px 6px; border-radius: 4px; background: #fef2f2; color: #b91c1c; font-weight: 500; display: inline-flex; align-items: center; justify-content: center; height: 18px;"
+                    title="Clear error">
+                <Clear></Clear>
+            </button>
         </div>
     }
 </div>
@@ -109,6 +121,11 @@
     private readonly Guid _sessionId = Guid.NewGuid();
     private bool _busy;
     private string? _error;
+
+    private void ClearError()
+    {
+        _error = null;
+    }
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -127,7 +144,6 @@
 
         try
         {
-            // Call JavaScript to generate object URLs for the selected files
             var urls = await JS.InvokeAsync<List<string>>("attachmentPreview.createObjectUrls", _inputId);
 
             for (int i = 0; i < files.Count; i++)

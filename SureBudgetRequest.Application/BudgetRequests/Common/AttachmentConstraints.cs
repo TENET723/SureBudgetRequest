@@ -6,8 +6,8 @@ namespace SureBudgetRequest.Application.BudgetRequests.Common;
 /// </summary>
 public static class AttachmentConstraints
 {
-    /// <summary>Maximum size per file: 10 MB.</summary>
-    public const long MaxBytes = 10L * 1024 * 1024;
+    /// <summary>Maximum size per file: 30 MB.</summary>
+    public const long MaxBytes = 30L * 1024 * 1024;
 
     /// <summary>Maximum number of attachments allowed on a single request.</summary>
     /// <remarks>Also enforced as an invariant inside <c>BudgetRequest.AddAttachment</c>.</remarks>

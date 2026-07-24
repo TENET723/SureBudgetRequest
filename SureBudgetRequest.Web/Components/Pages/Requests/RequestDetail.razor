@@ -803,54 +803,17 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">
-                            Receipts <span class="text-muted fw-normal">(optional, multiple files allowed)</span>
+                            Receipts <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <InputFile id="payment-receipt-input"
-                                       OnChange="OnPaymentReceiptsSelected"
-                                       disabled="@(_uploadingReceipts || _pendingPaymentReceipts.Any(p => p.Uploading))"
-                                       multiple
-                                       class="input" />
-                            @if (_uploadingReceipts)
-                            {
-                                <span class="text-muted small">Uploading…</span>
-                            }
-                        </div>
-                        <div class="form-hint mb-3">
-                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file. PDF, images, Word, Excel, text, CSV.
-                        </div>
-
-                        @{
-                            var paymentReceiptDtos = _pendingPaymentReceipts.Select(p => new AttachmentDto(
-                                Id: p.Id,
-                                FileName: p.FileName,
-                                ContentType: p.ContentType,
-                                SizeBytes: p.SizeBytes,
-                                UploadedByUserId: CurrentUser.UserId,
-                                UploadedAt: DateTime.UtcNow,
-                                Category: p.Category
-                            )).ToList();
-                            var paymentPreviewUrls = _pendingPaymentReceipts
-                                .Where(p => !string.IsNullOrEmpty(p.PreviewUrl))
-                                .ToDictionary(p => p.Id, p => p.PreviewUrl!);
-                        }
-                        @if (_pendingPaymentReceipts.Count > 0)
-                        {
-                            <div class="mt-2 mb-3">
-                                <AttachmentStackGallery Attachments="paymentReceiptDtos"
-                                                       PreviewUrls="paymentPreviewUrls"
-                                                       AllowDelete="true"
-                                                       OnDelete="RemovePaymentReceipt"
-                                                       CardWidth="90px"
-                                                       CardHeight="70px"
-                                                       Disabled="@_actioning" />
-                            </div>
-                        }
+                        <AttachmentList Attachments="_emptyPaymentAttachments"
+                                        PendingAttachments="_pendingPaymentReceipts"
+                                        Editable="true"
+                                        Category="AttachmentCategory.PaymentReceipt" />
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="CancelPaymentModal" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@(_actioning || _uploadingReceipts || _pendingPaymentReceipts.Any(p => p.Uploading))">Record Payment</button>
+                    <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@(_actioning || _pendingPaymentReceipts.Any(p => p.Uploading))">Record Payment</button>
                 </div>
             </div>
         </div>
@@ -915,56 +878,18 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">
-                            Receipts <span class="text-muted fw-normal">(optional, multiple files allowed)</span>
+                            Receipts <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <InputFile id="usage-receipt-input"
-                                       OnChange="OnUsageReceiptsSelected"
-                                       disabled="@(_usageBusy || _uploadingUsageReceipts || _newUsageReceipts.Any(p => p.Uploading))"
-                                       multiple
-                                       class="input" />
-                            @if (_uploadingUsageReceipts)
-                            {
-                                <span class="text-muted small">Uploading…</span>
-                            }
-                        </div>
-                        <div class="form-hint mb-3">
-                            Max @(AttachmentConstraints.MaxBytes / (1024 * 1024)) MB per file. PDF, images, Word, Excel, text, CSV.
-                        </div>
-
-                        @{
-                            var visibleExistingUsage = _pendingUsageReceipts.Where(a => !_deletedUsageReceiptIds.Contains(a.Id)).ToList();
-                            var stagedUsageDtos = _newUsageReceipts.Select(p => new AttachmentDto(
-                                Id: p.Id,
-                                FileName: p.FileName,
-                                ContentType: p.ContentType,
-                                SizeBytes: p.SizeBytes,
-                                UploadedByUserId: CurrentUser.UserId,
-                                UploadedAt: DateTime.UtcNow,
-                                Category: p.Category
-                            )).ToList();
-                            var usagePreviewUrls = _newUsageReceipts
-                                .Where(p => !string.IsNullOrEmpty(p.PreviewUrl))
-                                .ToDictionary(p => p.Id, p => p.PreviewUrl!);
-                            var allUsageVisible = visibleExistingUsage.Concat(stagedUsageDtos).ToList();
-                        }
-                        @if (allUsageVisible.Count > 0)
-                        {
-                            <div class="mt-2 mb-3">
-                                <AttachmentStackGallery Attachments="allUsageVisible"
-                                                       PreviewUrls="usagePreviewUrls"
-                                                       AllowDelete="true"
-                                                       OnDelete="RemoveUsageReceipt"
-                                                       CardWidth="90px"
-                                                       CardHeight="70px"
-                                                       Disabled="@(_usageBusy || _uploadingUsageReceipts)" />
-                            </div>
-                        }
+                        <AttachmentList Attachments="_pendingUsageReceipts"
+                                        PendingAttachments="_newUsageReceipts"
+                                        PendingDeletions="_deletedUsageReceiptIds"
+                                        Editable="true"
+                                        Category="AttachmentCategory.UsageReceipt" />
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@(_usageBusy || _uploadingUsageReceipts)">Cancel</button>
-                    <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@(_usageBusy || _uploadingUsageReceipts || _newUsageReceipts.Any(p => p.Uploading))">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseUsageModal" disabled="@_usageBusy">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="DoSaveUsage" disabled="@(_usageBusy || _newUsageReceipts.Any(p => p.Uploading))">
                         @if (_usageBusy) { <span class="spinner spinner-sm mr-1"></span> }
                         Save
                     </button>
@@ -1971,7 +1896,7 @@ else
     private string? _paymentNote;
     private Guid _paymentSessionId;
     private List<AttachmentList.PendingAttachment> _pendingPaymentReceipts = new();
-    private bool _uploadingReceipts;
+    private List<AttachmentDto> _emptyPaymentAttachments = new();
     private string? _paymentError;
     // Source bank account picker for the payment modal. Empty = none (cash).
     private List<BankAccountDto> _bankAccounts = new();
@@ -1997,7 +1922,6 @@ else
     private List<AttachmentList.PendingAttachment> _newUsageReceipts = new();
     private HashSet<Guid> _deletedUsageReceiptIds = new();
     private List<Guid> _initialUsageAttachmentIds = new();
-    private bool _uploadingUsageReceipts;
     private string? _usageError;
     private bool _usageBusy;
 
@@ -2285,7 +2209,7 @@ else
 
     private async Task DoRecordPayment()
     {
-        if (_actioning || _uploadingReceipts || _pendingPaymentReceipts.Any(p => p.Uploading)) return;
+        if (_actioning || _pendingPaymentReceipts.Any(p => p.Uploading)) return;
         Busy.Begin();
         try { await DoRecordPaymentCore(); }
         finally { Busy.End(); }
@@ -2301,7 +2225,7 @@ else
             return;
         }
 
-        if (_actioning || _uploadingReceipts || _pendingPaymentReceipts.Any(p => p.Uploading)) return;
+        if (_actioning || _pendingPaymentReceipts.Any(p => p.Uploading)) return;
         _actioning = true;
         try
         {
@@ -2368,115 +2292,10 @@ else
         }
     }
 
-    private async Task OnPaymentReceiptsSelected(InputFileChangeEventArgs e)
-    {
-        _paymentError = null;
-        var files = e.GetMultipleFiles(10).ToList();
-        if (!files.Any()) return;
-
-        _uploadingReceipts = true;
-        StateHasChanged();
-
-        try
-        {
-            var urls = await JS.InvokeAsync<List<string>>("attachmentPreview.createObjectUrls", "payment-receipt-input");
-
-            for (int i = 0; i < files.Count; i++)
-            {
-                var file = files[i];
-
-                if (_pendingPaymentReceipts.Count >= 10)
-                {
-                    _paymentError = "Maximum 10 files reached.";
-                    break;
-                }
-
-                if (file.Size > AttachmentConstraints.MaxBytes)
-                {
-                    _paymentError = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
-                    continue;
-                }
-
-                if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
-                {
-                    _paymentError = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
-                    continue;
-                }
-
-                var url = (urls != null && i < urls.Count) ? urls[i] : null;
-
-                var pending = new AttachmentList.PendingAttachment
-                {
-                    FileName = file.Name,
-                    ContentType = file.ContentType,
-                    SizeBytes = file.Size,
-                    PreviewUrl = url,
-                    Category = AttachmentCategory.PaymentReceipt,
-                    Uploading = true
-                };
-
-                _pendingPaymentReceipts.Add(pending);
-                StateHasChanged();
-
-                // Start background upload
-                _ = UploadPaymentFileAsync(file, pending);
-            }
-        }
-        catch (Exception ex)
-        {
-            _paymentError = $"Upload failed: {ex.Message}";
-        }
-        finally
-        {
-            _uploadingReceipts = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task UploadPaymentFileAsync(IBrowserFile file, AttachmentList.PendingAttachment pending)
-    {
-        try
-        {
-            await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
-            var path = await FileStorage.SaveAsync($"temp/{_paymentSessionId}", file.Name, stream);
-            pending.StoredPath = path;
-            pending.Uploading = false;
-        }
-        catch (Exception ex)
-        {
-            pending.Uploading = false;
-            pending.Error = ex.Message;
-            _paymentError = $"Failed to upload \"{pending.FileName}\": {ex.Message}";
-        }
-        finally
-        {
-            StateHasChanged();
-        }
-    }
-
-    private async Task RemovePaymentReceipt(Guid id)
-    {
-        _paymentError = null;
-        var pending = _pendingPaymentReceipts.FirstOrDefault(p => p.Id == id);
-        if (pending != null)
-        {
-            if (!string.IsNullOrEmpty(pending.PreviewUrl))
-            {
-                try { await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", pending.PreviewUrl); } catch {}
-            }
-            if (!string.IsNullOrEmpty(pending.StoredPath))
-            {
-                try { await FileStorage.DeleteAsync(pending.StoredPath); } catch {}
-            }
-            _pendingPaymentReceipts.Remove(pending);
-        }
-    }
-
     private async Task CancelPaymentModal()
     {
         if (_pendingPaymentReceipts.Any())
         {
-            _uploadingReceipts = true;
             foreach (var item in _pendingPaymentReceipts.ToList())
             {
                 if (!string.IsNullOrEmpty(item.PreviewUrl))
@@ -2489,7 +2308,6 @@ else
                 }
             }
             _pendingPaymentReceipts.Clear();
-            _uploadingReceipts = false;
         }
         _showPaymentModal = false;
     }
@@ -2567,7 +2385,6 @@ else
     {
         if (_newUsageReceipts.Any())
         {
-            _uploadingUsageReceipts = true;
             foreach (var item in _newUsageReceipts.ToList())
             {
                 if (!string.IsNullOrEmpty(item.PreviewUrl))
@@ -2580,126 +2397,12 @@ else
                 }
             }
             _newUsageReceipts.Clear();
-            _uploadingUsageReceipts = false;
         }
 
         _pendingUsageReceipts.Clear();
         _initialUsageAttachmentIds.Clear();
         _deletedUsageReceiptIds.Clear();
         _showUsageModal = false;
-    }
-
-    private async Task OnUsageReceiptsSelected(InputFileChangeEventArgs e)
-    {
-        _usageError = null;
-        var files = e.GetMultipleFiles(10).ToList();
-        if (!files.Any()) return;
-
-        _uploadingUsageReceipts = true;
-        StateHasChanged();
-
-        try
-        {
-            var urls = await JS.InvokeAsync<List<string>>("attachmentPreview.createObjectUrls", "usage-receipt-input");
-
-            for (int i = 0; i < files.Count; i++)
-            {
-                var file = files[i];
-
-                var totalCount = _pendingUsageReceipts.Count - _deletedUsageReceiptIds.Count + _newUsageReceipts.Count;
-                if (totalCount >= 10)
-                {
-                    _usageError = "Maximum 10 files reached.";
-                    break;
-                }
-
-                if (file.Size > AttachmentConstraints.MaxBytes)
-                {
-                    _usageError = $"\"{file.Name}\" is larger than {AttachmentConstraints.MaxBytes / (1024 * 1024)} MB.";
-                    continue;
-                }
-
-                if (!AttachmentConstraints.IsAllowedContentType(file.ContentType))
-                {
-                    _usageError = $"\"{file.Name}\" has an unsupported file type ({file.ContentType}).";
-                    continue;
-                }
-
-                var url = (urls != null && i < urls.Count) ? urls[i] : null;
-
-                var pending = new AttachmentList.PendingAttachment
-                {
-                    FileName = file.Name,
-                    ContentType = file.ContentType,
-                    SizeBytes = file.Size,
-                    PreviewUrl = url,
-                    Category = AttachmentCategory.UsageReceipt,
-                    Uploading = true
-                };
-
-                _newUsageReceipts.Add(pending);
-                StateHasChanged();
-
-                // Fire-and-forget background upload
-                _ = UploadUsageFileAsync(file, pending);
-            }
-        }
-        catch (Exception ex)
-        {
-            _usageError = $"Upload failed: {ex.Message}";
-        }
-        finally
-        {
-            _uploadingUsageReceipts = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task UploadUsageFileAsync(IBrowserFile file, AttachmentList.PendingAttachment pending)
-    {
-        try
-        {
-            await using var stream = file.OpenReadStream(AttachmentConstraints.MaxBytes);
-            var path = await FileStorage.SaveAsync($"temp/{_usageSessionId}", file.Name, stream);
-            pending.StoredPath = path;
-            pending.Uploading = false;
-        }
-        catch (Exception ex)
-        {
-            pending.Uploading = false;
-            pending.Error = ex.Message;
-            _usageError = $"Failed to upload \"{pending.FileName}\": {ex.Message}";
-        }
-        finally
-        {
-            StateHasChanged();
-        }
-    }
-
-    private async Task RemoveUsageReceipt(Guid id)
-    {
-        _usageError = null;
-
-        var pending = _newUsageReceipts.FirstOrDefault(p => p.Id == id);
-        if (pending != null)
-        {
-            if (!string.IsNullOrEmpty(pending.PreviewUrl))
-            {
-                try { await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", pending.PreviewUrl); } catch {}
-            }
-            if (!string.IsNullOrEmpty(pending.StoredPath))
-            {
-                try { await FileStorage.DeleteAsync(pending.StoredPath); } catch {}
-            }
-            _newUsageReceipts.Remove(pending);
-            return;
-        }
-
-        var existing = _pendingUsageReceipts.FirstOrDefault(a => a.Id == id);
-        if (existing != null)
-        {
-            _deletedUsageReceiptIds.Add(id);
-        }
     }
 
     private async Task DoSaveUsage()
@@ -2710,7 +2413,7 @@ else
         if (_usageAmount <= 0) { _usageError = "Amount must be greater than zero."; return; }
         if (string.IsNullOrWhiteSpace(_usageDescription)) { _usageError = "Description is required."; return; }
 
-        if (_usageBusy || _uploadingUsageReceipts || _newUsageReceipts.Any(p => p.Uploading)) return;
+        if (_usageBusy || _newUsageReceipts.Any(p => p.Uploading)) return;
         _usageBusy = true;
         try
         {
