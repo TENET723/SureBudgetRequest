@@ -385,8 +385,8 @@ else
                                 <thead>
                                     <tr>
                                         <th class="col-no">No</th>
-                                        <th>Date</th>
-                                        <th>Time</th>
+                                        <th>Paid At</th>
+                                        <th>Recorded At</th>
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Source Account</th>
                                         <th>Reference</th>
@@ -402,8 +402,8 @@ else
                                         var paidLocal = p.PaidAt.ToMyanmarDateTime();
                                         <tr>
                                             <td class="col-no">@payNo</td>
-                                            <td class="nowrap">@paidLocal.ToString("d/M/yyyy")</td>
-                                            <td class="nowrap text-muted-cell">@paidLocal.ToString("h:mm tt")</td>
+                                            <td class="nowrap">@paidLocal.ToString("d/M/yyyy h:mm tt")</td>
+                                            <td class="nowrap text-muted-cell">@p.RecordedAt.ToMyanmarTime("d/M/yyyy h:mm tt")</td>
                                             <td class="text-end font-semibold tabular">@p.Amount.ToString("N2")</td>
                                             <td>
                                                 @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
@@ -778,6 +778,12 @@ else
                                 </div>
                             }
                         }
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Payment Date & Time</label>
+                        <input class="input" type="datetime-local" @bind="_paymentDate" />
+                        <div class="form-hint">The actual date and time this transaction occurred.</div>
                     </div>
 
                     <div class="mb-4">
@@ -1892,6 +1898,7 @@ else
     private string _sendBackComment = "";
     private bool _showPaymentModal;
     private decimal _paymentAmount;
+    private DateTime _paymentDate = DateTime.UtcNow.ToMyanmarDateTime();
     private string? _paymentRef;
     private string? _paymentNote;
     private Guid _paymentSessionId;
@@ -2193,6 +2200,7 @@ else
     private async Task OpenPaymentModal()
     {
         _paymentAmount = _request?.RemainingBalance ?? 0m;
+        _paymentDate = DateTime.UtcNow.ToMyanmarDateTime();
         _paymentRef = null;
         _paymentNote = null;
         _pendingPaymentReceipts.Clear();
@@ -2261,10 +2269,15 @@ else
 
             Guid? sourceBankAccountId = Guid.TryParse(_selectedBankAccountId, out var baId) ? baId : null;
 
+            var utcPaidAt = DateTime.SpecifyKind(
+                _paymentDate.Subtract(DateTimeExtensions.MyanmarOffset),
+                DateTimeKind.Utc);
+
             var result = await Mediator.Send(new RecordPaymentCommand(
                 Id,
                 CurrentUser.UserId,
                 _paymentAmount,
+                utcPaidAt,
                 _paymentRef,
                 _paymentNote,
                 attachmentIds.Any() ? attachmentIds : null,
@@ -2279,6 +2292,7 @@ else
 
             _showPaymentModal = false;
             _paymentAmount = 0;
+            _paymentDate = DateTime.UtcNow.ToMyanmarDateTime();
             _paymentRef = null;
             _paymentNote = null;
             _pendingPaymentReceipts.Clear();
@@ -2313,6 +2327,7 @@ else
             }
             _pendingPaymentReceipts.Clear();
         }
+        _paymentDate = DateTime.UtcNow.ToMyanmarDateTime();
         _showPaymentModal = false;
     }
 

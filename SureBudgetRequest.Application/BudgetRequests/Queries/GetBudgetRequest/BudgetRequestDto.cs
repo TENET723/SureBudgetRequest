@@ -181,6 +181,7 @@ public sealed record PaymentDto(
     Guid Id,
     decimal Amount,
     DateTime PaidAt,
+    DateTime RecordedAt,
     Guid RecordedByUserId,
     string? Reference,
     string? Note,
@@ -192,7 +193,7 @@ public sealed record PaymentDto(
     string? SourceAccountHolderName)
 {
     public static PaymentDto FromEntity(Payment e, IReadOnlyList<Guid>? attachmentIds = null) => new(
-        e.Id, e.Amount, e.PaidAt, e.RecordedByUserId, e.Reference, e.Note, attachmentIds ?? Array.Empty<Guid>(),
+        e.Id, e.Amount, e.PaidAt, e.RecordedAt, e.RecordedByUserId, e.Reference, e.Note, attachmentIds ?? Array.Empty<Guid>(),
         e.SourceBankAccountId, e.SourceBankName, e.SourceAccountNumber, e.SourceAccountHolderName);
 }
 

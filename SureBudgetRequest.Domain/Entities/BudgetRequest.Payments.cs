@@ -7,6 +7,7 @@ public partial class BudgetRequest
 {
     public Result RecordPayment(
         decimal amount,
+        DateTime paidAt,
         Guid financeUserId,
         string? reference,
         string? note,
@@ -38,7 +39,7 @@ public partial class BudgetRequest
         }
 
         var payment = new Payment(
-            Id, amount, financeUserId, reference, note,
+            Id, amount, paidAt, financeUserId, reference, note,
             sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName);
 
         _payments.Add(payment);

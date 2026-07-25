@@ -15,6 +15,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.BudgetRequestId).IsRequired();
         builder.Property(p => p.Amount).IsRequired().HasColumnType("numeric(18,2)");
         builder.Property(p => p.PaidAt).IsRequired();
+        builder.Property(p => p.RecordedAt).IsRequired();
         builder.Property(p => p.RecordedByUserId).IsRequired();
         builder.Property(p => p.Reference).HasMaxLength(200);
         builder.Property(p => p.Note).HasMaxLength(1000);

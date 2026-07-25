@@ -12,6 +12,7 @@ public sealed record RecordPaymentCommand(
     Guid BudgetRequestId,
     Guid FinanceUserId,
     decimal Amount,
+    DateTime PaidAt,
     string? Reference,
     string? Note,
     IReadOnlyList<Guid>? AttachmentIds = null,
@@ -77,6 +78,7 @@ public sealed class RecordPaymentCommandHandler
         var previousStatus = budgetRequest.Status;
         var result = budgetRequest.RecordPayment(
             command.Amount,
+            DateTime.SpecifyKind(command.PaidAt, DateTimeKind.Utc),
             command.FinanceUserId,
             command.Reference,
             command.Note,
