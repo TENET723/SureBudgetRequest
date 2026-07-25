@@ -17,7 +17,8 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.RecordRefund;
 public sealed record RecordRefundCommand(
     Guid BudgetRequestId,
     Guid FinanceUserId,
-    decimal Amount) : IRequest<Result>;
+    decimal Amount,
+    DateTime ReceivedAt) : IRequest<Result>;
 
 public sealed class RecordRefundCommandHandler
     : IRequestHandler<RecordRefundCommand, Result>
@@ -54,7 +55,8 @@ public sealed class RecordRefundCommandHandler
 
         var result = budgetRequest.RecordRefund(
             command.Amount,
-            command.FinanceUserId);
+            command.FinanceUserId,
+            DateTime.SpecifyKind(command.ReceivedAt, DateTimeKind.Utc));
 
         if (result.IsFailure) return result;
 

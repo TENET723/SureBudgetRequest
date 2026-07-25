@@ -386,7 +386,6 @@ else
                                     <tr>
                                         <th class="col-no">No</th>
                                         <th>Paid At</th>
-                                        <th>Recorded At</th>
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Source Account</th>
                                         <th>Reference</th>
@@ -403,7 +402,6 @@ else
                                         <tr>
                                             <td class="col-no">@payNo</td>
                                             <td class="nowrap">@paidLocal.ToString("d/M/yyyy h:mm tt")</td>
-                                            <td class="nowrap text-muted-cell">@p.RecordedAt.ToMyanmarTime("d/M/yyyy h:mm tt")</td>
                                             <td class="text-end font-semibold tabular">@p.Amount.ToString("N2")</td>
                                             <td>
                                                 @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
@@ -513,14 +511,14 @@ else
                             {
                                 <span>
                                     Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
-                                    received on @_request.RefundReceivedAt.ToMyanmarTime().
+                                    received on @_request.RefundReceivedAt.ToMyanmarTime() (recorded on @(_request.FinalizedAt?.ToMyanmarTime() ?? "—")).
                                 </span>
                             }
                             @if (_request.ReimbursementPaidAt.HasValue)
                             {
                                 <span>
                                     Reimbursement of @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode
-                                    paid on @_request.ReimbursementPaidAt.ToMyanmarTime().
+                                    paid on @_request.ReimbursementPaidAt.ToMyanmarTime() (recorded on @(_request.FinalizedAt?.ToMyanmarTime() ?? "—")).
                                 </span>
                             }
                         </div>
@@ -533,7 +531,7 @@ else
                                 <thead>
                                     <tr>
                                         <th class="col-no">No</th>
-                                        <th>Date</th>
+                                        <th>Spent At</th>
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Description</th>
                                         <th>Receipt</th>
@@ -547,7 +545,7 @@ else
                                         usageNo++;
                                         <tr>
                                             <td class="col-no">@usageNo</td>
-                                            <td class="nowrap">@u.SpentOn.ToString("dd MMM yyyy")</td>
+                                            <td class="nowrap">@u.SpentOn.ToMyanmarDateTime().ToString("d/M/yyyy h:mm tt")</td>
                                             <td class="text-end font-semibold tabular">@u.Amount.ToString("N2")</td>
                                             <td>@u.Description</td>
                                             <td>
@@ -862,8 +860,9 @@ else
                         <div class="alert alert-error">@_usageError</div>
                     }
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">Spent On</label>
-                        <input class="input" type="date" @bind="_usageSpentOn" />
+                        <label class="form-label text-sm font-semibold">Spent At</label>
+                        <input class="input" type="datetime-local" @bind="_usageSpentOn" />
+                        <div class="form-hint">The actual date and time the expense occurred.</div>
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
@@ -968,6 +967,10 @@ else
                             @_request.RefundAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
                     </div>
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Paid At</label>
+                        <input class="input" type="datetime-local" @bind="_refundDate" />
+                    </div>
 
                 </div>
                 <div class="modal-footer">
@@ -1001,6 +1004,10 @@ else
                             Must match the outstanding reimbursement of
                             @_request.ReimbursementAmount.ToString("N2") @_request.CurrencyCode exactly.
                         </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold">Paid At</label>
+                        <input class="input" type="datetime-local" @bind="_reimbursementDate" />
                     </div>
 
                 </div>
@@ -1921,7 +1928,7 @@ else
     // Advance reconciliation — add/edit usage modal
     private bool _showUsageModal;
     private Guid? _editingUsageId;                 // null = adding a new row
-    private DateTime _usageSpentOn = DateTimeExtensions.MyanmarToday;
+    private DateTime _usageSpentOn = DateTime.UtcNow.ToMyanmarDateTime();
     private decimal _usageAmount;
     private string _usageDescription = "";
     private Guid _usageSessionId;
@@ -1936,9 +1943,11 @@ else
     private bool _showSubmitReconModal;
     private bool _showRefundModal;
     private decimal _refundAmount;
+    private DateTime _refundDate = DateTime.UtcNow.ToMyanmarDateTime();
     private string? _refundError;
     private bool _showReimbursementModal;
     private decimal _reimbursementAmount;
+    private DateTime _reimbursementDate = DateTime.UtcNow.ToMyanmarDateTime();
     private string? _reimbursementError;
     private bool _showExtendModal;
     private DateTime _newDeadline = DateTimeExtensions.MyanmarToday;
@@ -2366,7 +2375,7 @@ else
     private void OpenAddUsageModal()
     {
         _editingUsageId = null;
-        _usageSpentOn = DateTimeExtensions.MyanmarToday;
+        _usageSpentOn = DateTime.UtcNow.ToMyanmarDateTime();
         _usageAmount = 0m;
         _usageDescription = "";
         _pendingUsageReceipts.Clear();
@@ -2381,7 +2390,7 @@ else
     private void OpenEditUsageModal(AdvanceUsageDto u)
     {
         _editingUsageId = u.Id;
-        _usageSpentOn = u.SpentOn;
+        _usageSpentOn = u.SpentOn.ToMyanmarDateTime();
         _usageAmount = u.Amount;
         _usageDescription = u.Description;
         _pendingUsageReceipts.Clear();
@@ -2421,6 +2430,7 @@ else
         _pendingUsageReceipts.Clear();
         _initialUsageAttachmentIds.Clear();
         _deletedUsageReceiptIds.Clear();
+        _usageSpentOn = DateTime.UtcNow.ToMyanmarDateTime();
         _showUsageModal = false;
     }
 
@@ -2486,18 +2496,22 @@ else
 
             var attachmentIds = remainingExistingIds.Concat(newAttachmentIds).ToList();
 
+            var utcSpentOn = DateTime.SpecifyKind(
+                _usageSpentOn.Subtract(DateTimeExtensions.MyanmarOffset),
+                DateTimeKind.Utc);
+
             if (_editingUsageId.HasValue)
             {
                 var res = await Mediator.Send(new UpdateAdvanceUsageCommand(
                     _request.Id, _editingUsageId.Value, CurrentUser.UserId,
-                    _usageSpentOn, _usageAmount, _usageDescription, attachmentIds));
+                    utcSpentOn, _usageAmount, _usageDescription, attachmentIds));
                 if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
             else
             {
                 var res = await Mediator.Send(new AddAdvanceUsageCommand(
                     _request.Id, CurrentUser.UserId,
-                    _usageSpentOn, _usageAmount, _usageDescription, attachmentIds));
+                    utcSpentOn, _usageAmount, _usageDescription, attachmentIds));
                 if (res.IsFailure) { _usageError = res.Error.Message; return; }
             }
 
@@ -2561,6 +2575,7 @@ else
     {
         _refundError = null;
         _refundAmount = _request?.RefundAmount ?? 0m;
+        _refundDate = DateTime.UtcNow.ToMyanmarDateTime();
         _showRefundModal = true;
     }
 
@@ -2569,7 +2584,10 @@ else
         _refundError = null;
         if (_actioning) return;
         _actioning = true;
-        var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount));
+        var utcRefundDate = DateTime.SpecifyKind(
+            _refundDate.Subtract(DateTimeExtensions.MyanmarOffset),
+            DateTimeKind.Utc);
+        var res = await Mediator.Send(new RecordRefundCommand(Id, CurrentUser.UserId, _refundAmount, utcRefundDate));
         _actioning = false;
         if (res.IsFailure) { _refundError = res.Error.Message; return; }
         _showRefundModal = false;
@@ -2581,6 +2599,7 @@ else
     {
         _reimbursementError = null;
         _reimbursementAmount = _request?.ReimbursementAmount ?? 0m;
+        _reimbursementDate = DateTime.UtcNow.ToMyanmarDateTime();
         _showReimbursementModal = true;
     }
 
@@ -2589,7 +2608,10 @@ else
         _reimbursementError = null;
         if (_actioning) return;
         _actioning = true;
-        var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount));
+        var utcReimbursementDate = DateTime.SpecifyKind(
+            _reimbursementDate.Subtract(DateTimeExtensions.MyanmarOffset),
+            DateTimeKind.Utc);
+        var res = await Mediator.Send(new RecordReimbursementCommand(Id, CurrentUser.UserId, _reimbursementAmount, utcReimbursementDate));
         _actioning = false;
         if (res.IsFailure) { _reimbursementError = res.Error.Message; return; }
         _showReimbursementModal = false;
