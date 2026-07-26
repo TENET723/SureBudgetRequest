@@ -1,6 +1,8 @@
 using MediatR;
+using Microsoft.Extensions.Logging;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
@@ -36,6 +38,8 @@ public sealed class UpdateBudgetRequestCommandHandler
     private readonly IBudgetCategoryRepository _budgetCategoryRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IFileStorage _fileStorage;
+    private readonly ILogger<UpdateBudgetRequestCommandHandler> _logger;
 
     public UpdateBudgetRequestCommandHandler(
         IBudgetRequestRepository repository,
@@ -43,7 +47,9 @@ public sealed class UpdateBudgetRequestCommandHandler
         IWithdrawMethodRepository withdrawMethodRepository,
         IBudgetCategoryRepository budgetCategoryRepository,
         IBudgetRequestModificationRepository modificationRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IFileStorage fileStorage,
+        ILogger<UpdateBudgetRequestCommandHandler> logger)
     {
         _repository = repository;
         _currencyRepository = currencyRepository;
@@ -51,6 +57,8 @@ public sealed class UpdateBudgetRequestCommandHandler
         _budgetCategoryRepository = budgetCategoryRepository;
         _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
+        _fileStorage = fileStorage;
+        _logger = logger;
     }
 
     public async Task<Result> Handle(
@@ -127,12 +135,34 @@ public sealed class UpdateBudgetRequestCommandHandler
 
         if (result.IsFailure) return result;
 
+        IReadOnlyList<string> attachmentsToDelete = Array.Empty<string>();
+        if (!withdrawMethod.RequiresAttachment)
+        {
+            attachmentsToDelete = request.ClearWithdrawMethodAttachments();
+        }
+
         // Record the modification in the audit trail.
         await _modificationRepository.AddAsync(
             new BudgetRequestModification(request.Id, command.ActorId, command.Note),
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Best-effort physical file deletion.
+        foreach (var storedPath in attachmentsToDelete)
+        {
+            try
+            {
+                await _fileStorage.DeleteAsync(storedPath, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Cleared unneeded withdraw-method attachment from request {RequestId}, but failed to delete stored file at {StoredPath}.",
+                    request.Id, storedPath);
+            }
+        }
+
         return Result.Success();
     }
 }

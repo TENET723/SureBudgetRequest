@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject SureBudgetRequest.Application.Abstractions.Services.IFileStorage FileStorage
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetMonthlySpend
@@ -684,6 +685,23 @@
         _submitting = submit;
         try
         {
+            // Clear staged banking attachments if not required
+            if (!SelectedMethodRequiresAttachment)
+            {
+                var stagedBank = _pendingAttachments
+                    .Where(a => a.Category == AttachmentCategory.WithdrawMethod)
+                    .ToList();
+
+                foreach (var item in stagedBank)
+                {
+                    if (!string.IsNullOrEmpty(item.StoredPath))
+                    {
+                        try { await FileStorage.DeleteAsync(item.StoredPath); } catch {}
+                    }
+                    _pendingAttachments.Remove(item);
+                }
+            }
+
             decimal? manualRate = (_selectedRate != _systemRate) 
                 ? _selectedRate 
                 : null;

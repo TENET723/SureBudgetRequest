@@ -3,6 +3,7 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject SureBudgetRequest.Application.Abstractions.Services.IFileStorage FileStorage
 
 @using System.IO
 @using Microsoft.AspNetCore.Components.Forms
@@ -652,6 +653,23 @@
         _submitting = submit;
         try
         {
+            // Clear staged banking attachments if not required
+            if (!SelectedMethodRequiresAttachment)
+            {
+                var stagedBank = _pendingAttachments
+                    .Where(a => a.Category == AttachmentCategory.WithdrawMethod)
+                    .ToList();
+
+                foreach (var item in stagedBank)
+                {
+                    if (!string.IsNullOrEmpty(item.StoredPath))
+                    {
+                        try { await FileStorage.DeleteAsync(item.StoredPath); } catch {}
+                    }
+                    _pendingAttachments.Remove(item);
+                }
+            }
+
             decimal? manualRate = (_selectedRate != _systemRate) 
                 ? _selectedRate 
                 : null;

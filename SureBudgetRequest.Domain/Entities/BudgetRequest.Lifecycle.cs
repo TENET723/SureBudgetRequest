@@ -383,6 +383,22 @@ public partial class BudgetRequest
         return $"{typeCode}-{datePart}-{sequenceNumber}";
     }
 
+    /// <summary>
+    /// Removes all attachments of category <see cref="AttachmentCategory.WithdrawMethod"/>
+    /// and returns their stored paths so the caller can delete the files from physical storage.
+    /// </summary>
+    public IReadOnlyList<string> ClearWithdrawMethodAttachments()
+    {
+        var toRemove = _attachments.Where(a => a.Category == AttachmentCategory.WithdrawMethod).ToList();
+        var paths = new List<string>();
+        foreach (var attachment in toRemove)
+        {
+            paths.Add(attachment.StoredPath);
+            _attachments.Remove(attachment);
+        }
+        return paths;
+    }
+
     // Normalize whitespace-only strings to null so the "is justification present?"
     // check in Submit() doesn't have to repeat IsNullOrWhiteSpace.
     private static string? NormalizeJustification(string? value)
