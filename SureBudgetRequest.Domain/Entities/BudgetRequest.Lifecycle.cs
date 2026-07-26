@@ -50,6 +50,10 @@ public partial class BudgetRequest
         if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
             throw new ArgumentException("Manual exchange rate must be greater than zero.", nameof(manualExchangeRate));
 
+        var myanmarToday = DateTime.UtcNow.AddHours(6.5).Date;
+        if (requestDate.Date < myanmarToday)
+            throw new ArgumentException("Request date cannot be in the past.");
+
         return new BudgetRequest
         {
             //Id = Guid.NewGuid(),
@@ -112,6 +116,10 @@ public partial class BudgetRequest
 
         if (manualExchangeRate.HasValue && manualExchangeRate <= 0)
             return Result.Failure("Manual exchange rate must be greater than zero.");
+
+        var myanmarToday = DateTime.UtcNow.AddHours(6.5).Date;
+        if (requestDate.Date < myanmarToday)
+            return Result.Failure("Request date cannot be in the past.");
 
         RequestDate = requestDate;
         RequestedAmount = requestedAmount;

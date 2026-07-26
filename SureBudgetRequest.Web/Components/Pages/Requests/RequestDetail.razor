@@ -2248,8 +2248,14 @@ else
         {
             // 1. Move and save staged payment receipts
             var attachmentIds = new List<Guid>();
+            var newlyUploadedIds = new List<Guid>();
             foreach (var item in _pendingPaymentReceipts.ToList())
             {
+                if (item.UploadedAttachmentId.HasValue)
+                {
+                    attachmentIds.Add(item.UploadedAttachmentId.Value);
+                    continue;
+                }
                 if (string.IsNullOrEmpty(item.StoredPath)) continue;
 
                 var cmd = new UploadAttachmentCommand(
@@ -2266,14 +2272,22 @@ else
                 if (uploadResult.IsFailure)
                 {
                     _paymentError = $"Failed to save receipt \"{item.FileName}\": {uploadResult.Error.Message}";
-                    foreach (var uploadedId in attachmentIds)
+                    foreach (var uploadedId in newlyUploadedIds)
                     {
                         try { await Mediator.Send(new RemoveAttachmentCommand(Id, uploadedId, CurrentUser.UserId)); } catch {}
+                        var pItem = _pendingPaymentReceipts.FirstOrDefault(x => x.UploadedAttachmentId == uploadedId);
+                        if (pItem is not null)
+                        {
+                            pItem.UploadedAttachmentId = null;
+                        }
                     }
                     _actioning = false;
                     return;
                 }
+                item.UploadedAttachmentId = uploadResult.Value;
+                item.StoredPath = null;
                 attachmentIds.Add(uploadResult.Value);
+                newlyUploadedIds.Add(uploadResult.Value);
             }
 
             Guid? sourceBankAccountId = Guid.TryParse(_selectedBankAccountId, out var baId) ? baId : null;
@@ -2461,8 +2475,14 @@ else
 
             // 2. Move and save newly uploaded staged attachments
             var newAttachmentIds = new List<Guid>();
+            var newlyUploadedIds = new List<Guid>();
             foreach (var item in _newUsageReceipts.ToList())
             {
+                if (item.UploadedAttachmentId.HasValue)
+                {
+                    newAttachmentIds.Add(item.UploadedAttachmentId.Value);
+                    continue;
+                }
                 if (string.IsNullOrEmpty(item.StoredPath)) continue;
 
                 var cmd = new UploadAttachmentCommand(
@@ -2479,14 +2499,22 @@ else
                 if (uploadResult.IsFailure)
                 {
                     _usageError = $"Failed to save receipt \"{item.FileName}\": {uploadResult.Error.Message}";
-                    foreach (var uploadedId in newAttachmentIds)
+                    foreach (var uploadedId in newlyUploadedIds)
                     {
                         try { await Mediator.Send(new RemoveAttachmentCommand(Id, uploadedId, CurrentUser.UserId)); } catch {}
+                        var pItem = _newUsageReceipts.FirstOrDefault(x => x.UploadedAttachmentId == uploadedId);
+                        if (pItem is not null)
+                        {
+                            pItem.UploadedAttachmentId = null;
+                        }
                     }
                     _usageBusy = false;
                     return;
                 }
+                item.UploadedAttachmentId = uploadResult.Value;
+                item.StoredPath = null;
                 newAttachmentIds.Add(uploadResult.Value);
+                newlyUploadedIds.Add(uploadResult.Value);
             }
 
             var remainingExistingIds = _pendingUsageReceipts

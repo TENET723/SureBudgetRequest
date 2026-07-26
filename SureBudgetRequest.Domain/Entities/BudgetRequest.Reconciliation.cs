@@ -47,6 +47,18 @@ public partial class BudgetRequest
         if (string.IsNullOrWhiteSpace(description))
             return Result<Guid>.Failure("A description is required for each usage line item.");
 
+        var financeApproval = ApprovalActions
+            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+        if (financeApproval is not null && spentOn < financeApproval.ActionedAt)
+        {
+            return Result<Guid>.Failure("Expense date cannot be before the request's approval date.");
+        }
+
+        if (spentOn > DateTime.UtcNow.AddMinutes(5))
+        {
+            return Result<Guid>.Failure("Expense date cannot be in the future.");
+        }
+
         var usage = new AdvanceUsage(Id, spentOn, amount, description.Trim(), now, userId);
         _advanceUsages.Add(usage);
 
@@ -94,6 +106,18 @@ public partial class BudgetRequest
 
         if (string.IsNullOrWhiteSpace(description))
             return Result.Failure("A description is required for each usage line item.");
+
+        var financeApproval = ApprovalActions
+            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+        if (financeApproval is not null && spentOn < financeApproval.ActionedAt)
+        {
+            return Result.Failure("Expense date cannot be before the request's approval date.");
+        }
+
+        if (spentOn > DateTime.UtcNow.AddMinutes(5))
+        {
+            return Result.Failure("Expense date cannot be in the future.");
+        }
 
         usage.Update(spentOn, amount, description.Trim());
 
@@ -206,6 +230,16 @@ public partial class BudgetRequest
                 $"The refund amount must exactly match the outstanding refund of {RefundAmount}. " +
                 "Partial refunds are not supported.");
 
+        if (ReconciliationSubmittedAt.HasValue && receivedAt < ReconciliationSubmittedAt.Value)
+        {
+            return Result.Failure("Refund date cannot be before the reconciliation was submitted.");
+        }
+
+        if (receivedAt > DateTime.UtcNow.AddMinutes(5))
+        {
+            return Result.Failure("Refund date cannot be in the future.");
+        }
+
         RefundReceivedAt = receivedAt;
         RefundReceivedByUserId = receivedByUserId;
         Status = RequestStatus.Reconciled;
@@ -231,6 +265,16 @@ public partial class BudgetRequest
             return Result.Failure(
                 $"The reimbursement amount must exactly match the outstanding reimbursement of {ReimbursementAmount}. " +
                 "Partial reimbursements are not supported.");
+
+        if (ReconciliationSubmittedAt.HasValue && paidAt < ReconciliationSubmittedAt.Value)
+        {
+            return Result.Failure("Reimbursement date cannot be before the reconciliation was submitted.");
+        }
+
+        if (paidAt > DateTime.UtcNow.AddMinutes(5))
+        {
+            return Result.Failure("Reimbursement date cannot be in the future.");
+        }
 
         ReimbursementPaidAt = paidAt;
         ReimbursementPaidByUserId = paidByUserId;

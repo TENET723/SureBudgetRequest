@@ -23,6 +23,18 @@ public partial class BudgetRequest
         if (Status is not RequestStatus.Approved and not RequestStatus.PartiallyPaid)
             return Result.Failure($"Cannot record payments while status is '{Status}'.");
 
+        var financeApproval = ApprovalActions
+            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+        if (financeApproval is not null && paidAt < financeApproval.ActionedAt)
+        {
+            return Result.Failure("Payment date cannot be before the request's approval date.");
+        }
+
+        if (paidAt > DateTime.UtcNow.AddMinutes(5))
+        {
+            return Result.Failure("Payment date cannot be in the future.");
+        }
+
         if (!AllowsPartialPayment && amount != ApprovedAmount)
             return Result.Failure(
                 "This request does not allow partial payments. The full approved amount must be paid in one transaction.");
