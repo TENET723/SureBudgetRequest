@@ -35,6 +35,7 @@ public sealed record ExportBudgetRequestsQuery(
     decimal? AmountInMmkTo = null,
     bool? PeriodOverrunOnly = null,
     string? SearchTerm = null,
+    Guid? WithdrawMethodId = null,
     BudgetRequestSortBy SortBy = BudgetRequestSortBy.SubmittedAt,
     bool SortDescending = true,
     // Ordered list of columns to include. Null/empty = all columns, default order.
@@ -76,7 +77,8 @@ public sealed class ExportBudgetRequestsQueryHandler
             AmountInMmkFrom: request.AmountInMmkFrom,
             AmountInMmkTo: request.AmountInMmkTo,
             PeriodOverrunOnly: request.PeriodOverrunOnly,
-            SearchTerm: request.SearchTerm), cancellationToken);
+            SearchTerm: request.SearchTerm,
+            WithdrawMethodId: request.WithdrawMethodId), cancellationToken);
 
         if (listResult.IsFailure || listResult.Value is null)
             return Result<FileDownload>.Failure(listResult.Error);

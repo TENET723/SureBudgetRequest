@@ -43,12 +43,13 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
         string? searchTerm = null,
+        Guid? withdrawMethodId = null,
         CancellationToken cancellationToken = default)
     {
         var query = BuildFilteredQuery(
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
-            periodOverrunOnly, searchTerm);
+            periodOverrunOnly, searchTerm, withdrawMethodId);
 
         return await query
             .OrderByDescending(r => r.CreatedAt)
@@ -76,7 +77,8 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         decimal? amountInMmkFrom,
         decimal? amountInMmkTo,
         bool? periodOverrunOnly,
-        string? searchTerm)
+        string? searchTerm,
+        Guid? withdrawMethodId)
     {
         var query = _context.BudgetRequests
             .Include(r => r.ApprovalActions)
@@ -159,6 +161,9 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
                     && (r.MonthlySpendBeforeAtSubmission + r.RequestedAmountInMmkAtSubmission) > r.MonthlyLimitAtSubmission));
         }
 
+        if (withdrawMethodId.HasValue)
+            query = query.Where(r => r.WithdrawMethodId == withdrawMethodId.Value);
+
         // Free-text search — case-insensitive substring (ILike) against Reasons,
         // RequesterNameAtSubmission and Reference (Reference is nullable, so guard
         // it so the OR survives a null without NRE in translation).
@@ -196,12 +201,13 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         bool sortDescending,
         int page,
         int pageSize,
+        Guid? withdrawMethodId = null,
         CancellationToken ct = default)
     {
         var query = BuildFilteredQuery(
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
-            periodOverrunOnly, searchTerm);
+            periodOverrunOnly, searchTerm, withdrawMethodId);
 
         // Overdue-advance filter — the DB-side mirror of
         // BudgetRequestSummaryDto.IsOverdueAdvance, evaluated against a single

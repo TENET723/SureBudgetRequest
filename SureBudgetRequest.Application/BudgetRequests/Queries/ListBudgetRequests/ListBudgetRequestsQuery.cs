@@ -69,7 +69,8 @@ public sealed record ListBudgetRequestsQuery(
     decimal? AmountInMmkFrom = null,
     decimal? AmountInMmkTo = null,
     bool? PeriodOverrunOnly = null,
-    string? SearchTerm = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
+    string? SearchTerm = null,
+    Guid? WithdrawMethodId = null) : IRequest<Result<IReadOnlyList<BudgetRequestSummaryDto>>>;
 
 public sealed class ListBudgetRequestsQueryHandler
     : IRequestHandler<ListBudgetRequestsQuery, Result<IReadOnlyList<BudgetRequestSummaryDto>>>
@@ -108,6 +109,7 @@ public sealed class ListBudgetRequestsQueryHandler
             request.AmountInMmkTo,
             request.PeriodOverrunOnly,
             request.SearchTerm,
+            request.WithdrawMethodId,
             cancellationToken);
 
         // Batch-resolve COA codes/names for display. The COA master list is

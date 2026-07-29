@@ -38,7 +38,8 @@ public sealed record SearchBudgetRequestsQuery(
     BudgetRequestSortBy SortBy = BudgetRequestSortBy.SubmittedAt,
     bool SortDescending = true,
     int Page = 1,
-    int PageSize = 20) : IRequest<Result<PagedResult<BudgetRequestSummaryDto>>>;
+    int PageSize = 20,
+    Guid? WithdrawMethodId = null) : IRequest<Result<PagedResult<BudgetRequestSummaryDto>>>;
 
 public sealed class SearchBudgetRequestsQueryHandler
     : IRequestHandler<SearchBudgetRequestsQuery, Result<PagedResult<BudgetRequestSummaryDto>>>
@@ -82,6 +83,7 @@ public sealed class SearchBudgetRequestsQueryHandler
             request.SortDescending,
             request.Page,
             request.PageSize,
+            request.WithdrawMethodId,
             cancellationToken);
 
         // Batch-resolve COA codes/names for display. The COA master list is

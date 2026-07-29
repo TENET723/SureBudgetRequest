@@ -29,6 +29,7 @@ public static class ReportEndpoints
                 Guid? departmentId,
                 Guid? coaId,
                 string? currency,
+                Guid? withdrawMethodId,
                 Guid? requesterId,
                 Guid? approverId,
                 string? overLimit,
@@ -151,6 +152,7 @@ public static class ReportEndpoints
                     AmountInMmkTo: amountTo,
                     PeriodOverrunOnly: periodOverrun == true ? true : null,
                     SearchTerm: string.IsNullOrWhiteSpace(search) ? null : search,
+                    WithdrawMethodId: withdrawMethodId,
                     SortBy: sortColumn,
                     SortDescending: sortDesc ?? true,
                     Columns: columnSelection), ct);

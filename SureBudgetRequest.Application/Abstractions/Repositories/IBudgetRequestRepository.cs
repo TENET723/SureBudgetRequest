@@ -53,6 +53,7 @@ public interface IBudgetRequestRepository
         decimal? amountInMmkTo = null,
         bool? periodOverrunOnly = null,
         string? searchTerm = null,
+        Guid? withdrawMethodId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -93,6 +94,7 @@ public interface IBudgetRequestRepository
         bool sortDescending,
         int page,
         int pageSize,
+        Guid? withdrawMethodId = null,
         CancellationToken ct = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);

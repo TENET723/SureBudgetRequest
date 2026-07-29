@@ -12,6 +12,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 @using SureBudgetRequest.Web.Services
@@ -265,6 +266,18 @@
                         </select>
                     </div>
 
+                    @* Withdraw Method *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Withdraw Method</label>
+                        <select class="select" @bind="_selectedWithdrawMethodId">
+                            <option value="">All withdraw methods</option>
+                            @foreach (var m in _withdrawMethods)
+                            {
+                                <option value="@m.Id">@m.Name@(m.IsActive ? "" : " (inactive)")</option>
+                            }
+                        </select>
+                    </div>
+
                     @* Requester *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Requester</label>
@@ -451,6 +464,7 @@
     private string _selectedDepartmentId = "";
     private string _selectedCoaId = "";
     private string _selectedCurrencyCode = "";
+    private string _selectedWithdrawMethodId = "";
     private string _selectedRequesterId = "";
     private string _selectedApproverId = "";
     private string _overLimitFilter = "any";
@@ -472,6 +486,7 @@
         !string.IsNullOrEmpty(_selectedDepartmentId),
         !string.IsNullOrEmpty(_selectedCoaId),
         !string.IsNullOrEmpty(_selectedCurrencyCode),
+        !string.IsNullOrEmpty(_selectedWithdrawMethodId),
         !string.IsNullOrEmpty(_selectedRequesterId),
         !string.IsNullOrEmpty(_selectedApproverId),
         _overLimitFilter != "any",
@@ -486,6 +501,7 @@
     private List<DepartmentDto> _departments = new();
     private List<CoaDto> _coas = new();
     private List<CurrencyDto> _currencies = new();
+    private List<WithdrawMethodDto> _withdrawMethods = new();
     private List<UserDto> _allUsers = new();
     private List<UserDto> _approverCandidates = new();
     private Dictionary<Guid, string> _userNames = new();
@@ -569,6 +585,10 @@
         if (ccys.IsSuccess)
             _currencies = ccys.Value!.OrderBy(c => c.Code == "MMK" ? 0 : 1).ThenBy(c => c.Code).ToList();
 
+        var methods = await Mediator.Send(new ListWithdrawMethodsQuery(IncludeInactive: true));
+        if (methods.IsSuccess)
+            _withdrawMethods = methods.Value!.OrderBy(m => m.Name).ToList();
+
         var users = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
         if (users.IsSuccess)
         {
@@ -638,7 +658,8 @@
                 SortBy: _sortBy,
                 SortDescending: _sortDescending,
                 Page: _page,
-                PageSize: _pageSize));
+                PageSize: _pageSize,
+                WithdrawMethodId: ParseGuid(_selectedWithdrawMethodId)));
 
             if (result.IsSuccess)
                 _result = result.Value!;
@@ -791,6 +812,7 @@
         Add("departmentId", _selectedDepartmentId);
         Add("coaId", _selectedCoaId);
         Add("currency", _selectedCurrencyCode);
+        Add("withdrawMethodId", _selectedWithdrawMethodId);
         Add("requesterId", _selectedRequesterId);
         Add("approverId", _selectedApproverId);
         if (_overLimitFilter != "any") Add("overLimit", _overLimitFilter);
@@ -834,6 +856,7 @@
         _toDate = null;
         _selectedCoaId = "";
         _selectedCurrencyCode = "";
+        _selectedWithdrawMethodId = "";
         _selectedRequesterId = "";
         _selectedApproverId = "";
         _overLimitFilter = "any";
