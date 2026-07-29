@@ -18,4 +18,16 @@ public sealed class StorageOptions
     /// Ignored when Provider is "Supabase".
     /// </summary>
     public string AttachmentsRoot { get; set; } = "App_Data/attachments";
+
+    /// <summary>
+    /// How often the background cleanup service runs, in hours.
+    /// Default: 6 hours.
+    /// </summary>
+    public int TempCleanIntervalHours { get; set; } = 6;
+
+    /// <summary>
+    /// How long a temporary file is preserved before being cleaned up, in hours.
+    /// Default: 24 hours.
+    /// </summary>
+    public int TempExpirationHours { get; set; } = 24;
 }

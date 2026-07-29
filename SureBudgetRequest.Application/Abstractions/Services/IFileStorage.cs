@@ -35,4 +35,9 @@ public interface IFileStorage
 
     /// <summary>Moves/renames a file from a source path to a destination path.</summary>
     Task MoveAsync(string sourcePath, string destinationPath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cleans up temporary files that are older than the specified age threshold.
+    /// </summary>
+    Task CleanTempFilesAsync(TimeSpan olderThan, CancellationToken cancellationToken = default);
 }

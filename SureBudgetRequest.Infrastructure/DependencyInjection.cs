@@ -74,6 +74,7 @@ public static class DependencyInjection
         // ── File Storage ──────────────────────────────────────────────────────
         services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
         services.Configure<SupabaseStorageOptions>(configuration.GetSection(SupabaseStorageOptions.SectionName));
+        services.AddHostedService<TempCleanupBackgroundService>();
 
         var storageProvider = configuration.GetValue<string>("Storage:Provider") ?? "Supabase";
 

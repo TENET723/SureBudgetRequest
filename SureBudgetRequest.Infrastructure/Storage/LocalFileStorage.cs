@@ -88,6 +88,69 @@ public sealed class LocalFileStorage : IFileStorage
         throw new NotSupportedException("Local file storage is not configured for file moving.");
     }
 
+    public Task CleanTempFilesAsync(TimeSpan olderThan, CancellationToken cancellationToken = default)
+    {
+        var tempRoot = Path.Combine(_rootPath, "temp");
+        if (!Directory.Exists(tempRoot))
+        {
+            return Task.CompletedTask;
+        }
+
+        var cutoff = DateTime.UtcNow - olderThan;
+
+        try
+        {
+            // Process files
+            foreach (var file in Directory.EnumerateFiles(tempRoot, "*", SearchOption.AllDirectories))
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                var fileInfo = new FileInfo(file);
+                var lastTime = fileInfo.LastWriteTimeUtc > fileInfo.CreationTimeUtc 
+                    ? fileInfo.LastWriteTimeUtc 
+                    : fileInfo.CreationTimeUtc;
+
+                if (lastTime < cutoff)
+                {
+                    try
+                    {
+                        fileInfo.Delete();
+                    }
+                    catch
+                    {
+                        // Best effort deletion.
+                    }
+                }
+            }
+
+            // Clean up empty directories under temp (except temp root itself)
+            foreach (var dir in Directory.EnumerateDirectories(tempRoot, "*", SearchOption.AllDirectories))
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                try
+                {
+                    if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+                    {
+                        Directory.Delete(dir, recursive: false);
+                    }
+                }
+                catch
+                {
+                    // Best effort directory cleanup
+                }
+            }
+        }
+        catch
+        {
+            // Best effort cleanup
+        }
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Returns a storage-safe extension derived from the original filename.
     /// Only known extensions pass through (lowercased); anything else becomes

@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using SureBudgetRequest.Application.Abstractions.Services;
 
@@ -127,6 +129,109 @@ public sealed class SupabaseFileStorage : IFileStorage
             throw new InvalidOperationException(
                 $"Supabase Storage move failed: {(int)response.StatusCode} {response.ReasonPhrase}. Body: {body}");
         }
+    }
+
+    public async Task CleanTempFilesAsync(TimeSpan olderThan, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var cutoff = DateTime.UtcNow - olderThan;
+
+            // 1. List the virtual directories and files inside "temp/"
+            var topLevelItems = await ListObjectsAsync("temp", cancellationToken);
+
+            foreach (var item in topLevelItems)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    break;
+
+                if (item.Id == null) // It's a virtual folder
+                {
+                    var sessionDir = item.Name;
+                    var sessionPrefix = $"temp/{sessionDir}";
+
+                    // 2. List files inside this session folder
+                    var sessionFiles = await ListObjectsAsync(sessionPrefix, cancellationToken);
+
+                    foreach (var file in sessionFiles)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                            break;
+
+                        if (file.Id != null && file.CreatedAt.HasValue && file.CreatedAt.Value < cutoff)
+                        {
+                            var filePath = $"{sessionPrefix}/{file.Name}";
+                            try
+                            {
+                                await DeleteAsync(filePath, cancellationToken);
+                            }
+                            catch
+                            {
+                                // Best effort deletion
+                            }
+                        }
+                    }
+                }
+                else // It's a file directly under temp/
+                {
+                    if (item.CreatedAt.HasValue && item.CreatedAt.Value < cutoff)
+                    {
+                        var filePath = $"temp/{item.Name}";
+                        try
+                        {
+                            await DeleteAsync(filePath, cancellationToken);
+                        }
+                        catch
+                        {
+                            // Best effort deletion
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Best effort cleanup
+        }
+    }
+
+    private async Task<List<SupabaseStorageItem>> ListObjectsAsync(string prefix, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/storage/v1/object/list/{Uri.EscapeDataString(_options.AttachmentsBucket)}");
+
+        var payload = new
+        {
+            prefix = prefix,
+            limit = 1000,
+            sortBy = new { column = "name", order = "asc" }
+        };
+
+        request.Content = JsonContent.Create(payload);
+
+        using var response = await _http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException(
+                $"Supabase Storage list failed: {(int)response.StatusCode} {response.ReasonPhrase}. Body: {body}");
+        }
+
+        var items = await response.Content.ReadFromJsonAsync<List<SupabaseStorageItem>>(cancellationToken: cancellationToken);
+        return items ?? new List<SupabaseStorageItem>();
+    }
+
+    private sealed class SupabaseStorageItem
+    {
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = null!;
+
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("created_at")]
+        public DateTime? CreatedAt { get; set; }
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
