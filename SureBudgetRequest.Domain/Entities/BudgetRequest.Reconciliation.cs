@@ -48,7 +48,9 @@ public partial class BudgetRequest
             return Result<Guid>.Failure("A description is required for each usage line item.");
 
         var financeApproval = ApprovalActions
-            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+            .Where(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved)
+            .OrderByDescending(a => a.ActionedAt)
+            .FirstOrDefault();
         if (financeApproval is not null && spentOn < financeApproval.ActionedAt)
         {
             return Result<Guid>.Failure("Expense date cannot be before the request's approval date.");
@@ -108,7 +110,9 @@ public partial class BudgetRequest
             return Result.Failure("A description is required for each usage line item.");
 
         var financeApproval = ApprovalActions
-            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+            .Where(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved)
+            .OrderByDescending(a => a.ActionedAt)
+            .FirstOrDefault();
         if (financeApproval is not null && spentOn < financeApproval.ActionedAt)
         {
             return Result.Failure("Expense date cannot be before the request's approval date.");

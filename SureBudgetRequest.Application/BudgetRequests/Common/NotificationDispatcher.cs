@@ -130,6 +130,7 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
         else if (previousStatus is RequestStatus.PendingDeptHead
                      or RequestStatus.PendingManagement
                      or RequestStatus.PendingFinance
+                     or RequestStatus.Approved
                  && request.Status == RequestStatus.SentBack)
         {
             trigger = NotificationTrigger.SentBackToRequester;

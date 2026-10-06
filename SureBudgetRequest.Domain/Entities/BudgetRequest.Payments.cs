@@ -24,7 +24,9 @@ public partial class BudgetRequest
             return Result.Failure($"Cannot record payments while status is '{Status}'.");
 
         var financeApproval = ApprovalActions
-            .FirstOrDefault(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved);
+            .Where(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved)
+            .OrderByDescending(a => a.ActionedAt)
+            .FirstOrDefault();
         if (financeApproval is not null && paidAt < financeApproval.ActionedAt)
         {
             return Result.Failure("Payment date cannot be before the request's approval date.");

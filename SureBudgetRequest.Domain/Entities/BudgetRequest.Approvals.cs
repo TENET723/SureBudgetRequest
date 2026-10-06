@@ -130,18 +130,22 @@ public partial class BudgetRequest
 
     public Result SendBack(Guid approverId, string comment)
     {
-        // Send-back is available at every approval stage. The action is recorded
-        // against whichever stage the request currently sits at (mirrors Reject()).
+        // Send-back is available at every approval stage and also after Finance approval (before any payment).
+        // The action is recorded against whichever stage the request currently sits at (mirrors Reject()).
         var stage = Status switch
         {
             RequestStatus.PendingDeptHead   => (ApprovalStage?)ApprovalStage.DeptHead,
             RequestStatus.PendingManagement => ApprovalStage.Management,
             RequestStatus.PendingFinance    => ApprovalStage.Finance,
+            RequestStatus.Approved          => ApprovalStage.Finance,
             _                               => null
         };
 
         if (stage is null)
             return Result.Failure($"Cannot send back a request in status '{Status}'.");
+
+        if (Status == RequestStatus.Approved && _payments.Any())
+            return Result.Failure("Cannot send back an approved request that has recorded payments.");
 
         if (string.IsNullOrWhiteSpace(comment))
             return Result.Failure("A comment is required when sending back.");
@@ -157,6 +161,8 @@ public partial class BudgetRequest
             Id, stage.Value, ApprovalDecision.SentBack, approverId, comment, actionedAt: now));
 
         Status = RequestStatus.SentBack;
+        ApprovedAmount = 0;
+        ReconciliationDeadline = null;
         // CoaId intentionally preserved — used as a pre-fill hint for the next
         // Finance approval after the requester fixes and resubmits.
         return Result.Success();

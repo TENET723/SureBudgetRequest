@@ -132,9 +132,9 @@ Submitted (with MonthlyOverrunJustification) → PendingDeptHead → PendingFina
   ↑ routing unchanged; only justification required
 ```
 
-**Case F — Finance sends back, then re-approves:**
+**Case F — Finance sends back (from PendingFinance or Approved before payment), then re-approves:**
 ```
-... → PendingFinance → SentBack → [requester edits] → resubmit → PendingDeptHead → PendingFinance
+... → PendingFinance (or Approved) → SentBack → [requester edits] → resubmit → PendingDeptHead → PendingFinance
   [Finance re-approves; CoaId pre-filled from prior approval; Finance can change it] → Approved
 ```
 
