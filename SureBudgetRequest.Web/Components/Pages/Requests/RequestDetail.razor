@@ -2078,8 +2078,10 @@ else
         if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance && CurrentUser.IsFinanceApprover)
         { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
 
-        // Finance Approvers can also send back an Approved request before any payment has been recorded.
-        if (r.Status == RequestStatus.Approved && role == UserRole.Finance && CurrentUser.IsFinanceApprover && r.Payments.Count == 0)
+        // Finance Approvers and Admins can also send back an Approved request before any payment has been recorded.
+        if (r.Status == RequestStatus.Approved 
+            && (role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover)) 
+            && r.Payments.Count == 0)
         { list.Add("sendback"); }
 
         // Recording payments is allowed for BOTH Finance sub-types.

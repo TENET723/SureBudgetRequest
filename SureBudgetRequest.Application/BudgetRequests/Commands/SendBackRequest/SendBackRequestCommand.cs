@@ -51,16 +51,19 @@ public sealed class SendBackRequestCommandHandler
             RequestStatus.PendingDeptHead   => approver.Role == UserRole.DepartmentHead,
             RequestStatus.PendingManagement => approver.Role == UserRole.Management,
             RequestStatus.PendingFinance    => approver.Role == UserRole.Finance,
-            RequestStatus.Approved          => approver.Role == UserRole.Finance,
+            RequestStatus.Approved          => approver.Role is UserRole.Finance or UserRole.Admin,
             _ => false
         };
 
         if (!roleCheck)
             return Result.Failure(UserErrors.RoleUnauthorized(approver.Role.ToString(), budgetRequest.Status.ToString()));
 
-        // Finance-stage gate: only Finance Approvers (Type 1) may send back.
-        // Payer-only (Type 2) Finance users can record payments but cannot send back.
-        if ((budgetRequest.Status is RequestStatus.PendingFinance or RequestStatus.Approved) && !approver.IsFinanceApprover)
+        // Finance-stage gate: only Finance Approvers (Type 1) may send back when role is Finance.
+        // Payer-only (Type 2) Finance users can record payments but cannot send back. Admin can send back directly.
+        if (budgetRequest.Status == RequestStatus.PendingFinance && !approver.IsFinanceApprover)
+            return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
+
+        if (budgetRequest.Status == RequestStatus.Approved && approver.Role == UserRole.Finance && !approver.IsFinanceApprover)
             return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
 
         var previousStatus = budgetRequest.Status;
