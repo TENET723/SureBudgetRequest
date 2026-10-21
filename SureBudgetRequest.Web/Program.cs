@@ -136,7 +136,7 @@ app.MapPost("/logout", async (HttpContext ctx) =>
     return Results.Redirect("/login");
 });
 
-app.Run();
+app.Run(); 
 
 
 
