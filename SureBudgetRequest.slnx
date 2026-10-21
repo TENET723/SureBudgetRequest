@@ -3,7 +3,10 @@
     <File Path="README.md" />
   </Folder>
   <Project Path="SureBudgetRequest.Application/SureBudgetRequest.Application.csproj" />
+  <Project Path="SureBudgetRequest.Application.Tests/SureBudgetRequest.Application.Tests.csproj" />
+  <Project Path="SureBudgetRequest.Domain.Tests/SureBudgetRequest.Domain.Tests.csproj" />
   <Project Path="SureBudgetRequest.Domain/SureBudgetRequest.Domain.csproj" />
+  <Project Path="SureBudgetRequest.Infrastructure.Tests/SureBudgetRequest.Infrastructure.Tests.csproj" />
   <Project Path="SureBudgetRequest.Infrastructure/SureBudgetRequest.Infrastructure.csproj" />
   <Project Path="SureBudgetRequest.Web/SureBudgetRequest.Web.csproj" />
 </Solution>
