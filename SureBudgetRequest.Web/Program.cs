@@ -13,7 +13,7 @@ using SureBudgetRequest.Web.Components;
 using SureBudgetRequest.Web.Endpoints;
 using SureBudgetRequest.Web.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args); 
 
 // ── Services ──────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
