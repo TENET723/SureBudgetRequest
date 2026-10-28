@@ -56,6 +56,13 @@
 
             }
 
+            <div class="nav-item">
+                <NavLink class="nav-link" href="tags" title="Tags">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
+                    @if (!Collapsed) { <span>Tags</span> }
+                </NavLink>
+            </div>
+
             @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting)
             {
                 <div class="nav-item">
@@ -202,7 +209,7 @@
                 </NavLink>
             </div>
             <div class="nav-item">
-                <NavLink class="nav-link" href="admin/tags" title="Tags">
+                <NavLink class="nav-link" href="tags" title="Tags">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
                     @if (!Collapsed) { <span>Tags</span> }
                 </NavLink>
@@ -211,31 +218,7 @@
     </div>
 }
 
-@* Department Head Management section *@
-@if (CurrentUser.Role == UserRole.DepartmentHead)
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Management</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
-            <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/tags" title="Tags">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
-                    @if (!Collapsed) { <span>Tags</span> }
-                </NavLink>
-            </div>
-        </div>
-    </div>
-}
+
 
 @* Support Admin section — Users only *@
 @if (CurrentUser.Role == UserRole.Support)

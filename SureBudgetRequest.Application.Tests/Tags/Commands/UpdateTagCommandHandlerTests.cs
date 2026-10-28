@@ -73,18 +73,22 @@ public class UpdateTagCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ShouldReturnForbidden_WhenActorIsRegularEmployee()
+    public async Task Handle_ShouldSucceed_WhenRegularEmployeeUpdatesOwnDepartmentTag()
     {
         var tag = CreateTag();
         var employee = CreateUser(_deptId, UserRole.Employee);
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(employee);
+        _tagRepository.GetByNameAndDepartmentAsync("NewName", _deptId, Arg.Any<CancellationToken>())
+            .Returns((Tag?)null);
 
-        var command = new UpdateTagCommand(_tagId, "NewName", null, _deptHeadId);
+        var command = new UpdateTagCommand(_tagId, "NewName", "#123456", _deptHeadId);
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be("Tag.UnauthorizedUpdate");
+        result.IsSuccess.Should().BeTrue();
+        tag.Name.Should().Be("NewName");
+        tag.ColorHex.Should().Be("#123456");
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

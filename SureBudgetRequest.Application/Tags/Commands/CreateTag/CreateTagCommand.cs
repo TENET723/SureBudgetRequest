@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Tags.Commands.CreateTag;
@@ -36,7 +37,7 @@ public sealed class CreateTagCommandHandler
         if (user is null || !user.IsActive)
             return Result.Failure<Guid>(UserErrors.NotFound(command.CreatedByUserId));
 
-        if (user.DepartmentId != command.DepartmentId)
+        if (user.Role != UserRole.Admin && user.DepartmentId != command.DepartmentId)
             return Result.Failure<Guid>(TagErrors.CrossDepartmentNotAllowed);
 
         var existing = await _tagRepository.GetByNameAndDepartmentAsync(command.Name, command.DepartmentId, ct);

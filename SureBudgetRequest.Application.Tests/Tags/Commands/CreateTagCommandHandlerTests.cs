@@ -79,6 +79,24 @@ public class CreateTagCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ShouldSucceed_WhenAdminCreatesTagForAnyDepartment()
+    {
+        var differentDeptId = Guid.NewGuid();
+        var admin = CreateActiveUser(differentDeptId, UserRole.Admin);
+        _userRepository.GetByIdAsync(_userId, Arg.Any<CancellationToken>()).Returns(admin);
+        _tagRepository.GetByNameAndDepartmentAsync("AdminTag", _deptId, Arg.Any<CancellationToken>())
+            .Returns((Tag?)null);
+
+        var command = new CreateTagCommand(_deptId, "AdminTag", _userId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _tagRepository.Received(1).AddAsync(
+            Arg.Is<Tag>(t => t.DepartmentId == _deptId && t.Name == "AdminTag"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_ShouldReturnConflict_WhenTagWithSameNameAlreadyExistsInDepartment()
     {
         var user = CreateActiveUser(_deptId);

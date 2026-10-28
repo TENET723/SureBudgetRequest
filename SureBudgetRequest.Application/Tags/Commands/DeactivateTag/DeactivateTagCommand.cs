@@ -37,10 +37,10 @@ public sealed class DeactivateTagCommandHandler
             return Result.Failure(UserErrors.NotFound(command.ActorUserId));
 
         bool isAuthorized = actor.Role == UserRole.Admin ||
-            (actor.Role == UserRole.DepartmentHead && actor.DepartmentId == tag.DepartmentId);
+            actor.DepartmentId == tag.DepartmentId;
 
         if (!isAuthorized)
-            return Result.Failure(Error.Forbidden("Tag.UnauthorizedUpdate", "Only the department head or an admin can deactivate this tag."));
+            return Result.Failure(Error.Forbidden("Tag.UnauthorizedUpdate", "Only members of the department or an admin can deactivate this tag."));
 
         tag.Deactivate();
         await _unitOfWork.SaveChangesAsync(ct);

@@ -1,3 +1,4 @@
+@page "/tags"
 @page "/admin/tags"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
@@ -372,11 +373,11 @@
     private TagDto? _deactivatingTag;
 
     private bool CanManageTags => CurrentUser.Role == UserRole.Admin ||
-        (CurrentUser.Role == UserRole.DepartmentHead && CurrentUser.DepartmentId == _selectedDepartmentId);
+        CurrentUser.DepartmentId == _selectedDepartmentId;
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.Role is not UserRole.Admin and not UserRole.DepartmentHead)
+        if (CurrentUser.Role == UserRole.Support || (CurrentUser.Role != UserRole.Admin && CurrentUser.DepartmentId == Guid.Empty))
         {
             Nav.NavigateTo("/", replace: true);
             return;

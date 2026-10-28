@@ -70,9 +70,9 @@ Associates a `Tag` with a `BudgetRequest`.
 
 | Action | Allowed Roles / Users | Rules & Constraints |
 | :--- | :--- | :--- |
-| **Create New Tag** | Any active user in Department X | User can only create tags for their own department (`User.DepartmentId == Tag.DepartmentId`). |
-| **Update / Rename Tag** | Department Head of Department X, or System Admin | Regular employees cannot rename shared tags once created. |
-| **Deactivate / Reactivate Tag** | Department Head of Department X, or System Admin | Deactivating a tag preserves historical tags on existing tickets, but excludes it from new autocomplete dropdowns. |
+| **Create New Tag** | Any active user in Department X, or System Admin | Department members can only create tags for their own department (`User.DepartmentId == Tag.DepartmentId`). System Admins can create tags across any department. |
+| **Update / Rename Tag** | Any active user in Department X, or System Admin | Department members can rename/color tags within their own department. |
+| **Deactivate / Reactivate Tag** | Any active user in Department X, or System Admin | Deactivating a tag preserves historical tags on existing tickets, but excludes it from new autocomplete dropdowns. |
 | **Attach Tag to Ticket** | Requester, Department Head, Management, Finance | **Strict Own-Department Rule**: Users may **only** attach tags belonging to their own department. |
 | **Remove Tag from Ticket** | Any user belonging to the department that owns the tag | **Strict Deletion Boundary**: Users can **never** remove a tag attached by another department (e.g., IT cannot remove Finance's audit tag). |
 | **Ticket Status Gate** | Any status (`Draft`, `Pending*`, `Approved`, `Paid`, `Reconciled`) | Tags act like comments/labels; they can be freely added or removed across the entire lifecycle, including after payment. |

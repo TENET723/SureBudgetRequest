@@ -73,7 +73,7 @@ public class ReactivateTagCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ShouldReturnForbidden_WhenActorIsNotDeptHeadOrAdmin()
+    public async Task Handle_ShouldSucceed_WhenRegularEmployeeReactivatesOwnDepartmentTag()
     {
         var tag = CreateTag();
         var employee = CreateUser(_deptId, UserRole.Employee);
@@ -83,8 +83,42 @@ public class ReactivateTagCommandHandlerTests
         var command = new ReactivateTagCommand(_tagId, _deptHeadId);
         var result = await _handler.Handle(command, CancellationToken.None);
 
+        result.IsSuccess.Should().BeTrue();
+        tag.IsActive.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorBelongsToDifferentDepartment()
+    {
+        var tag = CreateTag();
+        var otherDeptId = Guid.NewGuid();
+        var employee = CreateUser(otherDeptId, UserRole.Employee);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(employee);
+
+        var command = new ReactivateTagCommand(_tagId, _deptHeadId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("Tag.UnauthorizedUpdate");
+    }
+
+    [Fact]
+    public async Task Handle_ShouldSucceed_WhenAdminReactivatesTagFromAnyDepartment()
+    {
+        var tag = CreateTag();
+        var otherDeptId = Guid.NewGuid();
+        var admin = CreateUser(otherDeptId, UserRole.Admin);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(admin);
+
+        var command = new ReactivateTagCommand(_tagId, _deptHeadId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        tag.IsActive.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
