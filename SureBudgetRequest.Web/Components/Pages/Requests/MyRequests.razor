@@ -7,6 +7,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.Common
+@using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 @using SureBudgetRequest.Web.Services
@@ -186,6 +187,16 @@
                         <label class="form-label text-sm text-muted mb-1">Submitted to</label>
                         <input type="date" class="input" @bind="_toDate" />
                     </div>
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Tag</label>
+                        <select class="select" @bind="_selectedTagId">
+                            <option value="">All tags</option>
+                            @foreach (var tag in _availableTags)
+                            {
+                                <option value="@tag.Id">@tag.DisplayName</option>
+                            }
+                        </select>
+                    </div>
                 </div>
 
                 @* Type *@
@@ -284,6 +295,8 @@
     // ── Staged filter state (does nothing until Apply / Enter / preset+Apply) ──
     private bool _showFilters;
     private string _search = "";
+    private string _selectedTagId = "";
+    private List<VisibleTagDto> _availableTags = new();
     private HashSet<RequestStatus> _selectedStatuses = new();
     private HashSet<BudgetRequestType> _selectedTypes = new();
     private DateTime? _fromDate;
@@ -335,6 +348,7 @@
 
     private bool HasStagedFilters =>
         !string.IsNullOrWhiteSpace(_search)
+        || !string.IsNullOrEmpty(_selectedTagId)
         || _selectedStatuses.Count > 0
         || _selectedTypes.Count > 0
         || _fromDate.HasValue
@@ -345,6 +359,7 @@
     private int _activeFilterCount => new[]
     {
         !string.IsNullOrWhiteSpace(_search),
+        !string.IsNullOrEmpty(_selectedTagId),
         _fromDate.HasValue,
         _toDate.HasValue,
         _selectedStatuses.Count > 0,    
@@ -364,6 +379,11 @@
             Nav.NavigateTo("/admin/users", replace: true);
             return;
         }
+
+        var tagsRes = await Mediator.Send(new ListVisibleTagsForUserQuery(CurrentUser.UserId));
+        if (tagsRes.IsSuccess && tagsRes.Value is not null)
+            _availableTags = tagsRes.Value.ToList();
+
         await LoadPageAsync(1);
     }
 
@@ -394,6 +414,8 @@
         // empty-state message.
         _appliedHasFilters = HasStagedFilters;
 
+        Guid? tagFilter = Guid.TryParse(_selectedTagId, out var parsedTag) ? parsedTag : null;
+
         var query = new SearchBudgetRequestsQuery(
             RequesterId: CurrentUser.UserId,
             Statuses: _selectedStatuses.Count > 0 ? _selectedStatuses.ToList() : null,
@@ -404,7 +426,8 @@
             SortBy: _sortBy,
             SortDescending: _sortDescending,
             Page: page,
-            PageSize: _pageSize);
+            PageSize: _pageSize,
+            TagId: tagFilter);
 
         var result = await Mediator.Send(query);
         if (result.IsSuccess)
@@ -457,6 +480,7 @@
     private async Task ClearFilters()
     {
         _search = "";
+        _selectedTagId = "";
         _selectedStatuses.Clear();
         _selectedTypes.Clear();
         _fromDate = null;

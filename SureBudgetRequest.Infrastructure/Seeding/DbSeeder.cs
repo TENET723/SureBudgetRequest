@@ -41,6 +41,36 @@ public sealed class DbSeeder
         await SeedBankAccountsAsync(cancellationToken);
         await SeedBudgetCategoriesAsync(cancellationToken);
         await SeedUsersAndDepartmentsAsync(cancellationToken);
+        await SeedAppSettingsAsync(cancellationToken);
+    }
+
+    // ── App Settings ──────────────────────────────────────────────────────────
+    private async Task SeedAppSettingsAsync(CancellationToken cancellationToken)
+    {
+        if (await _db.AppSettings.AnyAsync(s => s.Key == "TagSettings:Config", cancellationToken))
+            return;
+
+        var adminDeptId = Guid.Parse("00000000-0000-0000-0001-000000000003");
+        var defaultConfigJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            FinanceDepartmentId = adminDeptId,
+            ManagementDepartmentId = adminDeptId,
+            RoleVisibilityMatrix = new Dictionary<string, List<string>>
+            {
+                ["Requester"] = new() { "Management", "Finance" },
+                ["Management"] = new() { "Requester" },
+                ["Finance"] = new(),
+                ["Employee"] = new(),
+                ["DepartmentHead"] = new()
+            }
+        }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+        _db.AppSettings.Add(new AppSetting(
+            "TagSettings:Config",
+            defaultConfigJson,
+            "Tag visibility configuration mapping Finance & Management department IDs and role visibility matrix."));
+
+        await _db.SaveChangesAsync(cancellationToken);
     }
 
     // ── Currencies ────────────────────────────────────────────────────────────

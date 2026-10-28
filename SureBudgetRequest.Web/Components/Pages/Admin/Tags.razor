@@ -1,0 +1,626 @@
+@page "/admin/tags"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.Tags.Queries
+@using SureBudgetRequest.Application.Tags.Commands.CreateTag
+@using SureBudgetRequest.Application.Tags.Commands.UpdateTag
+@using SureBudgetRequest.Application.Tags.Commands.DeactivateTag
+@using SureBudgetRequest.Application.Tags.Commands.ReactivateTag
+@using SureBudgetRequest.Application.Tags.Models
+@using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.AppSettings.Queries
+@using SureBudgetRequest.Application.AppSettings.Commands.CreateAppSetting
+@using SureBudgetRequest.Application.AppSettings.Commands.UpdateAppSetting
+@using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
+@using System.Text.Json
+
+<PageTitle>Tags Management</PageTitle>
+
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Tags Management</h5>
+        <div class="flex items-center gap-2">
+            @if (CurrentUser.Role == UserRole.Admin)
+            {
+                <button class="btn btn-outline btn-sm" @onclick="OpenVisibilitySettings">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" class="me-1">
+                        <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M8 1v2m0 10v2M1 8h2m10 0h2m-2.93-4.93l-1.41 1.41m-7.32 7.32l-1.41 1.41m0-10.14l1.41 1.41m7.32 7.32l1.41 1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    Visibility Settings
+                </button>
+            }
+            @if (CanManageTags)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Tag</button>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
+    }
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
+    }
+
+    <div class="flex items-center gap-4 mb-3 flex-wrap">
+        @if (CurrentUser.Role == UserRole.Admin && _departments.Count > 0)
+        {
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold">Department:</span>
+                <select class="select select-sm" style="width: 220px;" @bind="_selectedDepartmentId" @bind:after="LoadData">
+                    @foreach (var d in _departments)
+                    {
+                        <option value="@d.Id">@d.Name</option>
+                    }
+                </select>
+            </div>
+        }
+
+        <div class="flex items-center gap-2">
+            <label class="toggle" title="Show inactive">
+                <input type="checkbox" @bind="_showInactive" @bind:after="LoadData" />
+                <span class="toggle-track"></span>
+                <span class="toggle-thumb"></span>
+            </label>
+            <span class="text-sm text-muted">Show inactive</span>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search tag name" Width="260px" />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner spinner-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">#</th>
+                        <th>Tag</th>
+                        <th>Color</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_filtered.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">No tags found for this department.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        int i = 1;
+                        @foreach (var tag in _filtered)
+                        {
+                            <tr>
+                                <td class="col-no">@(i++)</td>
+                                <td>
+                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: #fff; font-size: 0.8rem; padding: 0.35em 0.6em;">
+                                        #@tag.Name
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(tag.ColorHex))
+                                    {
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background-color: @tag.ColorHex;"></span>
+                                            <span class="text-xs text-mono">@tag.ColorHex</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted text-xs">Default</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (tag.IsActive)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-muted">Inactive</span>
+                                    }
+                                </td>
+                                <td class="text-sm text-muted">@tag.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                                <td class="text-end">
+                                    @if (CanManageTags)
+                                    {
+                                        <div class="flex items-center justify-end gap-1">
+                                            <button class="btn btn-outline btn-xs" @onclick="() => OpenEdit(tag)" title="Edit">Edit</button>
+                                            @if (tag.IsActive)
+                                            {
+                                                <button class="btn btn-outline btn-xs text-danger" @onclick="() => OpenDeactivate(tag)" title="Deactivate">Deactivate</button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-outline btn-xs text-success" @onclick="() => DoReactivate(tag)" title="Reactivate">Reactivate</button>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingId.HasValue ? "Edit Tag" : "New Tag")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showForm = false" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-error mb-3">@_formError</div>
+                    }
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Tag Name</label>
+                        <input type="text" class="input" placeholder="e.g. Campaign-Q4" @bind="_formName" />
+                    </div>
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Color (Hex)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" class="color-picker-input" @bind="_formColorHex" />
+                            <input type="text" class="input" placeholder="#3B82F6" @bind="_formColorHex" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showForm = false">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveForm" disabled="@_saving">
+                        @if (_saving) { <span class="spinner spinner-xs me-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Modal ──────────────────────────────────────────────────── *@
+@if (_deactivatingTag is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title text-danger">Deactivate Tag</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingTag = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-sm">
+                        Deactivate <strong>#@_deactivatingTag.Name</strong>?
+                        Existing tickets keep the tag, but it won't appear in autocomplete for new tickets.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingTag = null">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Visibility Settings Modal ─────────────────────────────────────────── *@
+@if (_showVisibilitySettings)
+{
+    <div class="modal-backdrop">
+        <div class="modal" style="max-width: 580px;">
+            <div>
+                <div class="modal-header">
+                    <div>
+                        <h6 class="modal-title">Tag Visibility & Department Mapping</h6>
+                        <div class="text-xs text-muted mt-1">Configure role read access on ticket details and designate Finance & Management departments.</div>
+                    </div>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showVisibilitySettings = false" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_settingsError))
+                    {
+                        <div class="alert alert-error mb-3">@_settingsError</div>
+                    }
+
+                    <div class="mb-4">
+                        <label class="form-label text-sm font-semibold mb-1">Department Designations</label>
+                        <div class="form-grid-2">
+                            <div>
+                                <label class="text-xs text-muted mb-1 d-block">Finance Department</label>
+                                <select class="select select-sm" @bind="_settingsFinanceDeptId">
+                                    <option value="">-- Auto-detect ("Finance") --</option>
+                                    @foreach (var d in _departments)
+                                    {
+                                        <option value="@d.Id.ToString()">@d.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-muted mb-1 d-block">Management Department</label>
+                                <select class="select select-sm" @bind="_settingsMgmtDeptId">
+                                    <option value="">-- Auto-detect ("Management") --</option>
+                                    @foreach (var d in _departments)
+                                    {
+                                        <option value="@d.Id.ToString()">@d.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-section-divider">
+                        <span>ROLE READ VISIBILITY (TICKET DETAILS)</span>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        @* Requester Scope *@
+                        <div class="p-3" style="background: #F9FAFB; border-radius: 6px; border: 1px solid var(--color-border);">
+                            <div class="font-semibold text-sm mb-1">Requester Role</div>
+                            <div class="text-xs text-muted mb-2">When viewing their own ticket (if requester role is Finance, Finance policy applies):</div>
+                            <div class="flex items-center gap-4">
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_reqSeesMgmt" />
+                                    <span>Management Tags</span>
+                                </label>
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_reqSeesFin" />
+                                    <span>Finance Tags</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        @* Management Scope *@
+                        <div class="p-3" style="background: #F9FAFB; border-radius: 6px; border: 1px solid var(--color-border);">
+                            <div class="font-semibold text-sm mb-1">Management Role</div>
+                            <div class="text-xs text-muted mb-2">What Management reviewers can see across departments:</div>
+                            <div class="flex items-center gap-4">
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_mgmtSeesReq" />
+                                    <span>Requester Tags</span>
+                                </label>
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_mgmtSeesFin" />
+                                    <span>Finance Tags</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        @* Finance Scope *@
+                        <div class="p-3" style="background: #F9FAFB; border-radius: 6px; border: 1px solid var(--color-border);">
+                            <div class="font-semibold text-sm mb-1">Finance Role</div>
+                            <div class="text-xs text-muted mb-2">What Finance reviewers can see across departments (leave unchecked for own department only):</div>
+                            <div class="flex items-center gap-4">
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_finSeesReq" />
+                                    <span>Requester Tags</span>
+                                </label>
+                                <label class="checkbox-row text-sm">
+                                    <input type="checkbox" @bind="_finSeesMgmt" />
+                                    <span>Management Tags</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-muted mt-3">
+                        <em>* Users always have full visibility of tags belonging to their own department.</em>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showVisibilitySettings = false">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveVisibilitySettings" disabled="@_savingSettings">
+                        @if (_savingSettings) { <span class="spinner spinner-xs me-1"></span> }
+                        Save Visibility Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TagDto> _tags = new();
+    private List<TagDto> _filtered = new();
+    private List<DepartmentDto> _departments = new();
+    private Guid _selectedDepartmentId;
+    private bool _loading = true;
+    private bool _showInactive;
+    private string _search = "";
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private bool _showForm;
+    private bool _saving;
+    private string? _formError;
+    private Guid? _editingId;
+    private string _formName = "";
+    private string _formColorHex = "#3B82F6";
+
+    private TagDto? _deactivatingTag;
+
+    private bool CanManageTags => CurrentUser.Role == UserRole.Admin ||
+        (CurrentUser.Role == UserRole.DepartmentHead && CurrentUser.DepartmentId == _selectedDepartmentId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role is not UserRole.Admin and not UserRole.DepartmentHead)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        if (CurrentUser.Role == UserRole.Admin)
+        {
+            var deptsRes = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));
+            if (deptsRes.IsSuccess)
+            {
+                _departments = deptsRes.Value.OrderBy(d => d.Name).ToList();
+                _selectedDepartmentId = _departments.FirstOrDefault()?.Id ?? CurrentUser.DepartmentId;
+            }
+        }
+        else
+        {
+            _selectedDepartmentId = CurrentUser.DepartmentId;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (_selectedDepartmentId == Guid.Empty) return;
+
+        _loading = true;
+        var res = await Mediator.Send(new ListTagsByDepartmentQuery(_selectedDepartmentId, _showInactive));
+        if (res.IsSuccess)
+        {
+            _tags = res.Value.OrderBy(t => t.Name).ToList();
+        }
+        else
+        {
+            _errorMessage = res.Error.Message;
+        }
+        ApplyFilter();
+        _loading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var term = _search.Trim();
+        _filtered = term.Length == 0
+            ? _tags.ToList()
+            : _tags.Where(t => t.Name.Contains(term, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = null;
+        _formName = "";
+        _formColorHex = "#3B82F6";
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(TagDto tag)
+    {
+        _editingId = tag.Id;
+        _formName = tag.Name;
+        _formColorHex = tag.ColorHex ?? "#3B82F6";
+        _formError = null;
+        _showForm = true;
+    }
+
+    private async Task SaveForm()
+    {
+        _saving = true;
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _formError = "Tag name is required.";
+            _saving = false;
+            return;
+        }
+
+        if (_editingId.HasValue)
+        {
+            var res = await Mediator.Send(new UpdateTagCommand(_editingId.Value, _formName.Trim(), _formColorHex, CurrentUser.UserId));
+            if (res.IsFailure)
+            {
+                _formError = res.Error.Message;
+                _saving = false;
+                return;
+            }
+            _successMessage = $"Tag #{_formName} updated successfully.";
+        }
+        else
+        {
+            var res = await Mediator.Send(new CreateTagCommand(_selectedDepartmentId, _formName.Trim(), CurrentUser.UserId, _formColorHex));
+            if (res.IsFailure)
+            {
+                _formError = res.Error.Message;
+                _saving = false;
+                return;
+            }
+            _successMessage = $"Tag #{_formName} created successfully.";
+        }
+
+        _showForm = false;
+        _saving = false;
+        await LoadData();
+    }
+
+    private void OpenDeactivate(TagDto tag) => _deactivatingTag = tag;
+
+    private async Task DoDeactivate()
+    {
+        if (_deactivatingTag is null) return;
+        _saving = true;
+        var res = await Mediator.Send(new DeactivateTagCommand(_deactivatingTag.Id, CurrentUser.UserId));
+        if (res.IsSuccess)
+        {
+            _successMessage = $"Tag #{_deactivatingTag.Name} deactivated.";
+            _deactivatingTag = null;
+            await LoadData();
+        }
+        else
+        {
+            _errorMessage = res.Error.Message;
+        }
+        _saving = false;
+    }
+
+    private async Task DoReactivate(TagDto tag)
+    {
+        var res = await Mediator.Send(new ReactivateTagCommand(tag.Id, CurrentUser.UserId));
+        if (res.IsSuccess)
+        {
+            _successMessage = $"Tag #{tag.Name} reactivated.";
+            await LoadData();
+        }
+        else
+        {
+            _errorMessage = res.Error.Message;
+        }
+    }
+
+    // ── Visibility Settings Modal State & Handlers ───────────────────────────
+    private bool _showVisibilitySettings;
+    private bool _savingSettings;
+    private string? _settingsError;
+    private string _settingsFinanceDeptId = "";
+    private string _settingsMgmtDeptId = "";
+    private bool _reqSeesMgmt = true;
+    private bool _reqSeesFin = true;
+    private bool _mgmtSeesReq = true;
+    private bool _mgmtSeesFin = false;
+    private bool _finSeesReq = false;
+    private bool _finSeesMgmt = false;
+
+    private async Task OpenVisibilitySettings()
+    {
+        _settingsError = null;
+        _savingSettings = true;
+
+        var settingRes = await Mediator.Send(new GetAppSettingByKeyQuery(TagVisibilityConfig.SettingKey));
+        var config = TagVisibilityConfig.FromJson(settingRes.Value?.Value);
+
+        _settingsFinanceDeptId = config.FinanceDepartmentId?.ToString() ?? "";
+        _settingsMgmtDeptId = config.ManagementDepartmentId?.ToString() ?? "";
+
+        var matrix = config.RoleVisibilityMatrix;
+        _reqSeesMgmt = matrix.TryGetValue("Requester", out var r) && r.Any(x => string.Equals(x, "Management", StringComparison.OrdinalIgnoreCase));
+        _reqSeesFin = r != null && r.Any(x => string.Equals(x, "Finance", StringComparison.OrdinalIgnoreCase));
+
+        _mgmtSeesReq = matrix.TryGetValue("Management", out var m) && m.Any(x => string.Equals(x, "Requester", StringComparison.OrdinalIgnoreCase));
+        _mgmtSeesFin = m != null && m.Any(x => string.Equals(x, "Finance", StringComparison.OrdinalIgnoreCase));
+
+        _finSeesReq = matrix.TryGetValue("Finance", out var f) && f.Any(x => string.Equals(x, "Requester", StringComparison.OrdinalIgnoreCase));
+        _finSeesMgmt = f != null && f.Any(x => string.Equals(x, "Management", StringComparison.OrdinalIgnoreCase));
+
+        _savingSettings = false;
+        _showVisibilitySettings = true;
+    }
+
+    private async Task SaveVisibilitySettings()
+    {
+        _savingSettings = true;
+        _settingsError = null;
+
+        var config = new TagVisibilityConfig();
+        if (Guid.TryParse(_settingsFinanceDeptId, out var finGuid))
+            config.FinanceDepartmentId = finGuid;
+        if (Guid.TryParse(_settingsMgmtDeptId, out var mgmtGuid))
+            config.ManagementDepartmentId = mgmtGuid;
+
+        var matrix = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        var reqList = new List<string>();
+        if (_reqSeesMgmt) reqList.Add("Management");
+        if (_reqSeesFin) reqList.Add("Finance");
+        matrix["Requester"] = reqList;
+
+        var mgmtList = new List<string>();
+        if (_mgmtSeesReq) mgmtList.Add("Requester");
+        if (_mgmtSeesFin) mgmtList.Add("Finance");
+        matrix["Management"] = mgmtList;
+
+        var finList = new List<string>();
+        if (_finSeesReq) finList.Add("Requester");
+        if (_finSeesMgmt) finList.Add("Management");
+        matrix["Finance"] = finList;
+
+        matrix["Employee"] = new();
+        matrix["DepartmentHead"] = new();
+        config.RoleVisibilityMatrix = matrix;
+
+        var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+
+        var existing = await Mediator.Send(new GetAppSettingByKeyQuery(TagVisibilityConfig.SettingKey));
+        if (existing.IsSuccess && existing.Value is not null)
+        {
+            var updateRes = await Mediator.Send(new UpdateAppSettingCommand(
+                TagVisibilityConfig.SettingKey,
+                json,
+                "Tag visibility configuration mapping Finance & Management department IDs and role visibility matrix."));
+
+            if (updateRes.IsFailure)
+            {
+                _settingsError = updateRes.Error.Message;
+                _savingSettings = false;
+                return;
+            }
+        }
+        else
+        {
+            var createRes = await Mediator.Send(new CreateAppSettingCommand(
+                TagVisibilityConfig.SettingKey,
+                json,
+                "Tag visibility configuration mapping Finance & Management department IDs and role visibility matrix."));
+
+            if (createRes.IsFailure)
+            {
+                _settingsError = createRes.Error.Message;
+                _savingSettings = false;
+                return;
+            }
+        }
+
+        _successMessage = "Tag visibility settings updated successfully.";
+        _savingSettings = false;
+        _showVisibilitySettings = false;
+    }
+}

@@ -22,6 +22,10 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveTagFromRequest
+@using SureBudgetRequest.Application.Tags.Commands.CreateTag
+@using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
@@ -217,6 +221,43 @@ else
                         {
                             <div>Not allowed — must be paid in full</div>
                         }
+                    </div>
+                    @* ── Tags (spans full width across all 3 columns) ── *@
+                    <div class="col-span-full" style="grid-column: 1 / -1; min-width: 0; padding-top: var(--space-4); border-top: 1px solid var(--color-border); margin-top: var(--space-2);">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="text-sm font-semibold text-muted text-uppercase" style="letter-spacing: 0.05em;">Tags</div>
+                            @if (CanAddTag)
+                            {
+                                <button type="button" class="btn btn-ghost btn-xs text-primary" style="height: 22px; padding: 0 6px; font-weight: 600;" @onclick="OpenAddTagModal">+ Tag</button>
+                            }
+                        </div>
+                        <div class="flex flex-wrap gap-1 mt-1" style="min-width: 0; width: 100%;">
+                            @if (_requestTags.Count == 0)
+                            {
+                                <span class="text-sm text-muted fst-italic">No tags</span>
+                            }
+                            else
+                            {
+                                @foreach (var tag in _requestTags)
+                                {
+                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: #fff; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                        @if (tag.DepartmentId != CurrentUser.DepartmentId)
+                                        {
+                                            <span class="opacity-75 me-1" style="font-size: 0.68rem;">[@tag.DepartmentName]</span>
+                                        }
+                                        <span>#@tag.Name</span>
+                                        @if (CurrentUser.DepartmentId == tag.DepartmentId)
+                                        {
+                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
+                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                </svg>
+                                            </button>
+                                        }
+                                    </span>
+                                }
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
@@ -618,6 +659,62 @@ else
             </div>
         }
 
+    </div>
+}
+
+@* ── Add Tag Modal ────────────────────────────────────────────────────────── *@
+@if (_showAddTagModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Attach Tag</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showAddTagModal = false" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_tagError))
+                    {
+                        <div class="alert alert-error mb-3">@_tagError</div>
+                    }
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Select Existing Tag</label>
+                        <select class="select" @bind="_selectedTagId">
+                            <option value="">-- Choose from your department --</option>
+                            @foreach (var t in _availableDeptTags.Where(t => !_requestTags.Any(rt => rt.TagId == t.Id)))
+                            {
+                                <option value="@t.Id">#@t.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="modal-section-divider">
+                        <span>OR CREATE NEW FOR YOUR DEPARTMENT</span>
+                    </div>
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">New Tag Name</label>
+                        <input type="text" class="input" placeholder="e.g. Urgent-Review" @bind="_newTagName" />
+                    </div>
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Color (Optional)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" class="color-picker-input" @bind="_newTagColor" />
+                            <input type="text" class="input" placeholder="#3B82F6" @bind="_newTagColor" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showAddTagModal = false">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveAndAttachTag" disabled="@_tagSaving">
+                        @if (_tagSaving) { <span class="spinner spinner-xs me-1"></span> }
+                        Attach
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 }
 
@@ -1918,6 +2015,16 @@ else
     private bool _showCancelModal;
 
     // Finance approve modal state
+    // Tag state
+    private List<RequestTagDto> _requestTags = new();
+    private List<TagDto> _availableDeptTags = new();
+    private bool _showAddTagModal;
+    private string _selectedTagId = "";
+    private string _newTagName = "";
+    private string _newTagColor = "#3B82F6";
+    private string? _tagError;
+    private bool _tagSaving;
+    private bool CanAddTag => _request is not null && CurrentUser.DepartmentId != Guid.Empty;
     private bool _showFinanceApproveModal;
     private List<CoaDto> _availableCoas = new();
     private bool _coasLoading;
@@ -2044,6 +2151,11 @@ else
                 }
             }
         }
+            var tagsRes = await Mediator.Send(new GetRequestTagsQuery(Id, CurrentUser.UserId));
+            if (tagsRes.IsSuccess)
+            {
+                _requestTags = tagsRes.Value.ToList();
+            }
         _loading = false;
     }
 
@@ -2779,4 +2891,74 @@ else
         RequestStatus.Reconciled     => "bg-success",
         _ => "bg-secondary"
     };
+    private async Task OpenAddTagModal()
+    {
+        _selectedTagId = "";
+        _newTagName = "";
+        _newTagColor = "#3B82F6";
+        _tagError = null;
+        var deptTagsRes = await Mediator.Send(new ListTagsByDepartmentQuery(CurrentUser.DepartmentId, IncludeInactive: false));
+        _availableDeptTags = deptTagsRes.IsSuccess ? deptTagsRes.Value.ToList() : new();
+        _showAddTagModal = true;
+    }
+
+    private async Task SaveAndAttachTag()
+    {
+        _tagSaving = true;
+        _tagError = null;
+
+        Guid tagIdToAttach;
+        if (!string.IsNullOrEmpty(_selectedTagId) && Guid.TryParse(_selectedTagId, out var selectedId))
+        {
+            tagIdToAttach = selectedId;
+        }
+        else if (!string.IsNullOrWhiteSpace(_newTagName))
+        {
+            var createRes = await Mediator.Send(new CreateTagCommand(
+                CurrentUser.DepartmentId,
+                _newTagName.Trim(),
+                CurrentUser.UserId,
+                _newTagColor));
+
+            if (createRes.IsFailure)
+            {
+                _tagError = createRes.Error.Message;
+                _tagSaving = false;
+                return;
+            }
+
+            tagIdToAttach = createRes.Value;
+        }
+        else
+        {
+            _tagError = "Please select an existing tag or enter a new tag name.";
+            _tagSaving = false;
+            return;
+        }
+
+        var attachRes = await Mediator.Send(new AddTagToRequestCommand(Id, tagIdToAttach, CurrentUser.UserId));
+        if (attachRes.IsFailure)
+        {
+            _tagError = attachRes.Error.Message;
+            _tagSaving = false;
+            return;
+        }
+
+        _showAddTagModal = false;
+        _tagSaving = false;
+        await LoadRequest();
+    }
+
+    private async Task RemoveTag(Guid tagId)
+    {
+        var res = await Mediator.Send(new RemoveTagFromRequestCommand(Id, tagId, CurrentUser.UserId));
+        if (res.IsSuccess)
+        {
+            await LoadRequest();
+        }
+        else
+        {
+            _actionError = res.Error.Message;
+        }
+    }
 }

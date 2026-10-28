@@ -11,6 +11,7 @@
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
@@ -326,17 +327,17 @@
                                placeholder="No maximum" @bind="_amountMmkTo" />
                     </div>
 
-                    @* Department (Standard filter) *@
-                    @* <div>
-                        <label class="form-label text-sm text-muted mb-1">Department</label>
-                        <select class="select" @bind="_selectedDepartmentId">
-                            <option value="">Standard</option>
-                            @foreach (var d in _departments)
+                    @* Tag *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Tag</label>
+                        <select class="select" @bind="_selectedTagId">
+                            <option value="">All tags</option>
+                            @foreach (var tag in _availableTags)
                             {
-                                <option value="@d.Id">@d.Name</option>
+                                <option value="@tag.Id">@(CurrentUser.Role == UserRole.DepartmentHead ? tag.DisplayName : tag.FullDisplayName)</option>
                             }
                         </select>
-                    </div> *@
+                    </div>
                 </div>
 
                 @* Type *@
@@ -463,6 +464,7 @@
     private DateTime? _toDate;
     private string _selectedDepartmentId = "";
     private string _selectedCoaId = "";
+    private string _selectedTagId = "";
     private string _selectedCurrencyCode = "";
     private string _selectedWithdrawMethodId = "";
     private string _selectedRequesterId = "";
@@ -485,6 +487,7 @@
         _toDate.HasValue,
         !string.IsNullOrEmpty(_selectedDepartmentId),
         !string.IsNullOrEmpty(_selectedCoaId),
+        !string.IsNullOrEmpty(_selectedTagId),
         !string.IsNullOrEmpty(_selectedCurrencyCode),
         !string.IsNullOrEmpty(_selectedWithdrawMethodId),
         !string.IsNullOrEmpty(_selectedRequesterId),
@@ -499,6 +502,7 @@
 
     // ── Reference data ───────────────────────────────────────────────────────
     private List<DepartmentDto> _departments = new();
+    private List<VisibleTagDto> _availableTags = new();
     private List<CoaDto> _coas = new();
     private List<CurrencyDto> _currencies = new();
     private List<WithdrawMethodDto> _withdrawMethods = new();
@@ -601,6 +605,10 @@
                 .ToList();
             _userNames = _allUsers.ToDictionary(u => u.Id, u => u.FullName);
         }
+
+        var tagsRes = await Mediator.Send(new ListVisibleTagsForUserQuery(CurrentUser.UserId));
+        if (tagsRes.IsSuccess && tagsRes.Value is not null)
+            _availableTags = tagsRes.Value.ToList();
     }
 
     private async Task RunQueryAsync()
@@ -659,7 +667,8 @@
                 SortDescending: _sortDescending,
                 Page: _page,
                 PageSize: _pageSize,
-                WithdrawMethodId: ParseGuid(_selectedWithdrawMethodId)));
+                WithdrawMethodId: ParseGuid(_selectedWithdrawMethodId),
+                TagId: ParseGuid(_selectedTagId)));
 
             if (result.IsSuccess)
                 _result = result.Value!;
@@ -811,6 +820,7 @@
         if (_toDate.HasValue) Add("to", _toDate.Value.ToString("yyyy-MM-dd"));
         Add("departmentId", _selectedDepartmentId);
         Add("coaId", _selectedCoaId);
+        Add("tagId", _selectedTagId);
         Add("currency", _selectedCurrencyCode);
         Add("withdrawMethodId", _selectedWithdrawMethodId);
         Add("requesterId", _selectedRequesterId);
@@ -855,6 +865,7 @@
         _fromDate = null;
         _toDate = null;
         _selectedCoaId = "";
+        _selectedTagId = "";
         _selectedCurrencyCode = "";
         _selectedWithdrawMethodId = "";
         _selectedRequesterId = "";

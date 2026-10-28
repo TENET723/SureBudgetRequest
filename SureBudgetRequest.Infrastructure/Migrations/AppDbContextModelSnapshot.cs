@@ -528,6 +528,52 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.ToTable("budget_request_modifications", (string)null);
                 });
 
+            modelBuilder.Entity("SureBudgetRequest.Domain.Entities.BudgetRequestTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AttachedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("attached_at");
+
+                    b.Property<Guid>("AttachedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attached_by_user_id");
+
+                    b.Property<Guid>("BudgetRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("budget_request_id");
+
+                    b.Property<Guid>("TagDepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tag_department_id");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tag_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_budget_request_tags");
+
+                    b.HasIndex("AttachedByUserId")
+                        .HasDatabaseName("ix_budget_request_tags_attached_by_user_id");
+
+                    b.HasIndex("TagId")
+                        .HasDatabaseName("ix_budget_request_tags_tag_id");
+
+                    b.HasIndex("BudgetRequestId", "TagDepartmentId")
+                        .HasDatabaseName("ix_budget_request_tags_budget_request_id_tag_department_id");
+
+                    b.HasIndex("BudgetRequestId", "TagId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_budget_request_tags_budget_request_id_tag_id");
+
+                    b.ToTable("budget_request_tags", (string)null);
+                });
+
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Coa", b =>
                 {
                     b.Property<Guid>("Id")
@@ -811,6 +857,53 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.ToTable("payments", (string)null);
                 });
 
+            modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Tag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("color_hex");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("department_id");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tags");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_tags_created_by_user_id");
+
+                    b.HasIndex("DepartmentId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tags_department_id_name");
+
+                    b.ToTable("tags", (string)null);
+                });
+
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1061,6 +1154,32 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasConstraintName("fk_budget_request_modifications_users_modified_by_user_id");
                 });
 
+            modelBuilder.Entity("SureBudgetRequest.Domain.Entities.BudgetRequestTag", b =>
+                {
+                    b.HasOne("SureBudgetRequest.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AttachedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_budget_request_tags_users_attached_by_user_id");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.BudgetRequest", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("BudgetRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_budget_request_tags_budget_requests_budget_request_id");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.Tag", "Tag")
+                        .WithMany()
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_budget_request_tags_tags_tag_id");
+
+                    b.Navigation("Tag");
+                });
+
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.CurrencyRateChange", b =>
                 {
                     b.HasOne("SureBudgetRequest.Domain.Entities.Currency", null)
@@ -1091,6 +1210,23 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasConstraintName("fk_payments_budget_requests_budget_request_id");
                 });
 
+            modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Tag", b =>
+                {
+                    b.HasOne("SureBudgetRequest.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tags_users_created_by_user_id");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tags_departments_department_id");
+                });
+
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.AdvanceUsage", b =>
                 {
                     b.Navigation("Receipts");
@@ -1105,6 +1241,8 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Payments");
+
+                    b.Navigation("Tags");
                 });
 
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Payment", b =>

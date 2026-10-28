@@ -7,6 +7,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
 @using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 @using SureBudgetRequest.Web.Services
@@ -124,6 +125,18 @@
                         <label class="form-label text-sm text-muted mb-1">Amount to (MMK)</label>
                         <input type="number" step="any" min="0" class="input"
                                placeholder="No maximum" @bind="_amountMmkTo" />
+                    </div>
+
+                    @* Tag *@
+                    <div>
+                        <label class="form-label text-sm text-muted mb-1">Tag</label>
+                        <select class="select" @bind="_selectedTagId">
+                            <option value="">All tags</option>
+                            @foreach (var tag in _availableTags)
+                            {
+                                <option value="@tag.Id">@(SeesAllDepartments ? tag.FullDisplayName : tag.DisplayName)</option>
+                            }
+                        </select>
                     </div>
 
                     @* Type — multi-select via checkboxes *@
@@ -330,11 +343,13 @@
 
     // ── Reference data for the filter dropdowns ──────────────────────────────
     private List<DepartmentDto> _departments = new();
+    private List<VisibleTagDto> _availableTags = new();
 
     // ── Staged filter state ──────────────────────────────────────────────────
     // Filters are staged here and only flow into the query on Apply / Clear.
     private string _search = "";
     private string _selectedDepartmentId = "";   // privileged roles only
+    private string _selectedTagId = "";
     private DateTime? _fromDate;
     private DateTime? _toDate;
     private decimal? _amountMmkFrom;
@@ -370,6 +385,7 @@
             if (_amountMmkFrom.HasValue) n++;
             if (_amountMmkTo.HasValue) n++;
             if (_selectedTypes.Count > 0) n++;
+            if (!string.IsNullOrEmpty(_selectedTagId)) n++;
             return n;
         }
     }
@@ -398,6 +414,10 @@
             if (depts.IsSuccess)
                 _departments = depts.Value!.Where(d => d.IsActive).OrderBy(d => d.Name).ToList();
         }
+
+        var tagsRes = await Mediator.Send(new ListVisibleTagsForUserQuery(CurrentUser.UserId));
+        if (tagsRes.IsSuccess && tagsRes.Value is not null)
+            _availableTags = tagsRes.Value.ToList();
     }
 
     private void ToggleFilters() => _showFilters = !_showFilters;
@@ -423,6 +443,7 @@
         _toDate = null;
         _amountMmkFrom = null;
         _amountMmkTo = null;
+        _selectedTagId = "";
         _selectedTypes.Clear();
 
         // Dept Heads have no dropdown; privileged roles reset to "All departments".
@@ -502,12 +523,15 @@
         else
             deptFilter = null;
 
+        Guid? tagFilter = ParseGuid(_selectedTagId);
+
         _appliedHasFilters = term is not null
             || types is not null
             || amountFrom.HasValue
             || amountTo.HasValue
             || fromUtc.HasValue
             || untilUtc.HasValue
+            || tagFilter.HasValue
             || (SeesAllDepartments && !string.IsNullOrEmpty(_selectedDepartmentId));
 
         if (_view == "overdue")
@@ -529,7 +553,8 @@
                 SortBy: _sortBy,
                 SortDescending: _sortDescending,
                 Page: page,
-                PageSize: _pageSize));
+                PageSize: _pageSize,
+                TagId: tagFilter));
 
             if (overdue.IsSuccess)
             {
@@ -557,7 +582,8 @@
                 SortBy: _sortBy,
                 SortDescending: _sortDescending,
                 Page: page,
-                PageSize: _pageSize));
+                PageSize: _pageSize,
+                TagId: tagFilter));
 
             if (settle.IsSuccess)
             {
@@ -593,7 +619,8 @@
                 SortBy: _sortBy,
                 SortDescending: _sortDescending,
                 Page: page,
-                PageSize: _pageSize));
+                PageSize: _pageSize,
+                TagId: tagFilter));
 
             if (result.IsSuccess)
             {

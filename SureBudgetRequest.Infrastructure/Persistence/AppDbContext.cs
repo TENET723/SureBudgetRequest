@@ -25,6 +25,8 @@ public class AppDbContext : DbContext
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<BudgetRequestModification> BudgetRequestModifications => Set<BudgetRequestModification>();
     public DbSet<DepartmentMonthlyBudget> DepartmentMonthlyBudgets => Set<DepartmentMonthlyBudget>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<BudgetRequestTag> BudgetRequestTags => Set<BudgetRequestTag>();
     //public DbSet<DepartmentBudgetPeriod> DepartmentBudgetPeriods => Set<DepartmentBudgetPeriod>();
 
 

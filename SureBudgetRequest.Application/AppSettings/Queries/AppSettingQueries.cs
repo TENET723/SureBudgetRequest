@@ -30,3 +30,20 @@ public sealed class ListAppSettingsQueryHandler
         return Result.Success<IReadOnlyList<AppSettingDto>>(items.Select(AppSettingDto.FromEntity).ToList());
     }
 }
+
+// ── Get By Key ─────────────────────────────────────────────────────────────
+
+public sealed record GetAppSettingByKeyQuery(string Key) : IRequest<Result<AppSettingDto?>>;
+
+public sealed class GetAppSettingByKeyQueryHandler
+    : IRequestHandler<GetAppSettingByKeyQuery, Result<AppSettingDto?>>
+{
+    private readonly IAppSettingRepository _repository;
+    public GetAppSettingByKeyQueryHandler(IAppSettingRepository repository) => _repository = repository;
+
+    public async Task<Result<AppSettingDto?>> Handle(GetAppSettingByKeyQuery request, CancellationToken ct)
+    {
+        var item = await _repository.GetByKeyAsync(request.Key, ct);
+        return Result.Success<AppSettingDto?>(item is null ? null : AppSettingDto.FromEntity(item));
+    }
+}

@@ -30,6 +30,7 @@ public static class ReportEndpoints
                 Guid? coaId,
                 string? currency,
                 Guid? withdrawMethodId,
+                Guid? tagId,
                 Guid? requesterId,
                 Guid? approverId,
                 string? overLimit,
@@ -153,6 +154,7 @@ public static class ReportEndpoints
                     PeriodOverrunOnly: periodOverrun == true ? true : null,
                     SearchTerm: string.IsNullOrWhiteSpace(search) ? null : search,
                     WithdrawMethodId: withdrawMethodId,
+                    TagId: tagId,
                     SortBy: sortColumn,
                     SortDescending: sortDesc ?? true,
                     Columns: columnSelection), ct);

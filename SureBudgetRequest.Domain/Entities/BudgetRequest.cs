@@ -165,6 +165,9 @@ public partial class BudgetRequest
     private readonly List<AdvanceUsage> _advanceUsages = new();
     public IReadOnlyList<AdvanceUsage> AdvanceUsages => _advanceUsages.AsReadOnly();
 
+    private readonly List<BudgetRequestTag> _tags = new();
+    public IReadOnlyList<BudgetRequestTag> Tags => _tags.AsReadOnly();
+
     // === Computed helpers ===
     public decimal TotalPaid => _payments.Sum(p => p.Amount);
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;

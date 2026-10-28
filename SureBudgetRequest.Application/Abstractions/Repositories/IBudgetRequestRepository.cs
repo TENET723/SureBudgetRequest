@@ -54,6 +54,7 @@ public interface IBudgetRequestRepository
         bool? periodOverrunOnly = null,
         string? searchTerm = null,
         Guid? withdrawMethodId = null,
+        Guid? tagId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -95,6 +96,7 @@ public interface IBudgetRequestRepository
         int page,
         int pageSize,
         Guid? withdrawMethodId = null,
+        Guid? tagId = null,
         CancellationToken ct = default);
 
     Task AddAsync(BudgetRequest budgetRequest, CancellationToken cancellationToken = default);

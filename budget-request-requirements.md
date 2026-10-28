@@ -425,3 +425,15 @@ dotnet ef database update --project SureBudgetRequest.Infrastructure --startup-p
 - **Notification outbox ordering** — `SaveChangesAsync` before `DispatchAsync`. Reversing this drops outbox entries on `DbContext` disposal.
 - **Retry exhaustion** — `MaxRetries` is consumed equally by network errors and Slack rejections. A misconfigured startup will permanently exhaust retries for in-flight notifications.
 - **RLS** — disable Row Level Security on all app tables in Supabase. The app connects with service-role credentials, not the anon key.
+
+---
+
+## Active Feature: Department-Isolated Tags for Tickets
+
+See [README.md](file:///c:/Users/WIN/source/repos/TENET723/SureBudgetRequest/README.md) for the detailed specification and governance rules.
+Key points:
+- Tags are isolated at the department level.
+- Users can create and attach tags belonging only to their own department.
+- Cross-department visibility is configured by System Admin via `AppSetting` (`TagSettings:Config`) mapping `FinanceDepartmentId`, `ManagementDepartmentId`, and `RoleVisibilityMatrix`.
+- When fetching ticket tags, requester role is checked: if the requester's role is Finance, they are evaluated under the Finance policy to prevent privilege escalation on self-submitted tickets.
+- Attaching/removing tags is permitted at any ticket status and audited in `BudgetRequestModification`.

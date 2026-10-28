@@ -169,5 +169,14 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
         builder.Navigation(r => r.AdvanceUsages)
                .HasField("_advanceUsages")
                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(r => r.Tags)
+               .WithOne()
+               .HasForeignKey(t => t.BudgetRequestId)
+               .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(r => r.Tags)
+               .HasField("_tags")
+               .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
