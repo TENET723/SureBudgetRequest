@@ -119,11 +119,9 @@ public sealed class GetRequestTagsQueryHandler
         var allDepts = await _departmentRepository.ListAsync(includeInactive: true, ct);
         var deptDict = allDepts.ToDictionary(d => d.Id, d => d.Name);
 
-        // Resolved Department IDs for Finance and Management
-        var financeDeptId = config.FinanceDepartmentId ??
-            allDepts.FirstOrDefault(d => string.Equals(d.Name, "Finance", StringComparison.OrdinalIgnoreCase))?.Id;
-        var managementDeptId = config.ManagementDepartmentId ??
-            allDepts.FirstOrDefault(d => string.Equals(d.Name, "Management", StringComparison.OrdinalIgnoreCase))?.Id;
+        // Resolved Department IDs for Finance and Management (strictly from AppSetting, no fallback)
+        var financeDeptId = config.FinanceDepartmentId;
+        var managementDeptId = config.ManagementDepartmentId;
 
         // Visibility rules:
         // 1. Admin: sees all tags
@@ -136,6 +134,11 @@ public sealed class GetRequestTagsQueryHandler
 
             if (t.TagDepartmentId == viewer.DepartmentId)
                 return true; // Always see own department's tags
+
+            // Circuit breaker: If Finance and Management departments are not explicitly configured,
+            // cross-department visibility is disabled. Only own-department tags and Admin can view.
+            if (!config.IsConfigured)
+                return false;
 
             // Determine viewer policy key
             string policyKey;

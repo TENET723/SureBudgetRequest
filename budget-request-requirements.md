@@ -434,6 +434,6 @@ See [README.md](file:///c:/Users/WIN/source/repos/TENET723/SureBudgetRequest/REA
 Key points:
 - Tags are isolated at the department level.
 - Users can create and attach tags belonging only to their own department.
-- Cross-department visibility is configured by System Admin via `AppSetting` (`TagSettings:Config`) mapping `FinanceDepartmentId`, `ManagementDepartmentId`, and `RoleVisibilityMatrix`.
+- Cross-department visibility is strictly configured by System Admin via `AppSetting` (`TagSettings:Config`) mapping explicit `FinanceDepartmentId`, `ManagementDepartmentId`, and `RoleVisibilityMatrix`. If a department ID is not set in `AppSetting`, zero fallback is performed and cross-department permissions for that role remain disabled.
 - When fetching ticket tags, requester role is checked: if the requester's role is Finance, they are evaluated under the Finance policy to prevent privilege escalation on self-submitted tickets.
 - Attaching/removing tags is permitted at any ticket status and audited in `BudgetRequestModification`.

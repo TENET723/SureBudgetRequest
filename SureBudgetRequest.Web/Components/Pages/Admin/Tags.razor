@@ -261,7 +261,7 @@
                             <div>
                                 <label class="text-xs text-muted mb-1 d-block">Finance Department</label>
                                 <select class="select select-sm" @bind="_settingsFinanceDeptId">
-                                    <option value="">-- Auto-detect ("Finance") --</option>
+                                    <option value="">-- Not Set (Disabled) --</option>
                                     @foreach (var d in _departments)
                                     {
                                         <option value="@d.Id.ToString()">@d.Name</option>
@@ -271,7 +271,7 @@
                             <div>
                                 <label class="text-xs text-muted mb-1 d-block">Management Department</label>
                                 <select class="select select-sm" @bind="_settingsMgmtDeptId">
-                                    <option value="">-- Auto-detect ("Management") --</option>
+                                    <option value="">-- Not Set (Disabled) --</option>
                                     @foreach (var d in _departments)
                                     {
                                         <option value="@d.Id.ToString()">@d.Name</option>
@@ -583,8 +583,6 @@
         if (_finSeesMgmt) finList.Add("Management");
         matrix["Finance"] = finList;
 
-        matrix["Employee"] = new();
-        matrix["DepartmentHead"] = new();
         config.RoleVisibilityMatrix = matrix;
 
         var json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });

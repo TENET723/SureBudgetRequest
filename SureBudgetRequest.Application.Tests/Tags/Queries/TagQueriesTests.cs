@@ -272,6 +272,71 @@ public class TagQueriesTests
     }
 
     [Fact]
+    public async Task GetRequestTagsQuery_WhenDepartmentsNotSetInAppSetting_ShouldNotApplyCrossDepartmentReadPermissions()
+    {
+        var itDept = CreateDepartment(_itDeptId, "IT");
+        var finDept = CreateDepartment(_financeDeptId, "Finance");
+        var mgmtDept = CreateDepartment(_managementDeptId, "Management");
+        _departmentRepository.ListAsync(true, Arg.Any<CancellationToken>()).Returns(new[] { itDept, finDept, mgmtDept });
+
+        // AppSetting with null department IDs (no fallback to string names allowed)
+        var config = new TagVisibilityConfig
+        {
+            FinanceDepartmentId = null,
+            ManagementDepartmentId = null,
+            RoleVisibilityMatrix = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Requester"] = new() { "Management", "Finance" }
+            }
+        };
+        var setting = new AppSetting(TagVisibilityConfig.SettingKey, JsonSerializer.Serialize(config));
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>()).Returns(setting);
+
+        var requester = CreateViewer(_itDeptId, UserRole.Employee);
+        typeof(User).GetProperty(nameof(User.Id))!.SetValue(requester, _requesterId);
+        _userRepository.GetByIdAsync(_requesterId, Arg.Any<CancellationToken>()).Returns(requester);
+
+        var request = BudgetRequest.CreateDraft(
+            _requesterId, "Requester", BudgetRequestType.Standard, Guid.NewGuid(), "Head",
+            DateTime.UtcNow.AddDays(1), 100_000m, "MMK", "Reason", "Withdrawer", "Title",
+            Guid.NewGuid(), false, null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(request, _requestId);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.DepartmentIdAtSubmission))!.SetValue(request, _itDeptId);
+
+        var itTag = CreateTag(_itDeptId, "IT-Tag");
+        var finTag = CreateTag(_financeDeptId, "Finance-Tag");
+        var mgmtTag = CreateTag(_managementDeptId, "Management-Tag");
+        request.AddTag(itTag, _requesterId, _itDeptId);
+        request.AddTag(finTag, Guid.NewGuid(), _financeDeptId);
+        request.AddTag(mgmtTag, Guid.NewGuid(), _managementDeptId);
+
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        var handler = new GetRequestTagsQueryHandler(_requestRepository, _userRepository, _departmentRepository, _appSettingRepository);
+
+        var itViewer = CreateViewer(_itDeptId, UserRole.Employee);
+        _userRepository.GetByIdAsync(itViewer.Id, Arg.Any<CancellationToken>()).Returns(itViewer);
+
+        // IT Employee is Requester and matrix allows "Finance" and "Management",
+        // BUT because FinanceDepartmentId and ManagementDepartmentId are null,
+        // no tags are matched as Finance or Management.
+        // Therefore, only own department tag (IT-Tag) is visible!
+        var result = await handler.Handle(new GetRequestTagsQuery(_requestId, itViewer.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Select(t => t.Name).Should().ContainSingle().Which.Should().Be("IT-Tag");
+
+        // Management Viewer: Even though matrix has "Requester", because departments are not configured,
+        // the circuit breaker activates and Management can ONLY see their own department's tags!
+        var mgmtViewer = CreateViewer(_managementDeptId, UserRole.Management);
+        _userRepository.GetByIdAsync(mgmtViewer.Id, Arg.Any<CancellationToken>()).Returns(mgmtViewer);
+
+        var mgmtResult = await handler.Handle(new GetRequestTagsQuery(_requestId, mgmtViewer.Id), CancellationToken.None);
+
+        mgmtResult.IsSuccess.Should().BeTrue();
+        mgmtResult.Value.Select(t => t.Name).Should().ContainSingle().Which.Should().Be("Management-Tag");
+    }
+
+    [Fact]
     public async Task ListVisibleTagsForUserQuery_ShouldReturnFailure_WhenUserNotFound()
     {
         var missingUserId = Guid.NewGuid();

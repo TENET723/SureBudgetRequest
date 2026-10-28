@@ -59,9 +59,7 @@ public sealed class DbSeeder
             {
                 ["Requester"] = new() { "Management", "Finance" },
                 ["Management"] = new() { "Requester" },
-                ["Finance"] = new(),
-                ["Employee"] = new(),
-                ["DepartmentHead"] = new()
+                ["Finance"] = new()
             }
         }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
 

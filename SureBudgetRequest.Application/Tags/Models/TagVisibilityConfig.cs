@@ -13,13 +13,17 @@ public sealed class TagVisibilityConfig
     public Guid? FinanceDepartmentId { get; set; }
     public Guid? ManagementDepartmentId { get; set; }
 
+    /// <summary>
+    /// True only when both Finance and Management department designations have been explicitly configured.
+    /// When false, the cross-department visibility matrix is considered unconfigured and inactive.
+    /// </summary>
+    public bool IsConfigured => FinanceDepartmentId.HasValue && ManagementDepartmentId.HasValue;
+
     public Dictionary<string, List<string>> RoleVisibilityMatrix { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Requester"] = new(),
-        ["Management"] = new(),
-        ["Finance"] = new(),
-        //["Employee"] = new(),
-        //["DepartmentHead"] = new()
+        ["Requester"] = new() { "Management", "Finance" },
+        ["Management"] = new() { "Requester" },
+        ["Finance"] = new()
     };
 
     public static TagVisibilityConfig CreateDefault() => new();

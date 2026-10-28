@@ -90,16 +90,14 @@ Cross-department visibility on ticket details is configurable by System Admin (s
   "RoleVisibilityMatrix": {
     "Requester": [ "Management", "Finance" ],
     "Management": [ "Requester" ],
-    "Finance": [],
-    "Employee": [],
-    "DepartmentHead": []
+    "Finance": []
   }
 }
 ```
 * **Governance & Invariants**:
   * **Self-Department**: Every user can always view tags belonging to their own department (`tag.TagDepartmentId == viewer.DepartmentId`).
   * **Admin**: Always has full read visibility across all departments.
-  * **Department Mapping**: Eliminates brittle string matching by mapping exact `FinanceDepartmentId` and `ManagementDepartmentId` GUIDs.
+  * **Strict Department Mapping (No Fallback)**: Eliminates brittle string matching by mapping exact `FinanceDepartmentId` and `ManagementDepartmentId` GUIDs. If a department is not set in `AppSetting`, zero fallback is performed and cross-department permissions for that role remain disabled.
   * **Requester Role Awareness**: If a request is submitted by a Finance user, they are evaluated under the `Finance` policy (default: own department only) to prevent privilege escalation on their own tickets.
   * **Read-Only**: Cross-department visibility grants strictly read-only rights — viewers cannot remove another department's tags.
 
