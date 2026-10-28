@@ -435,6 +435,7 @@ Key points:
 - Tags are isolated at the department level.
 - All active users can access the Tag List page (`/tags`), view tags belonging to their own department, create new tags, edit them, and deactivate/reactivate tags for their department. System Admins retain multi-department management and visibility settings configuration.
 - Users can create and attach tags belonging only to their own department.
+- Tags support customizable background and font colors (`ColorHex` and `FontColorHex`), with automatic WCAG contrast calculation (light backgrounds default to dark slate text `#1F2937`, dark backgrounds default to white text `#FFFFFF`).
 - Cross-department visibility is strictly configured by System Admin via `AppSetting` (`TagSettings:Config`) mapping explicit `FinanceDepartmentId`, `ManagementDepartmentId`, and `RoleVisibilityMatrix`. If a department ID is not set in `AppSetting`, zero fallback is performed and cross-department permissions for that role remain disabled.
 - When fetching ticket tags, requester role is checked: if the requester's role is Finance, they are evaluated under the Finance policy to prevent privilege escalation on self-submitted tickets.
 - Attaching/removing tags is permitted at any ticket status and audited in `BudgetRequestModification`.

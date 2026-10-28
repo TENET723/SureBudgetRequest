@@ -137,13 +137,13 @@ public class CreateTagCommandHandlerTests
         _tagRepository.GetByNameAndDepartmentAsync("Campaign-Q4", _deptId, Arg.Any<CancellationToken>())
             .Returns((Tag?)null);
 
-        var command = new CreateTagCommand(_deptId, "  Campaign-Q4  ", _userId, "#3b82f6");
+        var command = new CreateTagCommand(_deptId, "  Campaign-Q4  ", _userId, "#3b82f6", "#1f2937");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
 
         await _tagRepository.Received(1).AddAsync(
-            Arg.Is<Tag>(t => t.DepartmentId == _deptId && t.Name == "Campaign-Q4" && t.ColorHex == "#3B82F6" && t.CreatedByUserId == _userId),
+            Arg.Is<Tag>(t => t.DepartmentId == _deptId && t.Name == "Campaign-Q4" && t.ColorHex == "#3B82F6" && t.FontColorHex == "#1F2937" && t.CreatedByUserId == _userId),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

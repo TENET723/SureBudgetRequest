@@ -223,42 +223,128 @@ else
                         }
                     </div>
                     @* ── Tags (spans full width across all 3 columns) ── *@
-                    <div class="col-span-full" style="grid-column: 1 / -1; min-width: 0; padding-top: var(--space-4); border-top: 1px solid var(--color-border); margin-top: var(--space-2);">
-                        <div class="flex items-center justify-between mb-1">
-                            <div class="text-sm font-semibold text-muted text-uppercase" style="letter-spacing: 0.05em;">Tags</div>
-                            @if (CanAddTag)
-                            {
-                                <button type="button" class="btn btn-ghost btn-xs text-primary" style="height: 22px; padding: 0 6px; font-weight: 600;" @onclick="OpenAddTagModal">+ Tag</button>
-                            }
-                        </div>
-                        <div class="flex flex-wrap gap-1 mt-1" style="min-width: 0; width: 100%;">
+                    @if (_requestTags.Count > 0 || CanAddTag)
+                    {
+                        var requesterTags = _requestTags.Where(t => t.TagGroup == "Requester").ToList();
+                        var financeTags = _requestTags.Where(t => t.TagGroup == "Finance").ToList();
+                        var otherTags = _requestTags.Where(t => t.TagGroup != "Requester" && t.TagGroup != "Finance").ToList();
+                        bool hasRequester = requesterTags.Count > 0;
+                        bool hasFinance = financeTags.Count > 0;
+                        bool hasOther = otherTags.Count > 0;
+
+                        <div class="col-span-full" style="grid-column: 1 / -1; min-width: 0; padding-top: var(--space-4); border-top: 1px solid var(--color-border); margin-top: var(--space-2);">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="text-sm font-semibold text-muted text-uppercase" style="letter-spacing: 0.05em;">Tags</div>
+                                @if (CanAddTag)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-xs text-primary" style="height: 22px; padding: 0 6px; font-weight: 600;" @onclick="OpenAddTagModal">+ Tag</button>
+                                }
+                            </div>
+
                             @if (_requestTags.Count == 0)
                             {
                                 <span class="text-sm text-muted fst-italic">No tags</span>
                             }
                             else
                             {
-                                @foreach (var tag in _requestTags)
-                                {
-                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: #fff; font-size: 0.78rem; padding: 0.3em 0.55em;">
-                                        @if (tag.DepartmentId != CurrentUser.DepartmentId)
-                                        {
-                                            <span class="opacity-75 me-1" style="font-size: 0.68rem;">[@tag.DepartmentName]</span>
-                                        }
-                                        <span>#@tag.Name</span>
-                                        @if (CurrentUser.DepartmentId == tag.DepartmentId)
-                                        {
-                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
-                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                                </svg>
-                                            </button>
-                                        }
-                                    </span>
-                                }
+                                <div class="d-flex flex-column" style="min-width: 0;flex-direction: column; width: 100%;">
+                                    @* Requester Tags Sub-group *@
+                                    @if (hasRequester)
+                                    {
+                                        <div>
+                                            <div class="text-xs font-semibold text-muted mb-2 d-flex align-items-center" style="font-size: 0.72rem; letter-spacing: 0.03em; gap: 6px;">
+                                                <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: var(--color-primary, #3B82F6); flex-shrink: 0;"></span>
+                                                <span>REQUESTER TAGS@(requesterTags.Count > 0 ? $" ({requesterTags[0].DepartmentName})" : ""):</span>
+                                            </div>
+                                            <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
+                                                @foreach (var tag in requesterTags)
+                                                {
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                        <span>#@tag.Name</span>
+                                                        @if (CurrentUser.DepartmentId == tag.DepartmentId)
+                                                        {
+                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
+                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                </svg>
+                                                            </button>
+                                                        }
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @* Divider between Requester and Finance *@
+                                    @if (hasRequester && hasFinance)
+                                    {
+                                        <div style="border-top: 1px dashed var(--color-border, #cbd5e1); margin: 8px 0; opacity: 0.75;"></div>
+                                    }
+
+                                    @* Finance Tags Sub-group *@
+                                    @if (hasFinance)
+                                    {
+                                        <div>
+                                            <div class="text-xs font-semibold text-muted mb-2 d-flex align-items-center" style="font-size: 0.72rem; letter-spacing: 0.03em; gap: 6px;">
+                                                <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #10B981; flex-shrink: 0;"></span>
+                                                <span>FINANCE TAGS:</span>
+                                            </div>
+                                            <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
+                                                @foreach (var tag in financeTags)
+                                                {
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                        <span>#@tag.Name</span>
+                                                        @if (CurrentUser.DepartmentId == tag.DepartmentId)
+                                                        {
+                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
+                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                </svg>
+                                                            </button>
+                                                        }
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+
+                                    @* Divider before Other tags *@
+                                    @if ((hasRequester || hasFinance) && hasOther)
+                                    {
+                                        <div style="border-top: 1px dashed var(--color-border, #cbd5e1); margin: 8px 0; opacity: 0.75;"></div>
+                                    }
+
+                                    @* Other Tags Sub-group *@
+                                    @if (hasOther)
+                                    {
+                                        <div>
+                                            <div class="text-xs font-semibold text-muted mb-2 d-flex align-items-center" style="font-size: 0.72rem; letter-spacing: 0.03em; gap: 6px;">
+                                                <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background-color: #8B5CF6; flex-shrink: 0;"></span>
+                                                <span>Management TAGS:</span>
+                                            </div>
+                                            <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
+                                                @foreach (var tag in otherTags)
+                                                {
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                        @* <span class="opacity-75 me-1" style="font-size: 0.68rem;">[@tag.DepartmentName]</span> *@
+                                                        <span>#@tag.Name</span>
+                                                        @if (CurrentUser.DepartmentId == tag.DepartmentId)
+                                                        {
+                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
+                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                </svg>
+                                                            </button>
+                                                        }
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
                             }
                         </div>
-                    </div>
+                    }
                 </div>
             </div>
         </div>

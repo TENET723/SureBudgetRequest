@@ -4,6 +4,7 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 
+@using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Application.Tags.Commands.CreateTag
 @using SureBudgetRequest.Application.Tags.Commands.UpdateTag
@@ -112,22 +113,21 @@
                             <tr>
                                 <td class="col-no">@(i++)</td>
                                 <td>
-                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: #fff; font-size: 0.8rem; padding: 0.35em 0.6em;">
+                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.8rem; padding: 0.35em 0.6em;">
                                         #@tag.Name
                                     </span>
                                 </td>
                                 <td>
-                                    @if (!string.IsNullOrEmpty(tag.ColorHex))
-                                    {
-                                        <div class="d-flex align-items-center gap-1">
-                                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background-color: @tag.ColorHex;"></span>
-                                            <span class="text-xs text-mono">@tag.ColorHex</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="d-flex align-items-center gap-1" title="Background Color">
+                                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background-color: @(tag.ColorHex ?? "#6c757d");"></span>
+                                            <span class="text-xs text-mono">@(tag.ColorHex ?? "Default")</span>
                                         </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted text-xs">Default</span>
-                                    }
+                                        <div class="d-flex align-items-center gap-1" title="Font Color">
+                                            <span style="display: inline-block; width: 14px; height: 14px; border-radius: 3px; background-color: @tag.EffectiveFontColor; border: 1px solid var(--color-border, #ccc);"></span>
+                                            <span class="text-xs text-mono text-muted">@(!string.IsNullOrEmpty(tag.FontColorHex) ? tag.FontColorHex : "Auto")</span>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td>
                                     @if (tag.IsActive)
@@ -184,15 +184,39 @@
                     {
                         <div class="alert alert-error mb-3">@_formError</div>
                     }
-                    <div class="form-field mb-4">
+                    <div class="mb-4 p-2 rounded flex items-center justify-between" style="background: var(--color-surface, #f9fafb); border: 1px solid var(--color-border, #e5e7eb);">
+                        <span class="text-xs text-muted font-semibold">Preview:</span>
+                        <span class="badge d-inline-flex align-items-center" style="background-color: @(_formColorHex); color: @EffectiveFormFontColor; font-size: 0.85rem; padding: 0.4em 0.7em;">
+                            #@(!string.IsNullOrWhiteSpace(_formName) ? _formName : "preview")
+                        </span>
+                    </div>
+
+                    <div class="form-field mb-3">
                         <label class="form-label text-sm font-semibold">Tag Name</label>
                         <input type="text" class="input" placeholder="e.g. Campaign-Q4" @bind="_formName" />
                     </div>
-                    <div class="form-field mb-4">
-                        <label class="form-label text-sm font-semibold">Color (Hex)</label>
+
+                    <div class="form-field mb-3">
+                        <label class="form-label text-sm font-semibold">Background Color</label>
                         <div class="flex items-center gap-2">
                             <input type="color" class="color-picker-input" @bind="_formColorHex" />
                             <input type="text" class="input" placeholder="#3B82F6" @bind="_formColorHex" />
+                        </div>
+                    </div>
+
+                    <div class="form-field mb-4">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="form-label text-sm font-semibold mb-0">Font Color</label>
+                            <span class="text-xs text-muted">Contrast: @(string.IsNullOrWhiteSpace(_formFontColorHex) ? "Auto" : "Custom")</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <input type="color" class="color-picker-input" value="@EffectiveFormFontColor" @onchange="OnFontColorPickerChange" />
+                            <input type="text" class="input" placeholder="Auto contrast" @bind="_formFontColorHex" />
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button type="button" class="btn btn-outline btn-xs @(string.IsNullOrWhiteSpace(_formFontColorHex) ? "btn-primary" : "")" @onclick="() => _formFontColorHex = null">Auto</button>
+                            <button type="button" class="btn btn-outline btn-xs @(_formFontColorHex == "#1F2937" ? "btn-primary" : "")" @onclick='() => _formFontColorHex = "#1F2937"'>Dark Text</button>
+                            <button type="button" class="btn btn-outline btn-xs @(_formFontColorHex == "#FFFFFF" ? "btn-primary" : "")" @onclick='() => _formFontColorHex = "#FFFFFF"'>Light Text</button>
                         </div>
                     </div>
                 </div>
@@ -369,6 +393,14 @@
     private Guid? _editingId;
     private string _formName = "";
     private string _formColorHex = "#3B82F6";
+    private string? _formFontColorHex;
+
+    private string EffectiveFormFontColor => ColorContrastHelper.GetEffectiveFontColor(_formColorHex, _formFontColorHex);
+
+    private void OnFontColorPickerChange(ChangeEventArgs e)
+    {
+        _formFontColorHex = e.Value?.ToString();
+    }
 
     private TagDto? _deactivatingTag;
 
@@ -431,6 +463,7 @@
         _editingId = null;
         _formName = "";
         _formColorHex = "#3B82F6";
+        _formFontColorHex = null;
         _formError = null;
         _showForm = true;
     }
@@ -440,6 +473,7 @@
         _editingId = tag.Id;
         _formName = tag.Name;
         _formColorHex = tag.ColorHex ?? "#3B82F6";
+        _formFontColorHex = tag.FontColorHex;
         _formError = null;
         _showForm = true;
     }
@@ -458,7 +492,7 @@
 
         if (_editingId.HasValue)
         {
-            var res = await Mediator.Send(new UpdateTagCommand(_editingId.Value, _formName.Trim(), _formColorHex, CurrentUser.UserId));
+            var res = await Mediator.Send(new UpdateTagCommand(_editingId.Value, _formName.Trim(), _formColorHex, CurrentUser.UserId, _formFontColorHex));
             if (res.IsFailure)
             {
                 _formError = res.Error.Message;
@@ -469,7 +503,7 @@
         }
         else
         {
-            var res = await Mediator.Send(new CreateTagCommand(_selectedDepartmentId, _formName.Trim(), CurrentUser.UserId, _formColorHex));
+            var res = await Mediator.Send(new CreateTagCommand(_selectedDepartmentId, _formName.Trim(), CurrentUser.UserId, _formColorHex, _formFontColorHex));
             if (res.IsFailure)
             {
                 _formError = res.Error.Message;

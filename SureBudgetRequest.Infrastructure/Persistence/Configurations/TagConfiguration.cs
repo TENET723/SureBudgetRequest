@@ -15,6 +15,7 @@ public class TagConfiguration : IEntityTypeConfiguration<Tag>
         builder.Property(t => t.DepartmentId).IsRequired();
         builder.Property(t => t.Name).IsRequired().HasMaxLength(50);
         builder.Property(t => t.ColorHex).HasMaxLength(10);
+        builder.Property(t => t.FontColorHex).HasMaxLength(10);
         builder.Property(t => t.IsActive).IsRequired();
         builder.Property(t => t.CreatedByUserId).IsRequired();
         builder.Property(t => t.CreatedAt).IsRequired();

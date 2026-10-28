@@ -1,5 +1,6 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Common;
 using SureBudgetRequest.Application.Tags.Models;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
@@ -13,22 +14,30 @@ public sealed record TagDto(
     Guid DepartmentId,
     string Name,
     string? ColorHex,
+    string? FontColorHex,
     bool IsActive,
     Guid CreatedByUserId,
     DateTime CreatedAt)
 {
+    public string EffectiveFontColor => ColorContrastHelper.GetEffectiveFontColor(ColorHex, FontColorHex);
+
     public static TagDto FromEntity(Tag t) =>
-        new(t.Id, t.DepartmentId, t.Name, t.ColorHex, t.IsActive, t.CreatedByUserId, t.CreatedAt);
+        new(t.Id, t.DepartmentId, t.Name, t.ColorHex, t.FontColorHex, t.IsActive, t.CreatedByUserId, t.CreatedAt);
 }
 
 public sealed record RequestTagDto(
     Guid TagId,
     string Name,
     string? ColorHex,
+    string? FontColorHex,
     Guid DepartmentId,
     string DepartmentName,
     Guid AttachedByUserId,
-    DateTime AttachedAt);
+    DateTime AttachedAt,
+    string TagGroup = "Other")
+{
+    public string EffectiveFontColor => ColorContrastHelper.GetEffectiveFontColor(ColorHex, FontColorHex);
+}
 
 // ── Get Single Tag ──────────────────────────────────────────────────────────
 
@@ -186,14 +195,38 @@ public sealed class GetRequestTagsQueryHandler
             return false;
         }).ToList();
 
-        var result = visibleTags.Select(t => new RequestTagDto(
-            t.TagId,
-            t.Tag?.Name ?? "Tag",
-            t.Tag?.ColorHex,
-            t.TagDepartmentId,
-            deptDict.TryGetValue(t.TagDepartmentId, out var name) ? name : "Department",
-            t.AttachedByUserId,
-            t.AttachedAt)).ToList();
+        var result = visibleTags.Select(t =>
+        {
+            string group = "Other";
+            if (t.TagDepartmentId == request.DepartmentIdAtSubmission)
+            {
+                group = "Requester";
+            }
+            else if (financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value)
+            {
+                group = "Finance";
+            }
+            else if (deptDict.TryGetValue(t.TagDepartmentId, out var deptName) &&
+                     deptName.Contains("Finance", StringComparison.OrdinalIgnoreCase))
+            {
+                group = "Finance";
+            }
+            else if (managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value)
+            {
+                group = "Management";
+            }
+
+            return new RequestTagDto(
+                t.TagId,
+                t.Tag?.Name ?? "Tag",
+                t.Tag?.ColorHex,
+                t.Tag?.FontColorHex,
+                t.TagDepartmentId,
+                deptDict.TryGetValue(t.TagDepartmentId, out var name) ? name : "Department",
+                t.AttachedByUserId,
+                t.AttachedAt,
+                group);
+        }).ToList();
 
         return Result.Success<IReadOnlyList<RequestTagDto>>(result);
     }
@@ -206,8 +239,10 @@ public sealed record VisibleTagDto(
     Guid DepartmentId,
     string DepartmentName,
     string Name,
-    string? ColorHex)
+    string? ColorHex,
+    string? FontColorHex = null)
 {
+    public string EffectiveFontColor => ColorContrastHelper.GetEffectiveFontColor(ColorHex, FontColorHex);
     public string DisplayName => $"#{Name}";
     public string FullDisplayName => $"[{DepartmentName}] #{Name}";
 }
@@ -255,7 +290,8 @@ public sealed class ListVisibleTagsForUserQueryHandler
             t.DepartmentId,
             deptDict.TryGetValue(t.DepartmentId, out var deptName) ? deptName : "Department",
             t.Name,
-            t.ColorHex)).ToList();
+            t.ColorHex,
+            t.FontColorHex)).ToList();
 
         return Result.Success<IReadOnlyList<VisibleTagDto>>(result);
     }

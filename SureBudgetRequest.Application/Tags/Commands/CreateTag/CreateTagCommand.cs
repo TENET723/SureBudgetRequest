@@ -12,7 +12,8 @@ public sealed record CreateTagCommand(
     Guid DepartmentId,
     string Name,
     Guid CreatedByUserId,
-    string? ColorHex = null) : IRequest<Result<Guid>>;
+    string? ColorHex = null,
+    string? FontColorHex = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateTagCommandHandler
     : IRequestHandler<CreateTagCommand, Result<Guid>>
@@ -47,7 +48,7 @@ public sealed class CreateTagCommandHandler
         Tag tag;
         try
         {
-            tag = new Tag(command.DepartmentId, command.Name, command.CreatedByUserId, command.ColorHex);
+            tag = new Tag(command.DepartmentId, command.Name, command.CreatedByUserId, command.ColorHex, command.FontColorHex);
         }
         catch (ArgumentException ex)
         {

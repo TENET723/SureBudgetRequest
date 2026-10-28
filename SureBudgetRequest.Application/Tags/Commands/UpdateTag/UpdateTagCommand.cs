@@ -11,7 +11,8 @@ public sealed record UpdateTagCommand(
     Guid TagId,
     string NewName,
     string? NewColorHex,
-    Guid ActorUserId) : IRequest<Result>;
+    Guid ActorUserId,
+    string? NewFontColorHex = null) : IRequest<Result>;
 
 public sealed class UpdateTagCommandHandler
     : IRequestHandler<UpdateTagCommand, Result>
@@ -56,7 +57,7 @@ public sealed class UpdateTagCommandHandler
         try
         {
             tag.Rename(command.NewName!);
-            tag.SetColor(command.NewColorHex);
+            tag.SetColors(command.NewColorHex, command.NewFontColorHex);
         }
         catch (ArgumentException ex)
         {

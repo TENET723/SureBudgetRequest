@@ -82,12 +82,13 @@ public class UpdateTagCommandHandlerTests
         _tagRepository.GetByNameAndDepartmentAsync("NewName", _deptId, Arg.Any<CancellationToken>())
             .Returns((Tag?)null);
 
-        var command = new UpdateTagCommand(_tagId, "NewName", "#123456", _deptHeadId);
+        var command = new UpdateTagCommand(_tagId, "NewName", "#123456", _deptHeadId, "#aabbcc");
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         tag.Name.Should().Be("NewName");
         tag.ColorHex.Should().Be("#123456");
+        tag.FontColorHex.Should().Be("#AABBCC");
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 

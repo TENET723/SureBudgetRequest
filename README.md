@@ -70,8 +70,8 @@ Associates a `Tag` with a `BudgetRequest`.
 
 | Action | Allowed Roles / Users | Rules & Constraints |
 | :--- | :--- | :--- |
-| **Create New Tag** | Any active user in Department X, or System Admin | Department members can only create tags for their own department (`User.DepartmentId == Tag.DepartmentId`). System Admins can create tags across any department. |
-| **Update / Rename Tag** | Any active user in Department X, or System Admin | Department members can rename/color tags within their own department. |
+| **Create New Tag** | Any active user in Department X, or System Admin | Department members can only create tags for their own department (`User.DepartmentId == Tag.DepartmentId`). System Admins can create tags across any department. Supports custom background (`ColorHex`) and font (`FontColorHex`) with automatic high-contrast calculation. |
+| **Update / Rename Tag** | Any active user in Department X, or System Admin | Department members can rename and change background/font colors within their own department. |
 | **Deactivate / Reactivate Tag** | Any active user in Department X, or System Admin | Deactivating a tag preserves historical tags on existing tickets, but excludes it from new autocomplete dropdowns. |
 | **Attach Tag to Ticket** | Requester, Department Head, Management, Finance | **Strict Own-Department Rule**: Users may **only** attach tags belonging to their own department. |
 | **Remove Tag from Ticket** | Any user belonging to the department that owns the tag | **Strict Deletion Boundary**: Users can **never** remove a tag attached by another department (e.g., IT cannot remove Finance's audit tag). |
