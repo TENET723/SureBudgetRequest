@@ -144,13 +144,14 @@
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Department Head <span class="text-muted fw-normal">(optional)</span></label>
-                        <select class="select" @bind="_formHeadUserId">
-                            <option value="">— no head —</option>
-                            @foreach (var u in _activeUsers)
-                            {
-                                <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
-                            }
-                        </select>
+                        <Dropdown Items="_activeUsers"
+                                  @bind-Value="_formHeadUserId"
+                                  ValueSelector="u => u.Id.ToString()"
+                                  TextSelector="FormatHeadUser"
+                                  Placeholder="— no head —"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search user..."
+                                  AllowClear="true" />
                         <div class="form-hint">Leave empty if no head is assigned yet. Requests cannot be submitted until a head is set.</div>
                     </div>
                     <div class="mb-4">
@@ -373,4 +374,6 @@
     }
 
 
+
+    private static string FormatHeadUser(UserDto u) => $"{u.FullName} ({u.Role})";
 }

@@ -74,12 +74,12 @@
             <div class="form-grid-2">
                 <div>
                     <label class="form-label text-sm font-semibold">Currency</label>
-                    <select class="select" @bind="_currencyCode" @bind:after="OnCurrencyChanged">
-                        @foreach (var c in _currencies)
-                        {
-                            <option value="@c.Code">@c.Code</option>
-                        }
-                    </select>
+                    <Dropdown Items="_currencies"
+                              @bind-Value="_currencyCode"
+                              @bind-Value:after="OnCurrencyChanged"
+                              ValueSelector="c => c.Code"
+                              TextSelector="c => c.Code"
+                              AllowClear="false" />
                 </div>
                 <div>
                     <label class="form-label text-sm font-semibold">Amount <span class="text-danger">*</span></label>
@@ -210,14 +210,16 @@
 
             <div class="mb-4">
                 <label class="form-label text-sm font-semibold">Withdraw Method <span class="text-danger">*</span></label>
-                <select class="select @(ShowError("withdrawMethod") ? "is-invalid" : null)"
-                        @bind="_withdrawMethodId" @onfocusout="@(() => Touch("withdrawMethod"))">
-                    <option value="">— select a method —</option>
-                    @foreach (var m in _withdrawMethods)
-                    {
-                        <option value="@m.Id">@m.Name</option>
-                    }
-                </select>
+                <Dropdown Items="_withdrawMethods"
+                          @bind-Value="_withdrawMethodId"
+                          @bind-Value:after="@(() => Touch("withdrawMethod"))"
+                          ValueSelector="m => m.Id.ToString()"
+                          TextSelector="m => m.Name"
+                          Placeholder="— select a method —"
+                          Searchable="true"
+                          SearchPlaceholder="Search method..."
+                          CssClass="@(ShowError("withdrawMethod") ? "is-invalid" : null)"
+                          AllowClear="false" />
                 @if (ShowError("withdrawMethod"))
                 {
                     <div class="invalid-feedback">@FieldError("withdrawMethod")</div>
@@ -262,13 +264,12 @@
 
             <div class="mb-4">
                 <label class="form-label text-sm font-semibold">Budget Category <span class="text-muted fw-normal">(optional)</span></label>
-                <select class="select" @bind="_budgetCategoryId">
-                    <option value="">— none —</option>
-                    @foreach (var c in _budgetCategories)
-                    {
-                        <option value="@c.Id">@c.Name</option>
-                    }
-                </select>
+                <Dropdown Items="_budgetCategories"
+                          @bind-Value="_budgetCategoryId"
+                          ValueSelector="c => c.Id.ToString()"
+                          TextSelector="c => c.Name"
+                          Placeholder="— none —"
+                          AllowClear="true" />
                 <div class="form-hint">e.g. Asset or Expense. Your department head can change this during review.</div>
             </div>
 

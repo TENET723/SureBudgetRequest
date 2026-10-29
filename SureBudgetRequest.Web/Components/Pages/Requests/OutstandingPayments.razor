@@ -66,26 +66,26 @@
                 {
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Department</label>
-                        <select class="select" @bind="_selectedDepartmentId">
-                            <option value="">All departments</option>
-                            @foreach (var d in _departments)
-                            {
-                                <option value="@d.Id">@d.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_departments"
+                                  @bind-Value="_selectedDepartmentId"
+                                  ValueSelector="d => d.Id.ToString()"
+                                  TextSelector="d => d.Name"
+                                  Placeholder="All departments"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search department..."
+                                  AllowClear="true" />
                     </div>
                 }
 
                 @* Currency *@
                 <div>
                     <label class="form-label text-sm text-muted mb-1">Currency</label>
-                    <select class="select" @bind="_selectedCurrencyCode">
-                        <option value="">All currencies</option>
-                        @foreach (var c in _currencies)
-                        {
-                            <option value="@c.Code">@c.Code — @c.Name</option>
-                        }
-                    </select>
+                    <Dropdown Items="_currencies"
+                              @bind-Value="_selectedCurrencyCode"
+                              ValueSelector="c => c.Code"
+                              TextSelector="FormatCurrency"
+                              Placeholder="All currencies"
+                              AllowClear="true" />
                 </div>
 
                 @* Date range *@
@@ -479,6 +479,8 @@
         UserRole.Employee       => "Your approved requests still awaiting full payment.",
         _                       => ""
     };
+
+    private static string FormatCurrency(CurrencyDto c) => $"{c.Code} — {c.Name}";
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";

@@ -793,13 +793,14 @@ else
                     }
                     <div class="form-field mb-4">
                         <label class="form-label text-sm font-semibold">Select Existing Tag</label>
-                        <select class="select" @bind="_selectedTagId">
-                            <option value="">-- Choose from your department --</option>
-                            @foreach (var t in _availableDeptTags.Where(t => !_requestTags.Any(rt => rt.TagId == t.Id)))
-                            {
-                                <option value="@t.Id">#@t.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_availableDeptTags.Where(t => !_requestTags.Any(rt => rt.TagId == t.Id)).ToList()"
+                                  @bind-Value="_selectedTagId"
+                                  ValueSelector="t => t.Id.ToString()"
+                                  TextSelector="FormatDeptTag"
+                                  Placeholder="-- Choose from your department --"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search tag..."
+                                  AllowClear="true" />
                     </div>
                     <div class="modal-section-divider">
                         <span>OR CREATE NEW FOR YOUR DEPARTMENT</span>
@@ -854,13 +855,14 @@ else
                     }
                     else
                     {
-                        <select class="select" @bind="_selectedCoaId">
-                            <option value="">— select an account —</option>
-                            @foreach (var c in _availableCoas)
-                            {
-                                <option value="@c.Id">@c.Code — @c.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_availableCoas"
+                                  @bind-Value="_selectedCoaId"
+                                  ValueSelector="c => c.Id.ToString()"
+                                  TextSelector="FormatCoa"
+                                  Placeholder="— select an account —"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search account code or name..."
+                                  AllowClear="true" />
                         @if (!_availableCoas.Any())
                         {
                             <div class="form-text text-sm text-warning">
@@ -995,13 +997,14 @@ else
                         <label class="form-label text-sm font-semibold">
                             Source bank account <span class="text-muted fw-normal">(optional)</span>
                         </label>
-                        <select class="select" @bind="_selectedBankAccountId">
-                            <option value="">— none (e.g. cash) —</option>
-                            @foreach (var ba in _bankAccounts)
-                            {
-                                <option value="@ba.Id">@ba.BankName — @ba.AccountNumber (@ba.AccountHolderName)</option>
-                            }
-                        </select>
+                        <Dropdown Items="_bankAccounts"
+                                  @bind-Value="_selectedBankAccountId"
+                                  ValueSelector="ba => ba.Id.ToString()"
+                                  TextSelector="FormatBankAccount"
+                                  Placeholder="— none (e.g. cash) —"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search bank or account..."
+                                  AllowClear="true" />
                         <div class="form-hint">Pick the company account the money was paid from. Leave blank for cash.</div>
                     </div>
                     <div class="mb-4">
@@ -3084,4 +3087,8 @@ else
             _removingTagId = null;
         }
     }
+
+    private static string FormatDeptTag(TagDto t) => $"#{t.Name}";
+    private static string FormatCoa(CoaDto c) => $"{c.Code} — {c.Name}";
+    private static string FormatBankAccount(BankAccountDto ba) => $"{ba.BankName} — {ba.AccountNumber} ({ba.AccountHolderName})";
 }

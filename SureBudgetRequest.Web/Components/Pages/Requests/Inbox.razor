@@ -95,13 +95,14 @@
                     {
                         <div>
                             <label class="form-label text-sm text-muted mb-1">Department</label>
-                            <select class="select" @bind="_selectedDepartmentId">
-                                <option value="">All departments</option>
-                                @foreach (var d in _departments)
-                                {
-                                    <option value="@d.Id">@d.Name</option>
-                                }
-                            </select>
+                            <Dropdown Items="_departments"
+                                      @bind-Value="_selectedDepartmentId"
+                                      ValueSelector="d => d.Id.ToString()"
+                                      TextSelector="d => d.Name"
+                                      Placeholder="All departments"
+                                      Searchable="true"
+                                      SearchPlaceholder="Search department..."
+                                      AllowClear="true" />
                         </div>
                     }
 
@@ -130,13 +131,14 @@
                     @* Tag *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Tag</label>
-                        <select class="select" @bind="_selectedTagId">
-                            <option value="">All tags</option>
-                            @foreach (var tag in _availableTags)
-                            {
-                                <option value="@tag.Id">@(CurrentUser.Role == UserRole.Admin ? tag.FullDisplayName : tag.DisplayName)</option>
-                            }
-                        </select>
+                        <Dropdown Items="_availableTags"
+                                  @bind-Value="_selectedTagId"
+                                  ValueSelector="tag => tag.Id.ToString()"
+                                  TextSelector="FormatTag"
+                                  Placeholder="All tags"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search tag..."
+                                  AllowClear="true" />
                     </div>
 
                     @* Type — multi-select via checkboxes *@
@@ -662,6 +664,9 @@
 
     private static string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..max] + "…";
+
+    private string FormatTag(VisibleTagDto t) =>
+        CurrentUser.Role == UserRole.Admin ? t.FullDisplayName : t.DisplayName;
 
     private static string TypeLabel(BudgetRequestType t) => t switch
     {

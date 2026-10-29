@@ -123,13 +123,14 @@
                         <div class="alert alert-error">@_formError</div>
                     }
                     <label class="form-label text-sm font-semibold">New Department Head</label>
-                    <select class="select" @bind="_formHeadUserId">
-                        <option value="">— select —</option>
-                        @foreach (var u in _activeHeadUsers)
-                        {
-                            <option value="@u.Id">@u.FullName (@u.Role.ToString())</option>
-                        }
-                    </select>
+                    <Dropdown Items="_activeHeadUsers"
+                              @bind-Value="_formHeadUserId"
+                              ValueSelector="u => u.Id.ToString()"
+                              TextSelector="FormatHeadUser"
+                              Placeholder="— select —"
+                              Searchable="true"
+                              SearchPlaceholder="Search user..."
+                              AllowClear="false" />
                     @if (_assigningDept.HeadUserId.HasValue && _userNames.TryGetValue(_assigningDept.HeadUserId.Value, out var currentHead))
                     {
                         <div class="form-hint">Current: @currentHead</div>
@@ -248,4 +249,6 @@
         }
         finally { _saving = false; }
     }
+
+    private static string FormatHeadUser(UserDto u) => $"{u.FullName} ({u.Role})";
 }

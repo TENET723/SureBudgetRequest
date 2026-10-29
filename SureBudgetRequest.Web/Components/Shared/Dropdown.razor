@@ -1,0 +1,325 @@
+@typeparam TValue
+@typeparam TItem
+
+<div class="dropdown-container @(Disabled ? "is-disabled" : "") @(_isOpen ? "is-open" : "") @CssClass" style="@Style">
+    @* ── Trigger Box ───────────────────────────────────────────────────────── *@
+    <div class="dropdown-trigger @(HasValue ? "has-value" : "") @(CanClear ? "can-clear" : "")"
+         tabindex="@(Disabled ? "-1" : "0")"
+         role="combobox"
+         aria-expanded="@(_isOpen.ToString().ToLower())"
+         title="@(HasValue ? SelectedText : null)"
+         @onclick="ToggleOpen"
+         @onkeydown="HandleTriggerKeyDown">
+        <span class="dropdown-selected-text @(!HasValue ? "is-placeholder" : "")"
+              title="@(HasValue ? SelectedText : null)">
+            @SelectedText
+        </span>
+
+        <div class="dropdown-actions">
+            @if (CanClear)
+            {
+                <button type="button"
+                        class="dropdown-clear-btn"
+                        @onclick="ClearSelectionAsync"
+                        @onclick:stopPropagation="true"
+                        title="Clear selection"
+                        aria-label="Clear selection"
+                        tabindex="-1">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            }
+            <span class="dropdown-chevron @(_isOpen ? "is-open" : "")">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
+                    <path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </span>
+        </div>
+    </div>
+
+    @* ── Backdrop Overlay for Click-Outside (Pure Blazor) ──────────────────── *@
+    @if (_isOpen)
+    {
+        <div class="dropdown-backdrop" @onclick="Close"></div>
+
+        @* ── Menu Panel ────────────────────────────────────────────────────── *@
+        <div class="dropdown-menu">
+            @* Optional Search Box *@
+            @if (Searchable)
+            {
+                <div class="dropdown-search-wrap" @onclick:stopPropagation="true">
+                    <svg class="dropdown-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                        <path d="M7 12A5 5 0 1 0 7 2a5 5 0 0 0 0 10zM14 14l-3.5-3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <input type="text"
+                           class="dropdown-search-input"
+                           @ref="_searchInputRef"
+                           placeholder="@SearchPlaceholder"
+                           @bind-value="_searchQuery"
+                           @bind-value:event="oninput"
+                           @onkeydown="HandleSearchKeyDown" />
+                    @if (!string.IsNullOrEmpty(_searchQuery))
+                    {
+                        <button type="button" class="dropdown-search-clear" @onclick="() => _searchQuery = string.Empty">
+                            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    }
+                </div>
+            }
+
+            @* Options List *@
+            <div class="dropdown-options-list" role="listbox">
+                @{
+                    var filtered = GetFilteredItems(out int totalMatches);
+                }
+
+                @if (filtered.Count == 0)
+                {
+                    <div class="dropdown-empty">
+                        @if (EmptyTemplate is not null)
+                        {
+                            @EmptyTemplate
+                        }
+                        else
+                        {
+                            <span>No options found</span>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @foreach (var item in filtered)
+                    {
+                        var itemVal = GetItemValue(item);
+                        var isSelected = IsSelected(itemVal);
+                        var itemText = GetItemText(item);
+
+                        <div class="dropdown-option @(isSelected ? "is-selected" : "")"
+                             role="option"
+                             aria-selected="@isSelected.ToString().ToLower()"
+                             title="@itemText"
+                             @onclick="() => SelectItemAsync(item)">
+                            @if (ItemTemplate is not null)
+                            {
+                                @ItemTemplate(item)
+                            }
+                            else
+                            {
+                                <span class="dropdown-option-label" title="@itemText">@itemText</span>
+                            }
+
+                            @if (isSelected)
+                            {
+                                <svg class="dropdown-check-icon" width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                    <path d="M3 8.5l3.5 3.5 6.5-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            }
+                        </div>
+                    }
+
+                    @if (totalMatches > filtered.Count)
+                    {
+                        <div class="dropdown-truncated-notice">
+                            Showing top @filtered.Count of @totalMatches results. @(Searchable ? "Type to refine..." : "")
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem>? Items { get; set; }
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public Func<TItem, TValue?>? ValueSelector { get; set; }
+    [Parameter] public Func<TItem, string>? TextSelector { get; set; }
+    [Parameter] public Func<TItem, string, bool>? SearchPredicate { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "-- Select an option --";
+    [Parameter] public bool Searchable { get; set; } = false;
+    [Parameter] public string SearchPlaceholder { get; set; } = "Type to search...";
+    [Parameter] public bool AllowClear { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public int MaxDisplayCount { get; set; } = 50;
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
+    [Parameter] public RenderFragment? EmptyTemplate { get; set; }
+
+    private bool _isOpen;
+    private string _searchQuery = string.Empty;
+    private ElementReference _searchInputRef;
+    private bool _shouldFocusSearch;
+
+    private bool CanClear => AllowClear && HasValue && !Disabled;
+
+    private bool HasValue
+    {
+        get
+        {
+            if (Value is null) return false;
+            if (Value is string s && string.IsNullOrEmpty(s)) return false;
+            if (Value is Guid g && g == Guid.Empty) return false;
+            return true;
+        }
+    }
+
+    private string SelectedText
+    {
+        get
+        {
+            if (!HasValue || Items is null || Items.Count == 0)
+                return Placeholder;
+
+            var match = Items.FirstOrDefault(i => IsSelected(GetItemValue(i)));
+            if (match is not null)
+                return GetItemText(match);
+
+            return Placeholder;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusSearch && Searchable && _isOpen)
+        {
+            _shouldFocusSearch = false;
+            try
+            {
+                await _searchInputRef.FocusAsync();
+            }
+            catch
+            {
+                // Ignore if component disposed or disconnected
+            }
+        }
+    }
+
+    private TValue? GetItemValue(TItem item)
+    {
+        if (ValueSelector is not null)
+            return ValueSelector(item);
+
+        if (item is TValue val)
+            return val;
+
+        return default;
+    }
+
+    private string GetItemText(TItem item)
+    {
+        if (TextSelector is not null)
+            return TextSelector(item);
+
+        return item?.ToString() ?? string.Empty;
+    }
+
+    private bool IsSelected(TValue? itemVal)
+    {
+        if (!HasValue || itemVal is null) return false;
+        return EqualityComparer<TValue>.Default.Equals(Value, itemVal);
+    }
+
+    private IReadOnlyList<TItem> GetFilteredItems(out int totalMatches)
+    {
+        if (Items is null || Items.Count == 0)
+        {
+            totalMatches = 0;
+            return Array.Empty<TItem>();
+        }
+
+        IEnumerable<TItem> query = Items;
+
+        if (Searchable && !string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            var q = _searchQuery.Trim();
+            if (SearchPredicate is not null)
+            {
+                query = query.Where(item => SearchPredicate(item, q));
+            }
+            else
+            {
+                query = query.Where(item => GetItemText(item).Contains(q, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        var list = query.ToList();
+        totalMatches = list.Count;
+
+        if (MaxDisplayCount > 0 && list.Count > MaxDisplayCount)
+        {
+            return list.Take(MaxDisplayCount).ToList();
+        }
+
+        return list;
+    }
+
+    private void ToggleOpen()
+    {
+        if (Disabled) return;
+        _isOpen = !_isOpen;
+        if (_isOpen)
+        {
+            _searchQuery = string.Empty;
+            if (Searchable)
+            {
+                _shouldFocusSearch = true;
+            }
+        }
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _searchQuery = string.Empty;
+    }
+
+    private async Task SelectItemAsync(TItem item)
+    {
+        Value = GetItemValue(item);
+        Close();
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private async Task ClearSelectionAsync()
+    {
+        if (Disabled) return;
+        Value = typeof(TValue) == typeof(string) ? (TValue)(object)string.Empty : default;
+        Close();
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private void HandleTriggerKeyDown(KeyboardEventArgs e)
+    {
+        if (Disabled) return;
+
+        if (e.Key is "Enter" or " " or "ArrowDown")
+        {
+            if (!_isOpen)
+            {
+                _isOpen = true;
+                _searchQuery = string.Empty;
+                if (Searchable)
+                {
+                    _shouldFocusSearch = true;
+                }
+            }
+        }
+        else if (e.Key is "Escape")
+        {
+            Close();
+        }
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Escape")
+        {
+            Close();
+        }
+    }
+}

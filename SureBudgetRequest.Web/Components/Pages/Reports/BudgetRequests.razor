@@ -233,74 +233,76 @@
                         }
                         else
                         {
-                            <select class="select" @bind="_selectedDepartmentId">
-                                <option value="">All departments</option>
-                                @foreach (var d in _departments)
-                                {
-                                    <option value="@d.Id">@d.Name</option>
-                                }
-                            </select>
+                            <Dropdown Items="_departments"
+                                      @bind-Value="_selectedDepartmentId"
+                                      ValueSelector="d => d.Id.ToString()"
+                                      TextSelector="d => d.Name"
+                                      Placeholder="All departments"
+                                      Searchable="true"
+                                      SearchPlaceholder="Search department..."
+                                      AllowClear="true" />
                         }
                     </div>
 
                     @* COA *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Chart Of Account</label>
-                        <select class="select" @bind="_selectedCoaId">
-                            <option value="">All accounts</option>
-                            @foreach (var c in _coas)
-                            {
-                                <option value="@c.Id">@c.Code — @c.Name@(c.IsActive ? "" : " (inactive)")</option>
-                            }
-                        </select>
+                        <Dropdown Items="_coas"
+                                  @bind-Value="_selectedCoaId"
+                                  ValueSelector="c => c.Id.ToString()"
+                                  TextSelector="FormatCoa"
+                                  Placeholder="All accounts"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search code or account..."
+                                  AllowClear="true" />
                     </div>
 
                     @* Currency *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Currency</label>
-                        <select class="select" @bind="_selectedCurrencyCode">
-                            <option value="">All currencies</option>
-                            @foreach (var c in _currencies)
-                            {
-                                <option value="@c.Code">@c.Code — @c.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_currencies"
+                                  @bind-Value="_selectedCurrencyCode"
+                                  ValueSelector="c => c.Code"
+                                  TextSelector="FormatCurrency"
+                                  Placeholder="All currencies"
+                                  AllowClear="true" />
                     </div>
 
                     @* Withdraw Method *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Withdraw Method</label>
-                        <select class="select" @bind="_selectedWithdrawMethodId">
-                            <option value="">All withdraw methods</option>
-                            @foreach (var m in _withdrawMethods)
-                            {
-                                <option value="@m.Id">@m.Name@(m.IsActive ? "" : " (inactive)")</option>
-                            }
-                        </select>
+                        <Dropdown Items="_withdrawMethods"
+                                  @bind-Value="_selectedWithdrawMethodId"
+                                  ValueSelector="m => m.Id.ToString()"
+                                  TextSelector="FormatWithdrawMethod"
+                                  Placeholder="All withdraw methods"
+                                  AllowClear="true" />
                     </div>
 
                     @* Requester *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Requester</label>
-                        <select class="select" @bind="_selectedRequesterId">
-                            <option value="">All requesters</option>
-                            @foreach (var u in _allUsers)
-                            {
-                                <option value="@u.Id">@u.FullName</option>
-                            }
-                        </select>
+                        <Dropdown Items="_allUsers"
+                                  @bind-Value="_selectedRequesterId"
+                                  ValueSelector="u => u.Id.ToString()"
+                                  TextSelector="u => u.FullName"
+                                  Placeholder="All requesters"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search requester..."
+                                  AllowClear="true" />
                     </div>
 
                     @* Approver *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Approved by</label>
-                        <select class="select" @bind="_selectedApproverId">
-                            <option value="">All approvers</option>
-                            @foreach (var u in _approverCandidates)
-                            {
-                                <option value="@u.Id">@u.FullName (@RoleLabel(u.Role))</option>
-                            }
-                        </select>
+                        <Dropdown Items="_approverCandidates"
+                                  @bind-Value="_selectedApproverId"
+                                  ValueSelector="u => u.Id.ToString()"
+                                  TextSelector="FormatApprover"
+                                  Placeholder="All approvers"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search approver..."
+                                  AllowClear="true" />
                     </div>
 
                     @* Over-limit *@
@@ -330,13 +332,14 @@
                     @* Tag *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Tag</label>
-                        <select class="select" @bind="_selectedTagId">
-                            <option value="">All tags</option>
-                            @foreach (var tag in _availableTags)
-                            {
-                                <option value="@tag.Id">@(CurrentUser.Role == UserRole.Admin ? tag.FullDisplayName : tag.DisplayName)</option>
-                            }
-                        </select>
+                        <Dropdown Items="_availableTags"
+                                  @bind-Value="_selectedTagId"
+                                  ValueSelector="tag => tag.Id.ToString()"
+                                  TextSelector="FormatTag"
+                                  Placeholder="All tags"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search tag..."
+                                  AllowClear="true" />
                     </div>
                 </div>
 
@@ -927,6 +930,12 @@
             _ => new(),
         };
     }
+
+    private static string FormatCoa(CoaDto c) => $"{c.Code} — {c.Name}{(c.IsActive ? "" : " (inactive)")}";
+    private static string FormatCurrency(CurrencyDto c) => $"{c.Code} — {c.Name}";
+    private static string FormatWithdrawMethod(WithdrawMethodDto m) => $"{m.Name}{(m.IsActive ? "" : " (inactive)")}";
+    private string FormatApprover(UserDto u) => $"{u.FullName} ({RoleLabel(u.Role)})";
+    private string FormatTag(VisibleTagDto t) => CurrentUser.Role == UserRole.Admin ? t.FullDisplayName : t.DisplayName;
 
     private static Guid? ParseGuid(string s) =>
         Guid.TryParse(s, out var g) ? g : null;

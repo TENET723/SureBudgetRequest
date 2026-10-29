@@ -189,13 +189,14 @@
                     </div>
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Tag</label>
-                        <select class="select" @bind="_selectedTagId">
-                            <option value="">All tags</option>
-                            @foreach (var tag in _availableTags)
-                            {
-                                <option value="@tag.Id">@tag.DisplayName</option>
-                            }
-                        </select>
+                        <Dropdown Items="_availableTags"
+                                  @bind-Value="_selectedTagId"
+                                  ValueSelector="tag => tag.Id.ToString()"
+                                  TextSelector="tag => tag.DisplayName"
+                                  Placeholder="All tags"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search tag..."
+                                  AllowClear="true" />
                     </div>
                 </div>
 

@@ -56,12 +56,16 @@
         {
             <div class="flex items-center gap-2">
                 <span class="text-sm font-semibold">Department:</span>
-                <select class="select select-sm" style="width: 220px;" @bind="_selectedDepartmentId" @bind:after="LoadData">
-                    @foreach (var d in _departments)
-                    {
-                        <option value="@d.Id">@d.Name</option>
-                    }
-                </select>
+                <div style="width: 220px;">
+                    <Dropdown Items="_departments"
+                              @bind-Value="_selectedDepartmentId"
+                              @bind-Value:after="LoadData"
+                              ValueSelector="d => d.Id"
+                              TextSelector="d => d.Name"
+                              Searchable="true"
+                              SearchPlaceholder="Search department..."
+                              AllowClear="false" />
+                </div>
             </div>
         }
 
@@ -285,23 +289,25 @@
                         <div class="form-grid-2">
                             <div>
                                 <label class="text-xs text-muted mb-1 d-block">Finance Department</label>
-                                <select class="select select-sm" @bind="_settingsFinanceDeptId">
-                                    <option value="">-- Not Set (Disabled) --</option>
-                                    @foreach (var d in _departments)
-                                    {
-                                        <option value="@d.Id.ToString()">@d.Name</option>
-                                    }
-                                </select>
+                                <Dropdown Items="_departments"
+                                          @bind-Value="_settingsFinanceDeptId"
+                                          ValueSelector="d => d.Id.ToString()"
+                                          TextSelector="d => d.Name"
+                                          Placeholder="-- Not Set (Disabled) --"
+                                          Searchable="true"
+                                          SearchPlaceholder="Search department..."
+                                          AllowClear="true" />
                             </div>
                             <div>
                                 <label class="text-xs text-muted mb-1 d-block">Management Department</label>
-                                <select class="select select-sm" @bind="_settingsMgmtDeptId">
-                                    <option value="">-- Not Set (Disabled) --</option>
-                                    @foreach (var d in _departments)
-                                    {
-                                        <option value="@d.Id.ToString()">@d.Name</option>
-                                    }
-                                </select>
+                                <Dropdown Items="_departments"
+                                          @bind-Value="_settingsMgmtDeptId"
+                                          ValueSelector="d => d.Id.ToString()"
+                                          TextSelector="d => d.Name"
+                                          Placeholder="-- Not Set (Disabled) --"
+                                          Searchable="true"
+                                          SearchPlaceholder="Search department..."
+                                          AllowClear="true" />
                             </div>
                         </div>
                     </div>

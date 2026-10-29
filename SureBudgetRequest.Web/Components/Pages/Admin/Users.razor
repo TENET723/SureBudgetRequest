@@ -35,13 +35,15 @@
                            Placeholder="Search name, email, or username" Width="260px" />
         </div>
         <div>
-            <select class="select" @bind="_filterDept" @bind:after="ApplyFilter">
-                <option value="">All Departments</option>
-                @foreach (var d in _departments)
-                {
-                    <option value="@d.Id">@d.Name</option>
-                }
-            </select>
+            <Dropdown Items="_departments"
+                      @bind-Value="_filterDept"
+                      @bind-Value:after="ApplyFilter"
+                      ValueSelector="d => d.Id.ToString()"
+                      TextSelector="d => d.Name"
+                      Placeholder="All Departments"
+                      Searchable="true"
+                      SearchPlaceholder="Search department..."
+                      AllowClear="true" />
         </div>
         <div>
             <select class="select" @bind="_filterRole" @bind:after="ApplyFilter">
@@ -188,13 +190,14 @@
                         }
                         <div>
                             <label class="form-label text-sm font-semibold">Department</label>
-                            <select class="select" @bind="_formDeptId">
-                                <option value="">— select —</option>
-                                @foreach (var d in _departments.Where(d => d.IsActive))
-                                {
-                                    <option value="@d.Id">@d.Name</option>
-                                }
-                            </select>
+                            <Dropdown Items="_departments.Where(d => d.IsActive).ToList()"
+                                      @bind-Value="_formDeptId"
+                                      ValueSelector="d => d.Id.ToString()"
+                                      TextSelector="d => d.Name"
+                                      Placeholder="— select —"
+                                      Searchable="true"
+                                      SearchPlaceholder="Search department..."
+                                      AllowClear="false" />
                         </div>
                         <div>
                             <label class="form-label text-sm font-semibold">Role</label>

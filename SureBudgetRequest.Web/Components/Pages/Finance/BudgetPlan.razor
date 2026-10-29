@@ -42,13 +42,15 @@
             <span class="font-semibold px-2">FY @_selectedYear / @(_selectedYear + 1)</span>
             <button class="btn btn-outline btn-sm" @onclick="NextYear">&#8250;</button>
         </div>
-        <div>
-            <select class="select" @onchange="OnDeptChanged">
-                @foreach (var d in _departments)
-                {
-                    <option value="@d.Id" selected="@(d.Id == _selectedDeptId)">@d.Name</option>
-                }
-            </select>
+        <div style="min-width: 220px;">
+            <Dropdown Items="_departments"
+                      @bind-Value="_selectedDeptId"
+                      @bind-Value:after="LoadPlan"
+                      ValueSelector="d => d.Id"
+                      TextSelector="d => d.Name"
+                      Searchable="true"
+                      SearchPlaceholder="Search department..."
+                      AllowClear="false" />
         </div>
     </div>
 
