@@ -395,6 +395,11 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .modal-close { color: var(--color-text-muted); }
 .modal-close:empty::before { content: "✕"; font-size: 14px; line-height: 1; }
 
+.request-tag-badge {
+  position: relative;
+  transition: opacity 0.2s, box-shadow 0.15s ease;
+}
+
 .tag-remove-btn {
   background: transparent;
   border: none;
@@ -410,6 +415,27 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: opacity 120ms;
 }
 .tag-remove-btn:hover {
+  opacity: 1;
+}
+
+.request-tag-badge .tag-remove-btn {
+  opacity: 0;
+  max-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transition: opacity 150ms ease, max-width 150ms ease, margin-left 150ms ease;
+}
+
+.request-tag-badge:hover .tag-remove-btn,
+.request-tag-badge .tag-remove-btn.is-removing {
+  opacity: 0.85;
+  max-width: 16px;
+  margin-left: 6px;
+  pointer-events: auto;
+}
+
+.request-tag-badge .tag-remove-btn:hover {
   opacity: 1;
 }
 .modal-body { margin-bottom: var(--space-2); }

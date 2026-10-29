@@ -67,9 +67,9 @@ public class RemoveTagFromRequestCommandHandlerTests
         return tag;
     }
 
-    private User CreateUser(Guid deptId, bool isActive = true)
+    private User CreateUser(Guid deptId, bool isActive = true, UserRole role = UserRole.Employee)
     {
-        var user = new User("actor", "Actor", "actor@test.com", deptId, UserRole.Employee);
+        var user = new User("actor", "Actor", "actor@test.com", deptId, role);
         typeof(User).GetProperty(nameof(User.Id))!.SetValue(user, _actorId);
         if (!isActive) user.Deactivate();
         return user;
@@ -163,6 +163,40 @@ public class RemoveTagFromRequestCommandHandlerTests
             Arg.Is<BudgetRequestModification>(m => m.BudgetRequestId == _requestId && m.ModifiedByUserId == _actorId && m.Note!.Contains("Removed tag 'Hardware' (Engineering)")),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsAccounting()
+    {
+        var tag = CreateTag();
+        var request = CreateRequestWithTag(tag, _actorId, _deptId);
+        var user = CreateUser(_deptId, role: UserRole.Accounting);
+
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+
+        var command = new RemoveTagFromRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(TagErrors.CannotRemoveTag.Code);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsSupport()
+    {
+        var tag = CreateTag();
+        var request = CreateRequestWithTag(tag, _actorId, _deptId);
+        var user = CreateUser(_deptId, role: UserRole.Support);
+
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+
+        var command = new RemoveTagFromRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(TagErrors.CannotRemoveTag.Code);
     }
 
     [Fact]

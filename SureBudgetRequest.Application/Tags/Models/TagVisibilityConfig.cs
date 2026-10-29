@@ -28,6 +28,8 @@ public sealed class TagVisibilityConfig
 
     public static TagVisibilityConfig CreateDefault() => new();
 
+    public string ToJson() => JsonSerializer.Serialize(this);
+
     public static TagVisibilityConfig FromJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))

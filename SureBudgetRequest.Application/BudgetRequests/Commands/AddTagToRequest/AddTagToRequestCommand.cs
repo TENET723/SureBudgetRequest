@@ -1,8 +1,10 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Tags.Models;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest;
@@ -50,6 +52,23 @@ public sealed class AddTagToRequestCommandHandler
         var actor = await _userRepository.GetByIdAsync(command.ActorUserId, ct);
         if (actor is null || !actor.IsActive)
             return Result.Failure(UserErrors.NotFound(command.ActorUserId));
+
+        if (actor.Role is UserRole.Accounting or UserRole.Support)
+            return Result.Failure(TagErrors.CannotAttachTag);
+
+        var configSetting = await _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, ct);
+        var config = TagVisibilityConfig.FromJson(configSetting?.Value);
+
+        bool isAllowed = actor.Role == UserRole.Admin
+            || actor.Id == request.RequesterId
+            || (request.DepartmentIdAtSubmission != Guid.Empty && actor.DepartmentId == request.DepartmentIdAtSubmission)
+            || actor.Role == UserRole.Finance
+            || (config.FinanceDepartmentId.HasValue && actor.DepartmentId == config.FinanceDepartmentId.Value)
+            || actor.Role == UserRole.Management
+            || (config.ManagementDepartmentId.HasValue && actor.DepartmentId == config.ManagementDepartmentId.Value);
+
+        if (!isAllowed)
+            return Result.Failure(TagErrors.CannotAttachTag);
 
         var tag = await _tagRepository.GetByIdAsync(command.TagId, ct);
         if (tag is null)

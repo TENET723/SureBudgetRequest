@@ -3,6 +3,7 @@ using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Commands.RemoveTagFromRequest;
@@ -47,6 +48,9 @@ public sealed class RemoveTagFromRequestCommandHandler
         var actor = await _userRepository.GetByIdAsync(command.ActorUserId, ct);
         if (actor is null || !actor.IsActive)
             return Result.Failure(UserErrors.NotFound(command.ActorUserId));
+
+        if (actor.Role is UserRole.Accounting or UserRole.Support)
+            return Result.Failure(TagErrors.CannotRemoveTag);
 
         var tag = await _tagRepository.GetByIdAsync(command.TagId, ct);
         if (tag is null)

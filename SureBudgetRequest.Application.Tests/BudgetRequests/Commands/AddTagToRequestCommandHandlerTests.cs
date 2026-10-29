@@ -4,6 +4,7 @@ using NSubstitute.ExceptionExtensions;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest;
+using SureBudgetRequest.Application.Tags.Models;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
@@ -69,9 +70,9 @@ public class AddTagToRequestCommandHandlerTests
         return tag;
     }
 
-    private User CreateUser(Guid deptId, bool isActive = true)
+    private User CreateUser(Guid deptId, bool isActive = true, UserRole role = UserRole.Employee)
     {
-        var user = new User("actor", "Actor", "actor@test.com", deptId, UserRole.Employee);
+        var user = new User("actor", "Actor", "actor@test.com", deptId, role);
         typeof(User).GetProperty(nameof(User.Id))!.SetValue(user, _actorId);
         if (!isActive) user.Deactivate();
         return user;
@@ -198,6 +199,118 @@ public class AddTagToRequestCommandHandlerTests
 
         res2.IsFailure.Should().BeTrue();
         res2.Error.Code.Should().Be(TagErrors.MaxDepartmentTagsReached(1).Code);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsAccounting()
+    {
+        var request = CreateRequest();
+        var user = CreateUser(_deptId, role: UserRole.Accounting);
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+
+        var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(TagErrors.CannotAttachTag.Code);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsSupport()
+    {
+        var request = CreateRequest();
+        var user = CreateUser(_deptId, role: UserRole.Support);
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+
+        var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(TagErrors.CannotAttachTag.Code);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnForbidden_WhenActorIsNotTicketStakeholder()
+    {
+        var otherRequesterId = Guid.NewGuid();
+        var requesterDeptId = Guid.NewGuid();
+        var request = BudgetRequest.CreateDraft(
+            otherRequesterId,
+            "Other Requester",
+            BudgetRequestType.Standard,
+            Guid.NewGuid(),
+            "Head",
+            DateTime.UtcNow.AddDays(1),
+            100_000m,
+            "MMK",
+            "Hardware",
+            "Withdrawer",
+            "Title",
+            requesterDeptId,
+            false,
+            null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(request, _requestId);
+
+        var user = CreateUser(_deptId, role: UserRole.Employee); // Not requester, not requester's dept, not finance/mgmt
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>())
+            .Returns((AppSetting?)null);
+
+        var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(TagErrors.CannotAttachTag.Code);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldSucceed_WhenActorIsFromFinanceDepartmentConfiguredInTagSettings()
+    {
+        var otherRequesterId = Guid.NewGuid();
+        var requesterDeptId = Guid.NewGuid();
+        var request = BudgetRequest.CreateDraft(
+            otherRequesterId,
+            "Other Requester",
+            BudgetRequestType.Standard,
+            Guid.NewGuid(),
+            "Head",
+            DateTime.UtcNow.AddDays(1),
+            100_000m,
+            "MMK",
+            "Hardware",
+            "Withdrawer",
+            "Title",
+            requesterDeptId,
+            false,
+            null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(request, _requestId);
+
+        var financeDeptId = _deptId;
+        var user = CreateUser(financeDeptId, role: UserRole.Employee);
+        var tag = CreateTag();
+        var department = new Department("Finance Dept", Guid.NewGuid(), 100_000m, 500_000m);
+        typeof(Department).GetProperty(nameof(Department.Id))!.SetValue(department, financeDeptId);
+
+        var configSetting = new AppSetting(
+            TagVisibilityConfig.SettingKey,
+            new TagVisibilityConfig { FinanceDepartmentId = financeDeptId, ManagementDepartmentId = Guid.NewGuid() }.ToJson(),
+            "Tag settings");
+
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _departmentRepository.GetByIdAsync(financeDeptId, Arg.Any<CancellationToken>()).Returns(department);
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>()).Returns(configSetting);
+        _appSettingRepository.GetByKeyAsync("TagSettings:MaxTagsPerDepartmentOnTicket", Arg.Any<CancellationToken>()).Returns((AppSetting?)null);
+
+        var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        request.Tags.Should().HaveCount(1);
     }
 
     [Fact]

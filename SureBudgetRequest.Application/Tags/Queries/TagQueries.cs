@@ -206,11 +206,6 @@ public sealed class GetRequestTagsQueryHandler
             {
                 group = "Finance";
             }
-            else if (deptDict.TryGetValue(t.TagDepartmentId, out var deptName) &&
-                     deptName.Contains("Finance", StringComparison.OrdinalIgnoreCase))
-            {
-                group = "Finance";
-            }
             else if (managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value)
             {
                 group = "Management";

@@ -25,6 +25,12 @@ public static class TagErrors
     public static readonly Error TagNotAttached =
         Error.NotFound("Tag.NotAttached", "The specified tag is not attached to this request.");
 
+    public static readonly Error CannotAttachTag =
+        Error.Forbidden("Tag.CannotAttachTag", "You do not have permission to attach tags to this request.");
+
+    public static readonly Error CannotRemoveTag =
+        Error.Forbidden("Tag.CannotRemoveTag", "You do not have permission to remove tags from this request.");
+
     public static Error MaxDepartmentTagsReached(int max) =>
         Error.Validation("Tag.MaxLimitReached", $"Your department cannot attach more than {max} tags to this request.");
 
