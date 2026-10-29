@@ -183,11 +183,11 @@ public sealed class GetRequestTagsQueryHandler
                 return false;
             }
 
-            // Tag classification checks (independent checks to support overlap cases)
-            bool isTagRequester = t.TagDepartmentId == request.DepartmentIdAtSubmission;
+            // Tag classification checks: Finance, Accounting, and Management take precedence over generic Requester
             bool isTagFinance = financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value;
-            bool isTagManagement = managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value;
             bool isTagAccounting = accountingDeptId.HasValue && t.TagDepartmentId == accountingDeptId.Value;
+            bool isTagManagement = managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value;
+            bool isTagRequester = !isTagFinance && !isTagAccounting && !isTagManagement && t.TagDepartmentId == request.DepartmentIdAtSubmission;
 
             if (isTagRequester && allowedTypes.Any(a => string.Equals(a, "Requester", StringComparison.OrdinalIgnoreCase)))
                 return true;
@@ -195,10 +195,10 @@ public sealed class GetRequestTagsQueryHandler
             if (isTagFinance && allowedTypes.Any(a => string.Equals(a, "Finance", StringComparison.OrdinalIgnoreCase)))
                 return true;
 
-            if (isTagManagement && allowedTypes.Any(a => string.Equals(a, "Management", StringComparison.OrdinalIgnoreCase)))
+            if (isTagAccounting && allowedTypes.Any(a => string.Equals(a, "Accounting", StringComparison.OrdinalIgnoreCase)))
                 return true;
 
-            if (isTagAccounting && allowedTypes.Any(a => string.Equals(a, "Accounting", StringComparison.OrdinalIgnoreCase)))
+            if (isTagManagement && allowedTypes.Any(a => string.Equals(a, "Management", StringComparison.OrdinalIgnoreCase)))
                 return true;
 
             return false;
@@ -207,11 +207,7 @@ public sealed class GetRequestTagsQueryHandler
         var result = visibleTags.Select(t =>
         {
             string group = "Other";
-            if (t.TagDepartmentId == request.DepartmentIdAtSubmission)
-            {
-                group = "Requester";
-            }
-            else if (financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value)
+            if (financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value)
             {
                 group = "Finance";
             }
@@ -222,6 +218,10 @@ public sealed class GetRequestTagsQueryHandler
             else if (managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value)
             {
                 group = "Management";
+            }
+            else if (t.TagDepartmentId == request.DepartmentIdAtSubmission)
+            {
+                group = "Requester";
             }
 
             return new RequestTagDto(

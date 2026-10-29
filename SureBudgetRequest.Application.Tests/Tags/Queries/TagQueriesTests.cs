@@ -396,6 +396,63 @@ public class TagQueriesTests
     }
 
     [Fact]
+    public async Task GetRequestTagsQuery_WhenRequesterIsFromAccountingOrFinanceOrManagement_ShouldGroupIntoTheirRespectiveSections()
+    {
+        var acctDeptId = Guid.NewGuid();
+        var itDept = CreateDepartment(_itDeptId, "IT");
+        var finDept = CreateDepartment(_financeDeptId, "Finance");
+        var mgmtDept = CreateDepartment(_managementDeptId, "Management");
+        var acctDept = CreateDepartment(acctDeptId, "Accounting");
+        _departmentRepository.ListAsync(true, Arg.Any<CancellationToken>()).Returns(new[] { itDept, finDept, mgmtDept, acctDept });
+
+        var config = new TagVisibilityConfig
+        {
+            FinanceDepartmentId = _financeDeptId,
+            ManagementDepartmentId = _managementDeptId,
+            AccountingDepartmentId = acctDeptId,
+            RoleVisibilityMatrix = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Accounting"] = new() { "Finance", "Management" },
+                ["Finance"] = new() { "Accounting", "Management" },
+                ["Management"] = new() { "Accounting", "Finance" }
+            }
+        };
+        var setting = new AppSetting(TagVisibilityConfig.SettingKey, JsonSerializer.Serialize(config));
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>()).Returns(setting);
+
+        // Accounting Requester ticket
+        var acctReqId = Guid.NewGuid();
+        var acctRequester = CreateViewer(acctDeptId, UserRole.Accounting);
+        typeof(User).GetProperty(nameof(User.Id))!.SetValue(acctRequester, acctReqId);
+        _userRepository.GetByIdAsync(acctReqId, Arg.Any<CancellationToken>()).Returns(acctRequester);
+
+        var acctTicketId = Guid.NewGuid();
+        var acctRequest = BudgetRequest.CreateDraft(
+            acctReqId, "Accountant", BudgetRequestType.Standard, Guid.NewGuid(), "Head",
+            DateTime.UtcNow.AddDays(1), 100_000m, "MMK", "Reason", "Withdrawer", "Title",
+            Guid.NewGuid(), false, null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(acctRequest, acctTicketId);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.DepartmentIdAtSubmission))!.SetValue(acctRequest, acctDeptId);
+
+        var acctTag = CreateTag(acctDeptId, "Acct-Audit");
+        var finTag = CreateTag(_financeDeptId, "Finance-Approved");
+        acctRequest.AddTag(acctTag, acctReqId, acctDeptId);
+        acctRequest.AddTag(finTag, Guid.NewGuid(), _financeDeptId);
+
+        _requestRepository.GetByIdAsync(acctTicketId, Arg.Any<CancellationToken>()).Returns(acctRequest);
+        var handler = new GetRequestTagsQueryHandler(_requestRepository, _userRepository, _departmentRepository, _appSettingRepository);
+
+        var res = await handler.Handle(new GetRequestTagsQuery(acctTicketId, acctReqId), CancellationToken.None);
+        res.IsSuccess.Should().BeTrue();
+
+        var acctTagDto = res.Value.First(t => t.Name == "Acct-Audit");
+        var finTagDto = res.Value.First(t => t.Name == "Finance-Approved");
+
+        acctTagDto.TagGroup.Should().Be("Accounting"); // Should be Accounting, NOT Requester!
+        finTagDto.TagGroup.Should().Be("Finance");
+    }
+
+    [Fact]
     public async Task ListVisibleTagsForUserQuery_ShouldReturnFailure_WhenUserNotFound()
     {
         var missingUserId = Guid.NewGuid();
