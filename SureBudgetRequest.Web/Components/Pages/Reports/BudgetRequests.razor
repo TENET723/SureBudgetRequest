@@ -334,7 +334,7 @@
                             <option value="">All tags</option>
                             @foreach (var tag in _availableTags)
                             {
-                                <option value="@tag.Id">@(CurrentUser.Role == UserRole.DepartmentHead ? tag.DisplayName : tag.FullDisplayName)</option>
+                                <option value="@tag.Id">@(CurrentUser.Role == UserRole.Admin ? tag.FullDisplayName : tag.DisplayName)</option>
                             }
                         </select>
                     </div>

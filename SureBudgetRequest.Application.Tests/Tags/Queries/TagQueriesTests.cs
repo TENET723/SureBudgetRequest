@@ -373,6 +373,48 @@ public class TagQueriesTests
     }
 
     [Fact]
+    public async Task ListVisibleTagsForUserQuery_Finance_ShouldOnlyReturnFinanceDepartmentActiveTags()
+    {
+        var financeUser = CreateViewer(_financeDeptId, UserRole.Finance);
+        _userRepository.GetByIdAsync(financeUser.Id, Arg.Any<CancellationToken>()).Returns(financeUser);
+
+        var finDept = CreateDepartment(_financeDeptId, "Finance");
+        _departmentRepository.ListAsync(true, Arg.Any<CancellationToken>()).Returns(new[] { finDept });
+
+        var finTag = CreateTag(_financeDeptId, "tax-exempt");
+        _tagRepository.ListByDepartmentAsync(_financeDeptId, false, Arg.Any<CancellationToken>()).Returns(new[] { finTag });
+
+        var handler = new ListVisibleTagsForUserQueryHandler(_tagRepository, _userRepository, _departmentRepository);
+        var result = await handler.Handle(new ListVisibleTagsForUserQuery(financeUser.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(1);
+        result.Value![0].Name.Should().Be("tax-exempt");
+        result.Value[0].DepartmentName.Should().Be("Finance");
+    }
+
+    [Fact]
+    public async Task ListVisibleTagsForUserQuery_Management_ShouldOnlyReturnManagementDepartmentActiveTags()
+    {
+        var mgmtUser = CreateViewer(_managementDeptId, UserRole.Management);
+        _userRepository.GetByIdAsync(mgmtUser.Id, Arg.Any<CancellationToken>()).Returns(mgmtUser);
+
+        var mgmtDept = CreateDepartment(_managementDeptId, "Management");
+        _departmentRepository.ListAsync(true, Arg.Any<CancellationToken>()).Returns(new[] { mgmtDept });
+
+        var mgmtTag = CreateTag(_managementDeptId, "capex-approved");
+        _tagRepository.ListByDepartmentAsync(_managementDeptId, false, Arg.Any<CancellationToken>()).Returns(new[] { mgmtTag });
+
+        var handler = new ListVisibleTagsForUserQueryHandler(_tagRepository, _userRepository, _departmentRepository);
+        var result = await handler.Handle(new ListVisibleTagsForUserQuery(mgmtUser.Id), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().HaveCount(1);
+        result.Value![0].Name.Should().Be("capex-approved");
+        result.Value[0].DepartmentName.Should().Be("Management");
+    }
+
+    [Fact]
     public async Task ListVisibleTagsForUserQuery_Admin_ShouldReturnAllActiveTagsAcrossDepartments()
     {
         var admin = CreateViewer(Guid.NewGuid(), UserRole.Admin);

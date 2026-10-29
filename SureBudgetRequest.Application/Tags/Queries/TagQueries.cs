@@ -276,7 +276,7 @@ public sealed class ListVisibleTagsForUserQueryHandler
         var deptDict = allDepts.ToDictionary(d => d.Id, d => d.Name);
 
         IReadOnlyList<Tag> tags;
-        if (viewer.Role is UserRole.Admin or UserRole.Finance or UserRole.Management)
+        if (viewer.Role == UserRole.Admin)
         {
             tags = await _tagRepository.ListAllActiveAsync(ct);
         }
