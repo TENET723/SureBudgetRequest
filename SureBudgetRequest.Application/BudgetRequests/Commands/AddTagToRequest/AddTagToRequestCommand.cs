@@ -53,7 +53,7 @@ public sealed class AddTagToRequestCommandHandler
         if (actor is null || !actor.IsActive)
             return Result.Failure(UserErrors.NotFound(command.ActorUserId));
 
-        if (actor.Role is UserRole.Accounting or UserRole.Support)
+        if (actor.Role == UserRole.Support)
             return Result.Failure(TagErrors.CannotAttachTag);
 
         var configSetting = await _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, ct);
@@ -65,7 +65,9 @@ public sealed class AddTagToRequestCommandHandler
             || actor.Role == UserRole.Finance
             || (config.FinanceDepartmentId.HasValue && actor.DepartmentId == config.FinanceDepartmentId.Value)
             || actor.Role == UserRole.Management
-            || (config.ManagementDepartmentId.HasValue && actor.DepartmentId == config.ManagementDepartmentId.Value);
+            || (config.ManagementDepartmentId.HasValue && actor.DepartmentId == config.ManagementDepartmentId.Value)
+            || actor.Role == UserRole.Accounting
+            || (config.AccountingDepartmentId.HasValue && actor.DepartmentId == config.AccountingDepartmentId.Value);
 
         if (!isAllowed)
             return Result.Failure(TagErrors.CannotAttachTag);

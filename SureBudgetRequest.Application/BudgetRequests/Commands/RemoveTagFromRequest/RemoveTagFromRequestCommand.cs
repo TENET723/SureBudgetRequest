@@ -49,7 +49,7 @@ public sealed class RemoveTagFromRequestCommandHandler
         if (actor is null || !actor.IsActive)
             return Result.Failure(UserErrors.NotFound(command.ActorUserId));
 
-        if (actor.Role is UserRole.Accounting or UserRole.Support)
+        if (actor.Role == UserRole.Support)
             return Result.Failure(TagErrors.CannotRemoveTag);
 
         var tag = await _tagRepository.GetByIdAsync(command.TagId, ct);

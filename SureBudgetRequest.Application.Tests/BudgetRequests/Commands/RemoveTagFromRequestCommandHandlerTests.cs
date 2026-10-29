@@ -166,20 +166,24 @@ public class RemoveTagFromRequestCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsAccounting()
+    public async Task Handle_ShouldSucceed_WhenActorRoleIsAccounting()
     {
         var tag = CreateTag();
         var request = CreateRequestWithTag(tag, _actorId, _deptId);
         var user = CreateUser(_deptId, role: UserRole.Accounting);
+        var department = new Department("Accounting", Guid.NewGuid(), 100_000m, 500_000m);
+        typeof(Department).GetProperty(nameof(Department.Id))!.SetValue(department, _deptId);
 
         _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
         _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _departmentRepository.GetByIdAsync(_deptId, Arg.Any<CancellationToken>()).Returns(department);
 
         var command = new RemoveTagFromRequestCommand(_requestId, _tagId, _actorId);
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(TagErrors.CannotRemoveTag.Code);
+        result.IsSuccess.Should().BeTrue();
+        request.Tags.Should().BeEmpty();
     }
 
     [Fact]

@@ -202,18 +202,93 @@ public class AddTagToRequestCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ShouldReturnForbidden_WhenActorRoleIsAccounting()
+    public async Task Handle_ShouldSucceed_WhenActorRoleIsAccounting()
     {
-        var request = CreateRequest();
+        var otherRequesterId = Guid.NewGuid();
+        var requesterDeptId = Guid.NewGuid();
+        var request = BudgetRequest.CreateDraft(
+            otherRequesterId,
+            "Other Requester",
+            BudgetRequestType.Standard,
+            Guid.NewGuid(),
+            "Head",
+            DateTime.UtcNow.AddDays(1),
+            100_000m,
+            "MMK",
+            "Hardware",
+            "Withdrawer",
+            "Title",
+            requesterDeptId,
+            false,
+            null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(request, _requestId);
+
         var user = CreateUser(_deptId, role: UserRole.Accounting);
+        var tag = CreateTag();
+        var department = new Department("Accounting", Guid.NewGuid(), 100_000m, 500_000m);
+        typeof(Department).GetProperty(nameof(Department.Id))!.SetValue(department, _deptId);
+
         _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
         _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _departmentRepository.GetByIdAsync(_deptId, Arg.Any<CancellationToken>()).Returns(department);
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>())
+            .Returns((AppSetting?)null);
+        _appSettingRepository.GetByKeyAsync("TagSettings:MaxTagsPerDepartmentOnTicket", Arg.Any<CancellationToken>())
+            .Returns((AppSetting?)null);
 
         var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(TagErrors.CannotAttachTag.Code);
+        result.IsSuccess.Should().BeTrue();
+        request.Tags.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldSucceed_WhenActorIsFromAccountingDepartmentConfiguredInTagSettings()
+    {
+        var otherRequesterId = Guid.NewGuid();
+        var requesterDeptId = Guid.NewGuid();
+        var request = BudgetRequest.CreateDraft(
+            otherRequesterId,
+            "Other Requester",
+            BudgetRequestType.Standard,
+            Guid.NewGuid(),
+            "Head",
+            DateTime.UtcNow.AddDays(1),
+            100_000m,
+            "MMK",
+            "Hardware",
+            "Withdrawer",
+            "Title",
+            requesterDeptId,
+            false,
+            null);
+        typeof(BudgetRequest).GetProperty(nameof(BudgetRequest.Id))!.SetValue(request, _requestId);
+
+        var acctDeptId = _deptId;
+        var user = CreateUser(acctDeptId, role: UserRole.Employee);
+        var tag = CreateTag();
+        var department = new Department("Accounting Dept", Guid.NewGuid(), 100_000m, 500_000m);
+        typeof(Department).GetProperty(nameof(Department.Id))!.SetValue(department, acctDeptId);
+
+        var configSetting = new AppSetting(
+            TagVisibilityConfig.SettingKey,
+            new TagVisibilityConfig { AccountingDepartmentId = acctDeptId, FinanceDepartmentId = Guid.NewGuid(), ManagementDepartmentId = Guid.NewGuid() }.ToJson(),
+            "Tag settings");
+
+        _requestRepository.GetByIdAsync(_requestId, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(user);
+        _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
+        _departmentRepository.GetByIdAsync(acctDeptId, Arg.Any<CancellationToken>()).Returns(department);
+        _appSettingRepository.GetByKeyAsync(TagVisibilityConfig.SettingKey, Arg.Any<CancellationToken>()).Returns(configSetting);
+        _appSettingRepository.GetByKeyAsync("TagSettings:MaxTagsPerDepartmentOnTicket", Arg.Any<CancellationToken>()).Returns((AppSetting?)null);
+
+        var command = new AddTagToRequestCommand(_requestId, _tagId, _actorId);
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        request.Tags.Should().HaveCount(1);
     }
 
     [Fact]

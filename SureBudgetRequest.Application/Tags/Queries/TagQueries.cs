@@ -128,9 +128,10 @@ public sealed class GetRequestTagsQueryHandler
         var allDepts = await _departmentRepository.ListAsync(includeInactive: true, ct);
         var deptDict = allDepts.ToDictionary(d => d.Id, d => d.Name);
 
-        // Resolved Department IDs for Finance and Management (strictly from AppSetting, no fallback)
+        // Resolved Department IDs for Finance, Management, and Accounting (strictly from AppSetting, no fallback)
         var financeDeptId = config.FinanceDepartmentId;
         var managementDeptId = config.ManagementDepartmentId;
+        var accountingDeptId = config.AccountingDepartmentId;
 
         // Visibility rules:
         // 1. Admin: sees all tags
@@ -155,9 +156,13 @@ public sealed class GetRequestTagsQueryHandler
             if (isViewerRequesterDept)
             {
                 var reqRole = requester?.Role ?? UserRole.Employee;
-                if (reqRole is UserRole.Finance or UserRole.Accounting)
+                if (reqRole == UserRole.Finance)
                 {
                     policyKey = "Finance";
+                }
+                else if (reqRole == UserRole.Accounting)
+                {
+                    policyKey = "Accounting";
                 }
                 else if (reqRole == UserRole.Management)
                 {
@@ -182,6 +187,7 @@ public sealed class GetRequestTagsQueryHandler
             bool isTagRequester = t.TagDepartmentId == request.DepartmentIdAtSubmission;
             bool isTagFinance = financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value;
             bool isTagManagement = managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value;
+            bool isTagAccounting = accountingDeptId.HasValue && t.TagDepartmentId == accountingDeptId.Value;
 
             if (isTagRequester && allowedTypes.Any(a => string.Equals(a, "Requester", StringComparison.OrdinalIgnoreCase)))
                 return true;
@@ -190,6 +196,9 @@ public sealed class GetRequestTagsQueryHandler
                 return true;
 
             if (isTagManagement && allowedTypes.Any(a => string.Equals(a, "Management", StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            if (isTagAccounting && allowedTypes.Any(a => string.Equals(a, "Accounting", StringComparison.OrdinalIgnoreCase)))
                 return true;
 
             return false;
@@ -205,6 +214,10 @@ public sealed class GetRequestTagsQueryHandler
             else if (financeDeptId.HasValue && t.TagDepartmentId == financeDeptId.Value)
             {
                 group = "Finance";
+            }
+            else if (accountingDeptId.HasValue && t.TagDepartmentId == accountingDeptId.Value)
+            {
+                group = "Accounting";
             }
             else if (managementDeptId.HasValue && t.TagDepartmentId == managementDeptId.Value)
             {

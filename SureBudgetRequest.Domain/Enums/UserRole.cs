@@ -9,9 +9,8 @@ public enum UserRole
     Admin = 4,
 
     /// <summary>
-    /// Read-only role: sees everything Finance can see but can take no actions.
-    /// Read-only is enforced at the command boundary — no command handler gates on
-    /// this value, so every write path fails for Accounting by construction.
+    /// Accounting role: sees everything Finance can see. Read-only for all financial and approval actions
+    /// (approvals, payments, refunds, reconciliations), but has write access to ticket tag annotations for audit and record-keeping.
     /// </summary>
     Accounting = 5,
 
