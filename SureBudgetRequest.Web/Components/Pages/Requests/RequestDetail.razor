@@ -259,14 +259,22 @@ else
                                             <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
                                                 @foreach (var tag in requesterTags)
                                                 {
-                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                    var isRemovingThis = _removingTagId == tag.TagId;
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em; opacity: @(isRemovingThis ? "0.6" : "1"); transition: opacity 0.2s;">
                                                         <span>#@tag.Name</span>
                                                         @if (CurrentUser.DepartmentId == tag.DepartmentId)
                                                         {
-                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
-                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                                                </svg>
+                                                            <button type="button" class="tag-remove-btn" disabled="@(_removingTagId != null)" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: @(_removingTagId != null ? "not-allowed" : "pointer"); display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="@(isRemovingThis ? "Removing tag..." : "Remove tag")" aria-label="Remove tag">
+                                                                @if (isRemovingThis)
+                                                                {
+                                                                    <span style="display: inline-block; width: 10px; height: 10px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                    </svg>
+                                                                }
                                                             </button>
                                                         }
                                                     </span>
@@ -292,14 +300,22 @@ else
                                             <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
                                                 @foreach (var tag in financeTags)
                                                 {
-                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                    var isRemovingThis = _removingTagId == tag.TagId;
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em; opacity: @(isRemovingThis ? "0.6" : "1"); transition: opacity 0.2s;">
                                                         <span>#@tag.Name</span>
                                                         @if (CurrentUser.DepartmentId == tag.DepartmentId)
                                                         {
-                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
-                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                                                </svg>
+                                                            <button type="button" class="tag-remove-btn" disabled="@(_removingTagId != null)" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: @(_removingTagId != null ? "not-allowed" : "pointer"); display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="@(isRemovingThis ? "Removing tag..." : "Remove tag")" aria-label="Remove tag">
+                                                                @if (isRemovingThis)
+                                                                {
+                                                                    <span style="display: inline-block; width: 10px; height: 10px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                    </svg>
+                                                                }
                                                             </button>
                                                         }
                                                     </span>
@@ -325,15 +341,23 @@ else
                                             <div class="d-flex flex-wrap" style="gap: 6px; margin-left: 14px;">
                                                 @foreach (var tag in otherTags)
                                                 {
-                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em;">
+                                                    var isRemovingThis = _removingTagId == tag.TagId;
+                                                    <span class="badge d-inline-flex align-items-center" style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor; font-size: 0.78rem; padding: 0.3em 0.55em; opacity: @(isRemovingThis ? "0.6" : "1"); transition: opacity 0.2s;">
                                                         @* <span class="opacity-75 me-1" style="font-size: 0.68rem;">[@tag.DepartmentName]</span> *@
                                                         <span>#@tag.Name</span>
                                                         @if (CurrentUser.DepartmentId == tag.DepartmentId)
                                                         {
-                                                            <button type="button" class="tag-remove-btn" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="Remove tag" aria-label="Remove tag">
-                                                                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-                                                                    <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                                                </svg>
+                                                            <button type="button" class="tag-remove-btn" disabled="@(_removingTagId != null)" style="background: transparent; border: none; color: inherit; padding: 0; margin-left: 6px; cursor: @(_removingTagId != null ? "default" : "pointer"); display: inline-flex; align-items: center; justify-content: center; line-height: 1;" @onclick="() => RemoveTag(tag.TagId)" title="@(isRemovingThis ? "Removing tag..." : "Remove tag")" aria-label="Remove tag">
+                                                                @if (isRemovingThis)
+                                                                {
+                                                                    <span style="display: inline-block; width: 10px; height: 10px; border: 1.5px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite;"></span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                                                                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                                    </svg>
+                                                                }
                                                             </button>
                                                         }
                                                     </span>
@@ -3035,16 +3059,29 @@ else
         await LoadRequest();
     }
 
+    private Guid? _removingTagId;
+
     private async Task RemoveTag(Guid tagId)
     {
-        var res = await Mediator.Send(new RemoveTagFromRequestCommand(Id, tagId, CurrentUser.UserId));
-        if (res.IsSuccess)
+        if (_removingTagId.HasValue)
+            return;
+
+        _removingTagId = tagId;
+        try
         {
-            await LoadRequest();
+            var res = await Mediator.Send(new RemoveTagFromRequestCommand(Id, tagId, CurrentUser.UserId));
+            if (res.IsSuccess)
+            {
+                await LoadRequest();
+            }
+            else
+            {
+                _actionError = res.Error.Message;
+            }
         }
-        else
+        finally
         {
-            _actionError = res.Error.Message;
+            _removingTagId = null;
         }
     }
 }
