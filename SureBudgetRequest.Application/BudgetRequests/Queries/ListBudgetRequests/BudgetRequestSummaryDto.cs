@@ -59,7 +59,8 @@ public sealed record BudgetRequestSummaryDto(
     decimal ReimbursementAmount = 0m,
     // Optional free-text external references (voucher / transaction numbers).
     string? ExternalReferences = null,
-    IReadOnlyList<RequestTagSummaryDto>? Tags = null)
+    IReadOnlyList<RequestTagSummaryDto>? Tags = null,
+    Guid DeptHeadIdAtSubmission = default)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -137,5 +138,6 @@ public sealed record BudgetRequestSummaryDto(
         e.RefundAmount,
         e.ReimbursementAmount,
         e.ExternalReferences,
-        tags);
+        tags,
+        e.DeptHeadIdAtSubmission);
 }

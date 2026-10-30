@@ -1162,4 +1162,54 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   cursor: pointer;
 }
 
+/* Context Menu Status Actions (Option A) */
+.menu-section-title {
+  padding: 5px 12px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.status-action-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 12px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 120ms ease;
+  text-align: left;
+}
+.status-action-item:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.status-action-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  background: transparent;
+}
+.status-action-item .action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.action-reason-hint {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-left: 22px;
+  line-height: 1.2;
+}
+.action-approve { color: var(--color-success); }
+.action-approve:hover:not(:disabled) { background: #f0fdf4 !important; }
+.action-sendback { color: var(--color-warning); }
+.action-sendback:hover:not(:disabled) { background: #fffbeb !important; }
+.action-reject { color: var(--color-danger); }
+.action-reject:hover:not(:disabled) { background: #fef2f2 !important; }
+
+
 
