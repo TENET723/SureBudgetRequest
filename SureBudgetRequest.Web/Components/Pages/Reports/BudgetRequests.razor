@@ -560,15 +560,6 @@
                 <span>Manage Tags</span>
             </button>
         }
-
-        @if ((_contextMenuTarget.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid) && (CurrentUser.Role is UserRole.Finance or UserRole.Admin))
-        {
-            <div class="context-menu-divider"></div>
-            <button type="button" class="context-menu-item" style="color: var(--color-paid);" @onclick='() => NavigateToDetailWithAction(_contextMenuTarget.Id, "payment")'>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                <span>Record Payment</span>
-            </button>
-        }
     </div>
 }
 
@@ -1351,12 +1342,6 @@
     {
         CloseContextMenu();
         await JS.InvokeVoidAsync("open", $"requests/{id}?from=reports", "_blank");
-    }
-
-    private void NavigateToDetailWithAction(Guid id, string action)
-    {
-        CloseContextMenu();
-        Nav.NavigateTo($"requests/{id}?from=reports&action={action}");
     }
 
     private async Task CopyReferenceAsync(string reference)
