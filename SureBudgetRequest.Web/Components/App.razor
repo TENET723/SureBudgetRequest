@@ -66,25 +66,62 @@
 
         window.positionContextMenu = function (el, clientX, clientY, isButton) {
             if (!el) return;
-            var w = el.offsetWidth || 220;
-            var h = el.offsetHeight || 210;
-            var winW = window.innerWidth;
-            var winH = window.innerHeight;
 
-            var x = isButton ? (clientX - w) : clientX;
-            var y = clientY + 6;
-
-            if (y + h > winH - 12) {
-                y = isButton ? (clientY - h - 6) : (clientY - h);
+            if (clientX !== undefined && clientY !== undefined) {
+                el._anchor = { clientX: clientX, clientY: clientY, isButton: !!isButton };
             }
-            if (x + w > winW - 12) {
-                x = winW - w - 12;
-            }
-            if (x < 12) x = 12;
-            if (y < 12) y = 12;
 
-            el.style.left = x + 'px';
-            el.style.top = y + 'px';
+            function updatePos() {
+                if (!el || !el.isConnected) return;
+                var anchor = el._anchor || { clientX: clientX || 0, clientY: clientY || 0, isButton: !!isButton };
+                var w = el.offsetWidth || 220;
+                var h = el.offsetHeight || 210;
+                var winW = window.innerWidth;
+                var winH = window.innerHeight;
+
+                var x = anchor.isButton ? (anchor.clientX - w) : anchor.clientX;
+                var y = anchor.clientY + 6;
+
+                if (y + h > winH - 12) {
+                    var upY = anchor.isButton ? (anchor.clientY - h - 6) : (anchor.clientY - h);
+                    if (upY >= 12) {
+                        y = upY;
+                    } else {
+                        y = Math.max(12, winH - h - 12);
+                    }
+                }
+                if (x + w > winW - 12) {
+                    x = winW - w - 12;
+                }
+                if (x < 12) x = 12;
+                if (y < 12) y = 12;
+
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+            }
+
+            updatePos();
+
+            if (window.ResizeObserver && !el._ro) {
+                var ro = new ResizeObserver(function () {
+                    if (!el || !el.isConnected) {
+                        ro.disconnect();
+                        if (el) el._ro = null;
+                        return;
+                    }
+                    updatePos();
+                });
+                ro.observe(el);
+                el._ro = ro;
+            }
+
+            if (!el._winResizeBound) {
+                el._winResizeBound = true;
+                window.addEventListener('resize', function () {
+                    if (!el || !el.isConnected) return;
+                    updatePos();
+                }, { passive: true });
+            }
         };
     </script>
 </body>

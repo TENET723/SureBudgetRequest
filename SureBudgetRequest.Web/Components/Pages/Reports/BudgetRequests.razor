@@ -6,6 +6,7 @@
 
 @using SureBudgetRequest.Application.AppSettings.Queries
 @using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveTagFromRequest
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ExportBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -124,26 +125,26 @@
                                     <div class="text-muted text-xs">@LookupDepartment(r.DepartmentIdAtSubmission)</div>
                                 </td>
                                 <td title="@r.Reasons">@Truncate(r.Reasons, 35)</td>
-                                <td @onclick:stopPropagation="true">
+                                <td>
                                     @if (r.Tags != null && r.Tags.Count > 0)
                                     {
                                         <div class="flex items-center gap-1 flex-wrap">
-                                            @foreach (var tag in r.Tags.Take(4))
+                                            @foreach (var tag in r.Tags.Take(5))
                                             {
                                                 <span class="tag-badge-pill"
                                                       style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
                                                     #@tag.Name
                                                 </span>
                                             }
-                                            @if (r.Tags.Count > 4)
+                                            @if (r.Tags.Count > 5)
                                             {
-                                                var overflowCount = r.Tags.Count - 4;
-                                                <div class="tag-tooltip-container">
+                                                var overflowCount = r.Tags.Count - 5;
+                                                <div class="tag-tooltip-container" @onclick:stopPropagation="true">
                                                     <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
                                                         +@overflowCount
                                                     </span>
                                                     <div class="tag-tooltip-popup">
-                                                        @foreach (var ot in r.Tags.Skip(4))
+                                                        @foreach (var ot in r.Tags.Skip(5))
                                                         {
                                                             <span>#@ot.Name</span>
                                                         }
@@ -513,10 +514,13 @@
 @* ── Context Menu ────────────────────────────────────────────────────────── *@
 @if (_showContextMenu && _contextMenuTarget != null)
 {
-    <div style="position: fixed; inset: 0; z-index: 1040;"
+    <div style="position: fixed; inset: 0; z-index: 1040; cursor: default; background: transparent;"
          @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
          @oncontextmenu="CloseContextMenu"
-         @oncontextmenu:preventDefault="true">
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
     </div>
 
     <div @ref="_contextMenuRef" class="custom-context-menu"
@@ -551,9 +555,9 @@
 
         @if (CanUserAttachTag(_contextMenuTarget))
         {
-            <button type="button" class="context-menu-item" @onclick="() => OpenQuickTagModal(_contextMenuTarget)">
+            <button type="button" class="context-menu-item" @onclick="() => OpenTagPopoverFromContextMenuAsync(_contextMenuTarget)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                <span>Attach Tag</span>
+                <span>Manage Tags</span>
             </button>
         }
 
@@ -568,59 +572,132 @@
     </div>
 }
 
-@* ── Quick Attach Tag Modal ────────────────────────────────────────────────── *@
-@if (_showQuickTagModal && _quickTagTarget != null)
+@* ── Anchored Tag Popover Box (Option 1 - Linear / GitHub style) ──────────── *@
+@if (_showTagPopover && _tagPopoverTarget != null)
 {
-    <div class="modal-backdrop" @onclick="() => _showQuickTagModal = false">
-        <div class="modal modal-sm" @onclick:stopPropagation="true">
+    <div style="position: fixed; inset: 0; z-index: 1055; cursor: default; background: transparent;"
+         @onclick="CloseTagPopover"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseTagPopover"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_tagPopoverRef" class="tag-popover-box"
+         style="left: @(_tagPopoverX)px; top: @(_tagPopoverY)px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
             <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">Attach Tag — @(_quickTagTarget.Reference ?? "Request")</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _showQuickTagModal = false" aria-label="Close">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg>
-                    </button>
+                <div class="popover-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    <span>Department Tags</span>
                 </div>
-                <div class="modal-body">
-                    @if (!string.IsNullOrEmpty(_quickTagError))
-                    {
-                        <div class="alert alert-error mb-3">@_quickTagError</div>
-                    }
-                    <div class="form-field mb-4">
-                        <label class="form-label text-sm font-semibold">Select Existing Tag</label>
-                        <Dropdown Items="_availableDeptTags.Where(t => _quickTagTarget.Tags == null || !_quickTagTarget.Tags.Any(rt => rt.TagId == t.Id)).ToList()"
-                                  @bind-Value="_selectedQuickTagId"
-                                  ValueSelector="t => t.Id.ToString()"
-                                  TextSelector="FormatDeptTag"
-                                  Placeholder="-- Choose from your department --"
-                                  Searchable="true"
-                                  SearchPlaceholder="Search tag..."
-                                  AllowClear="true" />
-                    </div>
-                    <div class="modal-section-divider">
-                        <span>OR CREATE NEW FOR YOUR DEPARTMENT</span>
-                    </div>
-                    <div class="form-field mb-4">
-                        <label class="form-label text-sm font-semibold">New Tag Name</label>
-                        <input type="text" class="input" placeholder="e.g. Urgent-Review" @bind="_newQuickTagName" />
-                    </div>
-                    <div class="form-field mb-4">
-                        <label class="form-label text-sm font-semibold">Color (Optional)</label>
-                        <div class="flex items-center gap-2">
-                            <input type="color" class="color-picker-input" @bind="_newQuickTagColor" />
-                            <input type="text" class="input" placeholder="#3B82F6" @bind="_newQuickTagColor" />
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showQuickTagModal = false">Cancel</button>
-                    <button class="btn btn-primary btn-sm" @onclick="SaveQuickTagAsync" disabled="@_quickTagSaving">
-                        @if (_quickTagSaving) { <span class="spinner spinner-xs me-1"></span> }
-                        Attach
-                    </button>
+                <div class="popover-ref-subtitle">
+                    @(_tagPopoverTarget.Reference ?? "Draft / No Ref")
                 </div>
             </div>
+            <div class="flex items-center gap-2" style="align-self: flex-start;">
+                <span class="popover-quota">@GetEffectiveDeptTagCount() / 5</span>
+                <button type="button" class="btn btn-icon btn-xs"
+                        style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: pointer;"
+                        @onclick="CloseTagPopover" title="Close">✕</button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_tagPopoverError))
+        {
+            <div class="alert alert-error" style="font-size: 11px; padding: 4px 8px; margin: 4px 8px;">
+                @_tagPopoverError
+            </div>
+        }
+
+        <div class="popover-search-wrap">
+            <input type="text" class="input input-sm w-full"
+                   placeholder="Search or filter tags..."
+                   @bind="_tagSearchFilter"
+                   @bind:event="oninput" />
+        </div>
+
+        <div class="popover-tag-list">
+            @{
+                var filteredTags = _availableDeptTags
+                    .Where(t => string.IsNullOrWhiteSpace(_tagSearchFilter) || t.Name.Contains(_tagSearchFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            @if (filteredTags.Count > 0)
+            {
+                @foreach (var t in filteredTags)
+                {
+                    var isAttached = _tagPopoverTarget.Tags?.Any(rt => rt.TagId == t.Id) == true;
+                    var isProcessing = _processingTagIds.Contains(t.Id);
+                    var isQuotaFull = !isAttached && (GetEffectiveDeptTagCount() >= 5);
+                    var isDisabled = isProcessing || isQuotaFull;
+
+                    <div class="popover-tag-item @(isAttached ? "selected" : "") @(isProcessing ? "processing" : "") @(isDisabled ? "disabled" : "")"
+                         @onclick="async () => { if (!isDisabled) await ToggleTagAsync(t); }">
+                        <span class="tag-checkbox">
+                            @if (isAttached)
+                            {
+                                <span>✓</span>
+                            }
+                        </span>
+                        <span class="tag-color-dot" style="background-color: @(t.ColorHex ?? "#6c757d")"></span>
+                        <span class="tag-item-name">#@t.Name</span>
+                        @if (isProcessing)
+                        {
+                            <span class="tag-processing-label">
+                                <span class="spinner spinner-xs" style="width: 9px; height: 9px; border-width: 1.5px; border-color: var(--color-primary); border-top-color: transparent; margin-right: 4px; display: inline-block; vertical-align: middle;"></span>
+                                @(isAttached ? "Removing..." : "Attaching...")
+                            </span>
+                        }
+                        else if (isAttached)
+                        {
+                            <span class="tag-attached-label">Attached</span>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted text-xs p-3 text-center">
+                    @(string.IsNullOrWhiteSpace(_tagSearchFilter) ? "No tags created for your department yet." : "No matching tags.")
+                </div>
+            }
+        </div>
+
+        <div class="popover-footer-action">
+            @if (GetEffectiveDeptTagCount() >= 5)
+            {
+                <div class="text-xs text-muted text-center py-1">
+                    Maximum 5 department tags reached.
+                </div>
+            }
+            else
+            {
+                <button type="button" class="btn-create-tag-toggle" @onclick="ToggleCreateTagInline">
+                    <span>@(_showInlineCreateTag ? "–" : "+")</span>
+                    <span>@(_showInlineCreateTag ? "Cancel Create" : "Create New Tag")</span>
+                </button>
+                @if (_showInlineCreateTag)
+                {
+                    <div class="inline-create-box">
+                        <div class="flex items-center gap-2">
+                            <input type="text" class="input input-sm flex-1" placeholder="e.g. Q4-Review"
+                                   @bind="_newTagName" @bind:event="oninput" />
+                            <input type="color" class="color-picker-input-sm" @bind="_newTagColor" />
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm w-full justify-center"
+                                @onclick="CreateAndAttachNewTagAsync" disabled="@_tagPopoverSaving">
+                            @if (_tagPopoverSaving)
+                            {
+                                <span class="spinner spinner-xs me-1"></span>
+                            }
+                            Save & Attach Tag
+                        </button>
+                    </div>
+                }
+            }
         </div>
     </div>
 }
@@ -694,13 +771,22 @@
     private double _contextMenuY;
     private BudgetRequestSummaryDto? _contextMenuTarget;
 
-    private bool _showQuickTagModal;
-    private BudgetRequestSummaryDto? _quickTagTarget;
-    private string _selectedQuickTagId = "";
-    private string _newQuickTagName = "";
-    private string _newQuickTagColor = "#3B82F6";
-    private string? _quickTagError;
-    private bool _quickTagSaving;
+    // ── Tag Popover (Option 1 - Linear / GitHub style) ────────────────────────
+    private bool _showTagPopover;
+    private BudgetRequestSummaryDto? _tagPopoverTarget;
+    private double _tagPopoverX;
+    private double _tagPopoverY;
+    private bool _tagPopoverIsButton;
+    private bool _tagPopoverPendingPosition;
+    private ElementReference _tagPopoverRef;
+    private string _tagSearchFilter = "";
+    private bool _showInlineCreateTag;
+    private string _newTagName = "";
+    private string _newTagColor = "#3B82F6";
+    private bool _tagPopoverSaving;
+    private readonly HashSet<Guid> _processingTagIds = new();
+    private readonly HashSet<Guid> _attachingTagIds = new();
+    private string? _tagPopoverError;
     private List<TagDto> _availableDeptTags = new();
     private TagVisibilityConfig? _tagVisibilityConfig;
 
@@ -959,6 +1045,12 @@
         {
             _menuPendingPosition = false;
             await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+
+        if (_showTagPopover && _tagPopoverPendingPosition)
+        {
+            _tagPopoverPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _tagPopoverRef, _tagPopoverX, _tagPopoverY, _tagPopoverIsButton);
         }
     }
 
@@ -1311,75 +1403,318 @@
         return false;
     }
 
-    private async Task OpenQuickTagModal(BudgetRequestSummaryDto request)
+    private async Task OpenTagPopoverAsync(MouseEventArgs e, BudgetRequestSummaryDto r)
     {
         CloseContextMenu();
-        _quickTagTarget = request;
-        _selectedQuickTagId = "";
-        _newQuickTagName = "";
-        _newQuickTagColor = "#3B82F6";
-        _quickTagError = null;
-        if (CurrentUser.DepartmentId != Guid.Empty)
-        {
-            var res = await Mediator.Send(new ListTagsByDepartmentQuery(CurrentUser.DepartmentId, IncludeInactive: false));
-            _availableDeptTags = res.IsSuccess && res.Value is not null ? res.Value.ToList() : new();
-        }
-        _showQuickTagModal = true;
+        _tagPopoverTarget = r;
+        _tagPopoverX = e.ClientX;
+        _tagPopoverY = e.ClientY;
+        _tagPopoverIsButton = false;
+        _tagPopoverPendingPosition = true;
+        _tagSearchFilter = "";
+        _showInlineCreateTag = false;
+        _newTagName = "";
+        _newTagColor = "#3B82F6";
+        _tagPopoverError = null;
+
+        await LoadDepartmentTagsForPopoverAsync(r);
+        _showTagPopover = true;
     }
 
-    private async Task SaveQuickTagAsync()
+    private async Task OpenTagPopoverFromContextMenuAsync(BudgetRequestSummaryDto r)
     {
-        if (_quickTagTarget == null) return;
+        var x = _menuClickX > 0 ? _menuClickX : _contextMenuX;
+        var y = _menuClickY > 0 ? _menuClickY : _contextMenuY;
+        CloseContextMenu();
+        _tagPopoverTarget = r;
+        _tagPopoverX = x;
+        _tagPopoverY = y;
+        _tagPopoverIsButton = true;
+        _tagPopoverPendingPosition = true;
+        _tagSearchFilter = "";
+        _showInlineCreateTag = false;
+        _newTagName = "";
+        _newTagColor = "#3B82F6";
+        _tagPopoverError = null;
 
-        _quickTagSaving = true;
-        _quickTagError = null;
+        await LoadDepartmentTagsForPopoverAsync(r);
+        _showTagPopover = true;
+    }
 
-        Guid tagIdToAttach;
-        if (!string.IsNullOrEmpty(_selectedQuickTagId) && Guid.TryParse(_selectedQuickTagId, out var selectedId))
+    private void ToggleCreateTagInline()
+    {
+        _showInlineCreateTag = !_showInlineCreateTag;
+        _tagPopoverPendingPosition = true;
+    }
+
+    private async Task LoadDepartmentTagsForPopoverAsync(BudgetRequestSummaryDto r)
+    {
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : r.DepartmentIdAtSubmission;
+
+        if (deptId != Guid.Empty)
         {
-            tagIdToAttach = selectedId;
-        }
-        else if (!string.IsNullOrWhiteSpace(_newQuickTagName))
-        {
-            var createRes = await Mediator.Send(new CreateTagCommand(
-                CurrentUser.DepartmentId,
-                _newQuickTagName.Trim(),
-                CurrentUser.UserId,
-                _newQuickTagColor));
-
-            if (createRes.IsFailure)
-            {
-                _quickTagError = createRes.Error.Message;
-                _quickTagSaving = false;
-                return;
-            }
-
-            tagIdToAttach = createRes.Value;
+            var res = await Mediator.Send(new ListTagsByDepartmentQuery(deptId, IncludeInactive: false));
+            _availableDeptTags = res.IsSuccess && res.Value is not null ? res.Value.ToList() : new();
         }
         else
         {
-            _quickTagError = "Please select an existing tag or enter a new tag name.";
-            _quickTagSaving = false;
-            return;
+            _availableDeptTags = new();
         }
-
-        var attachRes = await Mediator.Send(new AddTagToRequestCommand(_quickTagTarget.Id, tagIdToAttach, CurrentUser.UserId));
-        if (attachRes.IsFailure)
-        {
-            _quickTagError = attachRes.Error.Message;
-            _quickTagSaving = false;
-            return;
-        }
-
-        _showQuickTagModal = false;
-        _quickTagSaving = false;
-        ShowToast($"Tag attached to {_quickTagTarget.Reference ?? "request"}");
-
-        // Refresh list to show updated tags
-        await RunQueryAsync();
     }
 
-    private static string FormatDeptTag(TagDto t) => $"#{t.Name}";
+    private void CloseTagPopover()
+    {
+        _showTagPopover = false;
+        _tagPopoverTarget = null;
+        _tagPopoverError = null;
+        _showInlineCreateTag = false;
+        _attachingTagIds.Clear();
+    }
+
+    private int GetTargetDeptTagCount()
+    {
+        if (_tagPopoverTarget?.Tags == null) return 0;
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : _tagPopoverTarget.DepartmentIdAtSubmission;
+        return _tagPopoverTarget.Tags.Count(t => t.DepartmentId == deptId);
+    }
+
+    private int GetEffectiveDeptTagCount()
+    {
+        return GetTargetDeptTagCount() + _attachingTagIds.Count;
+    }
+
+    private async Task ToggleTagAsync(TagDto tag)
+    {
+        var target = _tagPopoverTarget;
+        if (target == null || _processingTagIds.Contains(tag.Id)) return;
+        var requestId = target.Id;
+
+        _processingTagIds.Add(tag.Id);
+        _tagPopoverError = null;
+
+        try
+        {
+            var currentTags = _result?.Items?.FirstOrDefault(i => i.Id == requestId)?.Tags
+                              ?? target.Tags
+                              ?? Array.Empty<RequestTagSummaryDto>();
+
+            bool isAttached = currentTags.Any(rt => rt.TagId == tag.Id);
+            if (isAttached)
+            {
+                var res = await Mediator.Send(new RemoveTagFromRequestCommand(requestId, tag.Id, CurrentUser.UserId));
+                if (res.IsSuccess)
+                {
+                    var latest = _result?.Items?.FirstOrDefault(i => i.Id == requestId)?.Tags
+                                 ?? currentTags;
+                    var updated = latest.Where(rt => rt.TagId != tag.Id).ToList();
+                    UpdateRequestTags(requestId, updated);
+                    ShowToast($"Removed #{tag.Name}");
+                }
+                else
+                {
+                    if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
+                    {
+                        _tagPopoverError = res.Error.Message;
+                    }
+                    else
+                    {
+                        ShowToast($"Error: {res.Error.Message}");
+                    }
+                }
+            }
+            else
+            {
+                var deptId = CurrentUser.DepartmentId != Guid.Empty
+                    ? CurrentUser.DepartmentId
+                    : target.DepartmentIdAtSubmission;
+
+                var attachedCount = currentTags.Count(t => t.DepartmentId == deptId);
+                if (attachedCount + _attachingTagIds.Count >= 5)
+                {
+                    _tagPopoverError = "Maximum 5 tags per department reached.";
+                    return;
+                }
+
+                _attachingTagIds.Add(tag.Id);
+                try
+                {
+                    var res = await Mediator.Send(new AddTagToRequestCommand(requestId, tag.Id, CurrentUser.UserId));
+                    if (res.IsSuccess)
+                    {
+                        var latest = _result?.Items?.FirstOrDefault(i => i.Id == requestId)?.Tags
+                                     ?? currentTags;
+                        var newSummary = new RequestTagSummaryDto(
+                            tag.Id,
+                            tag.Name,
+                            tag.ColorHex,
+                            tag.FontColorHex,
+                            tag.DepartmentId);
+                        var updated = latest.Where(rt => rt.TagId != tag.Id).Concat(new[] { newSummary }).ToList();
+                        UpdateRequestTags(requestId, updated);
+                        ShowToast($"Attached #{tag.Name}");
+                    }
+                    else
+                    {
+                        if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
+                        {
+                            _tagPopoverError = res.Error.Message;
+                        }
+                        else
+                        {
+                            ShowToast($"Error: {res.Error.Message}");
+                        }
+                    }
+                }
+                finally
+                {
+                    _attachingTagIds.Remove(tag.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
+            {
+                _tagPopoverError = ex.Message;
+            }
+            else
+            {
+                ShowToast($"Error toggling #{tag.Name}: {ex.Message}");
+            }
+        }
+        finally
+        {
+            _attachingTagIds.Remove(tag.Id);
+            _processingTagIds.Remove(tag.Id);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CreateAndAttachNewTagAsync()
+    {
+        var target = _tagPopoverTarget;
+        if (target == null) return;
+        var requestId = target.Id;
+
+        if (string.IsNullOrWhiteSpace(_newTagName))
+        {
+            _tagPopoverError = "Tag name is required.";
+            return;
+        }
+
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : target.DepartmentIdAtSubmission;
+
+        if (deptId == Guid.Empty)
+        {
+            _tagPopoverError = "Cannot determine department for tag creation.";
+            return;
+        }
+
+        var currentTags = _result?.Items?.FirstOrDefault(i => i.Id == requestId)?.Tags
+                          ?? target.Tags
+                          ?? Array.Empty<RequestTagSummaryDto>();
+
+        var attachedCount = currentTags.Count(t => t.DepartmentId == deptId);
+        if (attachedCount + _attachingTagIds.Count >= 5)
+        {
+            _tagPopoverError = "Maximum 5 tags per department reached.";
+            return;
+        }
+
+        _tagPopoverSaving = true;
+        _tagPopoverError = null;
+
+        try
+        {
+            var createRes = await Mediator.Send(new CreateTagCommand(
+                deptId,
+                _newTagName.Trim(),
+                CurrentUser.UserId,
+                _newTagColor));
+
+            if (createRes.IsFailure)
+            {
+                _tagPopoverError = createRes.Error.Message;
+                _tagPopoverSaving = false;
+                _tagPopoverPendingPosition = true;
+                return;
+            }
+
+            var newTagId = createRes.Value;
+
+            var attachRes = await Mediator.Send(new AddTagToRequestCommand(requestId, newTagId, CurrentUser.UserId));
+            if (attachRes.IsFailure)
+            {
+                _tagPopoverError = attachRes.Error.Message;
+                _tagPopoverSaving = false;
+                _tagPopoverPendingPosition = true;
+                return;
+            }
+
+            var newTagDto = new TagDto(
+                newTagId,
+                deptId,
+                _newTagName.Trim(),
+                _newTagColor,
+                null,
+                true,
+                CurrentUser.UserId,
+                DateTime.UtcNow);
+
+            _availableDeptTags.Add(newTagDto);
+
+            var newSummaryDto = new RequestTagSummaryDto(
+                newTagId,
+                _newTagName.Trim(),
+                _newTagColor,
+                null,
+                deptId);
+
+            var latest = _result?.Items?.FirstOrDefault(i => i.Id == requestId)?.Tags
+                         ?? currentTags;
+            var updated = latest.Where(rt => rt.TagId != newTagId).Concat(new[] { newSummaryDto }).ToList();
+
+            UpdateRequestTags(requestId, updated);
+
+            _newTagName = "";
+            _showInlineCreateTag = false;
+            _tagPopoverSaving = false;
+            _tagPopoverPendingPosition = true;
+            ShowToast($"Created & attached #{newTagDto.Name}");
+        }
+        catch (Exception ex)
+        {
+            _tagPopoverError = ex.Message;
+            _tagPopoverSaving = false;
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void UpdateRequestTags(Guid requestId, IReadOnlyList<RequestTagSummaryDto> updatedTags)
+    {
+        if (_result?.Items != null)
+        {
+            var newItems = _result.Items
+                .Select(item => item.Id == requestId ? item with { Tags = updatedTags } : item)
+                .ToList();
+
+            _result = _result with { Items = newItems };
+        }
+
+        if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
+        {
+            _tagPopoverTarget = _tagPopoverTarget with { Tags = updatedTags };
+        }
+    }
 
     private void ShowToast(string message)
     {

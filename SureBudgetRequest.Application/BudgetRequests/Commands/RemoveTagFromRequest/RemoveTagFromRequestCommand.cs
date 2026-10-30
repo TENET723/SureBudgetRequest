@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
@@ -16,6 +17,8 @@ public sealed record RemoveTagFromRequestCommand(
 public sealed class RemoveTagFromRequestCommandHandler
     : IRequestHandler<RemoveTagFromRequestCommand, Result>
 {
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> _requestLocks = new();
+
     private readonly IBudgetRequestRepository _requestRepository;
     private readonly ITagRepository _tagRepository;
     private readonly IUserRepository _userRepository;
@@ -41,33 +44,43 @@ public sealed class RemoveTagFromRequestCommandHandler
 
     public async Task<Result> Handle(RemoveTagFromRequestCommand command, CancellationToken ct)
     {
-        var request = await _requestRepository.GetByIdAsync(command.BudgetRequestId, ct);
-        if (request is null)
-            return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
+        var sem = _requestLocks.GetOrAdd(command.BudgetRequestId, _ => new SemaphoreSlim(1, 1));
+        await sem.WaitAsync(ct);
 
-        var actor = await _userRepository.GetByIdAsync(command.ActorUserId, ct);
-        if (actor is null || !actor.IsActive)
-            return Result.Failure(UserErrors.NotFound(command.ActorUserId));
+        try
+        {
+            var request = await _requestRepository.GetByIdAsync(command.BudgetRequestId, ct);
+            if (request is null)
+                return Result.Failure(BudgetRequestErrors.NotFound(command.BudgetRequestId));
 
-        if (actor.Role == UserRole.Support)
-            return Result.Failure(TagErrors.CannotRemoveTag);
+            var actor = await _userRepository.GetByIdAsync(command.ActorUserId, ct);
+            if (actor is null || !actor.IsActive)
+                return Result.Failure(UserErrors.NotFound(command.ActorUserId));
 
-        var tag = await _tagRepository.GetByIdAsync(command.TagId, ct);
-        if (tag is null)
-            return Result.Failure(TagErrors.NotFound);
+            if (actor.Role == UserRole.Support)
+                return Result.Failure(TagErrors.CannotRemoveTag);
 
-        var result = request.RemoveTag(tag.Id, actor.Id, actor.DepartmentId);
-        if (result.IsFailure)
-            return result;
+            var tag = await _tagRepository.GetByIdAsync(command.TagId, ct);
+            if (tag is null)
+                return Result.Failure(TagErrors.NotFound);
 
-        var dept = await _departmentRepository.GetByIdAsync(tag.DepartmentId, ct);
-        var deptName = dept?.Name ?? "Department";
+            var result = request.RemoveTag(tag.Id, actor.Id, actor.DepartmentId);
+            if (result.IsFailure)
+                return result;
 
-        await _modificationRepository.AddAsync(
-            new BudgetRequestModification(request.Id, actor.Id, $"Removed tag '{tag.Name}' ({deptName})"),
-            ct);
+            var dept = await _departmentRepository.GetByIdAsync(tag.DepartmentId, ct);
+            var deptName = dept?.Name ?? "Department";
 
-        await _unitOfWork.SaveChangesAsync(ct);
-        return Result.Success();
+            await _modificationRepository.AddAsync(
+                new BudgetRequestModification(request.Id, actor.Id, $"Removed tag '{tag.Name}' ({deptName})"),
+                ct);
+
+            await _unitOfWork.SaveChangesAsync(ct);
+            return Result.Success();
+        }
+        finally
+        {
+            sem.Release();
+        }
     }
 }
