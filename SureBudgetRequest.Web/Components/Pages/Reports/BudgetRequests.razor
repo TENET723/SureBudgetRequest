@@ -1783,8 +1783,17 @@
             var res = await Mediator.Send(new ApproveRequestCommand(target.Id, CurrentUser.UserId));
             if (res.IsSuccess)
             {
+                var nextStatus = target.Status switch
+                {
+                    RequestStatus.PendingDeptHead => (target.RequestedAmountInMmkAtSubmission > target.DepartmentLimitAtSubmission)
+                        ? RequestStatus.PendingManagement
+                        : RequestStatus.PendingFinance,
+                    RequestStatus.PendingManagement => RequestStatus.PendingFinance,
+                    _ => RequestStatus.Approved
+                };
+
+                UpdateRequestStatus(target.Id, nextStatus);
                 ShowToast($"Approved {target.Reference ?? "request"}");
-                await RunQueryAsync();
             }
             else
             {
@@ -1849,9 +1858,9 @@
                 var res = await Mediator.Send(new SendBackRequestCommand(target.Id, CurrentUser.UserId, _quickActionComment.Trim()));
                 if (res.IsSuccess)
                 {
+                    UpdateRequestStatus(target.Id, RequestStatus.SentBack);
                     CloseQuickActionModal();
                     ShowToast($"Sent back {target.Reference ?? "request"} to requester");
-                    await RunQueryAsync();
                 }
                 else
                 {
@@ -1882,9 +1891,9 @@
                 var res = await Mediator.Send(new RejectRequestCommand(target.Id, CurrentUser.UserId, _quickActionComment.Trim()));
                 if (res.IsSuccess)
                 {
+                    UpdateRequestStatus(target.Id, RequestStatus.Rejected);
                     CloseQuickActionModal();
                     ShowToast($"Rejected {target.Reference ?? "request"}");
-                    await RunQueryAsync();
                 }
                 else
                 {
@@ -1927,9 +1936,10 @@
                 var res = await Mediator.Send(new ApproveRequestCommand(target.Id, CurrentUser.UserId, coaId, deadline));
                 if (res.IsSuccess)
                 {
+                    var selectedCoa = _coas.FirstOrDefault(c => c.Id == coaId);
+                    UpdateRequestStatus(target.Id, RequestStatus.Approved, coaId, selectedCoa?.Code, selectedCoa?.Name);
                     CloseQuickActionModal();
                     ShowToast($"Approved {target.Reference ?? "request"}");
-                    await RunQueryAsync();
                 }
                 else
                 {
@@ -2257,6 +2267,42 @@
         if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
         {
             _tagPopoverTarget = _tagPopoverTarget with { Tags = updatedTags };
+        }
+    }
+
+    private void UpdateRequestStatus(Guid requestId, RequestStatus newStatus, Guid? coaId = null, string? coaCode = null, string? coaName = null)
+    {
+        if (_result?.Items != null)
+        {
+            var newItems = _result.Items
+                .Select(item =>
+                {
+                    if (item.Id != requestId) return item;
+
+                    return item with
+                    {
+                        Status = newStatus,
+                        CoaId = coaId ?? item.CoaId,
+                        CoaCode = coaCode ?? item.CoaCode,
+                        CoaName = coaName ?? item.CoaName,
+                        ApprovedAmount = newStatus == RequestStatus.Approved ? item.RequestedAmount : item.ApprovedAmount
+                    };
+                })
+                .ToList();
+
+            _result = _result with { Items = newItems };
+        }
+
+        if (_contextMenuTarget != null && _contextMenuTarget.Id == requestId)
+        {
+            _contextMenuTarget = _contextMenuTarget with
+            {
+                Status = newStatus,
+                CoaId = coaId ?? _contextMenuTarget.CoaId,
+                CoaCode = coaCode ?? _contextMenuTarget.CoaCode,
+                CoaName = coaName ?? _contextMenuTarget.CoaName,
+                ApprovedAmount = newStatus == RequestStatus.Approved ? _contextMenuTarget.RequestedAmount : _contextMenuTarget.ApprovedAmount
+            };
         }
     }
 
