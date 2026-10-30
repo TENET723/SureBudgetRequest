@@ -63,6 +63,29 @@
                 }
             }
         };
+
+        window.positionContextMenu = function (el, clientX, clientY, isButton) {
+            if (!el) return;
+            var w = el.offsetWidth || 220;
+            var h = el.offsetHeight || 210;
+            var winW = window.innerWidth;
+            var winH = window.innerHeight;
+
+            var x = isButton ? (clientX - w) : clientX;
+            var y = clientY + 6;
+
+            if (y + h > winH - 12) {
+                y = isButton ? (clientY - h - 6) : (clientY - h);
+            }
+            if (x + w > winW - 12) {
+                x = winW - w - 12;
+            }
+            if (x < 12) x = 12;
+            if (y < 12) y = 12;
+
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+        };
     </script>
 </body>
 

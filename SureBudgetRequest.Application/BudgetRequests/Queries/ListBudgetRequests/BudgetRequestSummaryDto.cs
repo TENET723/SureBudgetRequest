@@ -1,7 +1,18 @@
+using SureBudgetRequest.Application.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests;
+
+public sealed record RequestTagSummaryDto(
+    Guid TagId,
+    string Name,
+    string? ColorHex,
+    string? FontColorHex,
+    Guid DepartmentId)
+{
+    public string EffectiveFontColor => ColorContrastHelper.GetEffectiveFontColor(ColorHex, FontColorHex);
+}
 
 public sealed record BudgetRequestSummaryDto(
     Guid Id,
@@ -47,7 +58,8 @@ public sealed record BudgetRequestSummaryDto(
     decimal RefundAmount = 0m,
     decimal ReimbursementAmount = 0m,
     // Optional free-text external references (voucher / transaction numbers).
-    string? ExternalReferences = null)
+    string? ExternalReferences = null,
+    IReadOnlyList<RequestTagSummaryDto>? Tags = null)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -88,7 +100,14 @@ public sealed record BudgetRequestSummaryDto(
     public static BudgetRequestSummaryDto FromEntity(
         BudgetRequest e,
         Coa? coa,
-        WithdrawMethod? withdrawMethod) => new(
+        WithdrawMethod? withdrawMethod) =>
+        FromEntity(e, coa, withdrawMethod, tags: null);
+
+    public static BudgetRequestSummaryDto FromEntity(
+        BudgetRequest e,
+        Coa? coa,
+        WithdrawMethod? withdrawMethod,
+        IReadOnlyList<RequestTagSummaryDto>? tags) => new(
         e.Id,
         e.Reference,
         e.RequesterId,
@@ -117,5 +136,6 @@ public sealed record BudgetRequestSummaryDto(
         e.RequesterNameAtSubmission,
         e.RefundAmount,
         e.ReimbursementAmount,
-        e.ExternalReferences);
+        e.ExternalReferences,
+        tags);
 }

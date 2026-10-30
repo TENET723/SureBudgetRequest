@@ -4,6 +4,8 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
+@using SureBudgetRequest.Application.AppSettings.Queries
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ExportBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -11,6 +13,8 @@
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
+@using SureBudgetRequest.Application.Tags.Commands.CreateTag
+@using SureBudgetRequest.Application.Tags.Models
 @using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
@@ -80,19 +84,15 @@
                         <tr>
                             <th class="col-no">#</th>
                             <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Reference))">
-                                Reference @SortIndicator(BudgetRequestSortBy.Reference)
-                            </th>
-                            <th role="button" style="cursor:pointer"
                                 @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
-                                Submitted @SortIndicator(BudgetRequestSortBy.SubmittedAt)
+                                Reference & Date @(SortIndicator(BudgetRequestSortBy.SubmittedAt) != "" ? SortIndicator(BudgetRequestSortBy.SubmittedAt) : SortIndicator(BudgetRequestSortBy.Reference))
                             </th>
                             <th role="button" style="cursor:pointer"
                                 @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
-                                Requester @SortIndicator(BudgetRequestSortBy.Requester)
+                                Requester & Dept @SortIndicator(BudgetRequestSortBy.Requester)
                             </th>
-                            <th>Department</th>
                             <th>Reason</th>
+                            <th style="min-width: 180px">Tags</th>
                             <th class="text-end">Ccy</th>
                             <th class="text-end">Requested</th>
                             <th class="text-end" role="button" style="cursor:pointer;text-align:right"
@@ -103,20 +103,60 @@
                             </th>
                             <th>COA</th>
                             <th>Withdraw</th>
-                            <th></th>
+                            <th class="sticky-action-col"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @for (var i = 0; i < (_result?.Items.Count ?? 0); i++)
                         {
                             var r = _result!.Items[i];
-                            <tr>
+                            <tr class="clickable-row"
+                                @onclick="() => NavigateToDetail(r.Id)"
+                                @oncontextmenu="e => OpenContextMenu(e, r)"
+                                @oncontextmenu:preventDefault="true">
                                 <td class="text-muted text-sm">@((_result.Page - 1) * _result.PageSize + i + 1)</td>
-                                <td class="text-sm"><strong>@(r.Reference ?? "—")</strong></td>
-                                <td class="text-sm text-muted">@r.SubmittedAt.ToMyanmarTime()</td>
-                                <td class="text-sm">@LookupUser(r.RequesterId)</td>
-                                <td class="text-sm">@LookupDepartment(r.DepartmentIdAtSubmission)</td>
-                                <td>@Truncate(r.Reasons, 40)</td>
+                                <td class="text-sm">
+                                    <div><strong>@(r.Reference ?? "—")</strong></div>
+                                    <div class="text-muted text-xs">@r.SubmittedAt.ToMyanmarTime()</div>
+                                </td>
+                                <td class="text-sm">
+                                    <div>@LookupUser(r.RequesterId)</div>
+                                    <div class="text-muted text-xs">@LookupDepartment(r.DepartmentIdAtSubmission)</div>
+                                </td>
+                                <td title="@r.Reasons">@Truncate(r.Reasons, 35)</td>
+                                <td @onclick:stopPropagation="true">
+                                    @if (r.Tags != null && r.Tags.Count > 0)
+                                    {
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            @foreach (var tag in r.Tags.Take(4))
+                                            {
+                                                <span class="tag-badge-pill"
+                                                      style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                                    #@tag.Name
+                                                </span>
+                                            }
+                                            @if (r.Tags.Count > 4)
+                                            {
+                                                var overflowCount = r.Tags.Count - 4;
+                                                <div class="tag-tooltip-container">
+                                                    <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                                        +@overflowCount
+                                                    </span>
+                                                    <div class="tag-tooltip-popup">
+                                                        @foreach (var ot in r.Tags.Skip(4))
+                                                        {
+                                                            <span>#@ot.Name</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted text-xs">—</span>
+                                    }
+                                </td>
                                 <td class="text-end text-sm text-muted">@r.CurrencyCode</td>
                                 <td class="text-end">@r.RequestedAmount.ToString("N2")</td>
                                 <td class="text-end text-sm text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
@@ -147,14 +187,24 @@
                                         <span class="text-muted">—</span>
                                     }
                                 </td>
-                                <td class="text-end">
-                                    <a href="requests/@r.Id?from=reports" class="btn btn-icon " title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path fill="currentColor" d="M30.94 15.66A16.69 16.69 0 0 0 16 5A16.69 16.69 0 0 0 1.06 15.66a1 1 0 0 0 0 .68A16.69 16.69 0 0 0 16 27a16.69 16.69 0 0 0 14.94-10.66a1 1 0 0 0 0-.68M16 22.5a6.5 6.5 0 1 1 6.5-6.5a6.51 6.51 0 0 1-6.5 6.5"/></svg></a>
+                                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                    <div class="row-hover-btn-wrapper">
+                                        <div class="row-hover-backdrop"></div>
+                                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                                @onclick="e => OpenContextMenuFromButton(e, r)">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <circle cx="12" cy="5" r="2"/>
+                                                <circle cx="12" cy="12" r="2"/>
+                                                <circle cx="12" cy="19" r="2"/>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
                         @if (_result is null || _result.Items.Count == 0)
                         {
-                            <tr><td colspan="13" class="text-center text-muted">No requests match the current filters.</td></tr>
+                            <tr><td colspan="12" class="text-center text-muted">No requests match the current filters.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -460,6 +510,130 @@
     </style>
 }
 
+@* ── Context Menu ────────────────────────────────────────────────────────── *@
+@if (_showContextMenu && _contextMenuTarget != null)
+{
+    <div style="position: fixed; inset: 0; z-index: 1040;"
+         @onclick="CloseContextMenu"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@(_contextMenuTarget.Reference ?? "Request")</span>
+            @* <span class="badge @StatusBadgeClass(_contextMenuTarget.Status)" style="font-size: 10px; padding: 1px 6px;">
+                @StatusLabel(_contextMenuTarget.Status)
+            </span> *@
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick="() => NavigateToDetail(_contextMenuTarget.Id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span>Open Details</span>
+        </button>
+
+        <button type="button" class="context-menu-item" @onclick="() => OpenInNewTab(_contextMenuTarget.Id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>Open in New Tab</span>
+        </button>
+
+        <div class="context-menu-divider"></div>
+
+        @if (!string.IsNullOrEmpty(_contextMenuTarget.Reference))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => CopyReferenceAsync(_contextMenuTarget.Reference)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Copy Reference</span>
+            </button>
+        }
+
+        @if (CanUserAttachTag(_contextMenuTarget))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => OpenQuickTagModal(_contextMenuTarget)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span>Attach Tag</span>
+            </button>
+        }
+
+        @if ((_contextMenuTarget.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid) && (CurrentUser.Role is UserRole.Finance or UserRole.Admin))
+        {
+            <div class="context-menu-divider"></div>
+            <button type="button" class="context-menu-item" style="color: var(--color-paid);" @onclick='() => NavigateToDetailWithAction(_contextMenuTarget.Id, "payment")'>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <span>Record Payment</span>
+            </button>
+        }
+    </div>
+}
+
+@* ── Quick Attach Tag Modal ────────────────────────────────────────────────── *@
+@if (_showQuickTagModal && _quickTagTarget != null)
+{
+    <div class="modal-backdrop" @onclick="() => _showQuickTagModal = false">
+        <div class="modal modal-sm" @onclick:stopPropagation="true">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Attach Tag — @(_quickTagTarget.Reference ?? "Request")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showQuickTagModal = false" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_quickTagError))
+                    {
+                        <div class="alert alert-error mb-3">@_quickTagError</div>
+                    }
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Select Existing Tag</label>
+                        <Dropdown Items="_availableDeptTags.Where(t => _quickTagTarget.Tags == null || !_quickTagTarget.Tags.Any(rt => rt.TagId == t.Id)).ToList()"
+                                  @bind-Value="_selectedQuickTagId"
+                                  ValueSelector="t => t.Id.ToString()"
+                                  TextSelector="FormatDeptTag"
+                                  Placeholder="-- Choose from your department --"
+                                  Searchable="true"
+                                  SearchPlaceholder="Search tag..."
+                                  AllowClear="true" />
+                    </div>
+                    <div class="modal-section-divider">
+                        <span>OR CREATE NEW FOR YOUR DEPARTMENT</span>
+                    </div>
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">New Tag Name</label>
+                        <input type="text" class="input" placeholder="e.g. Urgent-Review" @bind="_newQuickTagName" />
+                    </div>
+                    <div class="form-field mb-4">
+                        <label class="form-label text-sm font-semibold">Color (Optional)</label>
+                        <div class="flex items-center gap-2">
+                            <input type="color" class="color-picker-input" @bind="_newQuickTagColor" />
+                            <input type="text" class="input" placeholder="#3B82F6" @bind="_newQuickTagColor" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showQuickTagModal = false">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveQuickTagAsync" disabled="@_quickTagSaving">
+                        @if (_quickTagSaving) { <span class="spinner spinner-xs me-1"></span> }
+                        Attach
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Toast Notification ───────────────────────────────────────────────────── *@
+@if (_showToast)
+{
+    <div class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2EC662" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        <span>@_toastMessage</span>
+    </div>
+}
+
 @code {
     // ── Filter state ─────────────────────────────────────────────────────────
     private string _search = "";
@@ -513,6 +687,26 @@
     private List<UserDto> _approverCandidates = new();
     private Dictionary<Guid, string> _userNames = new();
     private Dictionary<Guid, string> _departmentNames = new();
+
+    // ── Context menu & Quick actions ─────────────────────────────────────────
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private BudgetRequestSummaryDto? _contextMenuTarget;
+
+    private bool _showQuickTagModal;
+    private BudgetRequestSummaryDto? _quickTagTarget;
+    private string _selectedQuickTagId = "";
+    private string _newQuickTagName = "";
+    private string _newQuickTagColor = "#3B82F6";
+    private string? _quickTagError;
+    private bool _quickTagSaving;
+    private List<TagDto> _availableDeptTags = new();
+    private TagVisibilityConfig? _tagVisibilityConfig;
+
+    private bool _showToast;
+    private string _toastMessage = "";
+    private System.Threading.CancellationTokenSource? _toastCts;
 
     // ── Paging & sort ────────────────────────────────────────────────────────
     private int _page = 1;
@@ -612,6 +806,10 @@
         var tagsRes = await Mediator.Send(new ListVisibleTagsForUserQuery(CurrentUser.UserId));
         if (tagsRes.IsSuccess && tagsRes.Value is not null)
             _availableTags = tagsRes.Value.ToList();
+
+        var configRes = await Mediator.Send(new GetAppSettingByKeyQuery(TagVisibilityConfig.SettingKey));
+        if (configRes.IsSuccess)
+            _tagVisibilityConfig = TagVisibilityConfig.FromJson(configRes.Value?.Value);
     }
 
     private async Task RunQueryAsync()
@@ -671,7 +869,8 @@
                 Page: _page,
                 PageSize: _pageSize,
                 WithdrawMethodId: ParseGuid(_selectedWithdrawMethodId),
-                TagId: ParseGuid(_selectedTagId)));
+                TagId: ParseGuid(_selectedTagId),
+                ViewerUserId: CurrentUser.UserId));
 
             if (result.IsSuccess)
                 _result = result.Value!;
@@ -754,6 +953,12 @@
         {
             _dndWired = true;
             await JS.InvokeVoidAsync("columnPickerDnd.enable", _pickerRef);
+        }
+
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
         }
     }
 
@@ -1006,4 +1211,195 @@
         UserRole.Employee       => "Employee",
         _                       => r.ToString()
     };
+
+    // ── Quick actions & Context menu handlers ─────────────────────────────
+    private ElementReference _contextMenuRef;
+    private bool _menuPendingPosition;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+
+    private void OpenContextMenu(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = false;
+        _contextMenuX = Math.Max(10, e.ClientX);
+        _contextMenuY = Math.Max(10, e.ClientY);
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = true;
+        _contextMenuX = Math.Max(10, e.ClientX - 220);
+        _contextMenuY = e.ClientY > 400 ? Math.Max(10, e.ClientY - 210) : e.ClientY + 6;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    private void NavigateToDetail(Guid id)
+    {
+        CloseContextMenu();
+        Nav.NavigateTo($"requests/{id}?from=reports");
+    }
+
+    private async Task OpenInNewTab(Guid id)
+    {
+        CloseContextMenu();
+        await JS.InvokeVoidAsync("open", $"requests/{id}?from=reports", "_blank");
+    }
+
+    private void NavigateToDetailWithAction(Guid id, string action)
+    {
+        CloseContextMenu();
+        Nav.NavigateTo($"requests/{id}?from=reports&action={action}");
+    }
+
+    private async Task CopyReferenceAsync(string reference)
+    {
+        CloseContextMenu();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", reference);
+            ShowToast($"Copied \"{reference}\" to clipboard");
+        }
+        catch
+        {
+            ShowToast($"Reference: {reference}");
+        }
+    }
+
+    private bool CanUserAttachTag(BudgetRequestSummaryDto request)
+    {
+        if (request is null || CurrentUser.DepartmentId == Guid.Empty)
+            return false;
+
+        if (CurrentUser.Role == UserRole.Support)
+            return false;
+
+        if (CurrentUser.Role == UserRole.Admin)
+            return true;
+
+        if (CurrentUser.UserId == request.RequesterId ||
+            (request.DepartmentIdAtSubmission != Guid.Empty && CurrentUser.DepartmentId == request.DepartmentIdAtSubmission))
+            return true;
+
+        if (CurrentUser.Role == UserRole.Finance ||
+            (_tagVisibilityConfig?.FinanceDepartmentId.HasValue == true && CurrentUser.DepartmentId == _tagVisibilityConfig.FinanceDepartmentId.Value))
+            return true;
+
+        if (CurrentUser.Role == UserRole.Accounting ||
+            (_tagVisibilityConfig?.AccountingDepartmentId.HasValue == true && CurrentUser.DepartmentId == _tagVisibilityConfig.AccountingDepartmentId.Value))
+            return true;
+
+        if (CurrentUser.Role == UserRole.Management ||
+            (_tagVisibilityConfig?.ManagementDepartmentId.HasValue == true && CurrentUser.DepartmentId == _tagVisibilityConfig.ManagementDepartmentId.Value))
+            return true;
+
+        return false;
+    }
+
+    private async Task OpenQuickTagModal(BudgetRequestSummaryDto request)
+    {
+        CloseContextMenu();
+        _quickTagTarget = request;
+        _selectedQuickTagId = "";
+        _newQuickTagName = "";
+        _newQuickTagColor = "#3B82F6";
+        _quickTagError = null;
+        if (CurrentUser.DepartmentId != Guid.Empty)
+        {
+            var res = await Mediator.Send(new ListTagsByDepartmentQuery(CurrentUser.DepartmentId, IncludeInactive: false));
+            _availableDeptTags = res.IsSuccess && res.Value is not null ? res.Value.ToList() : new();
+        }
+        _showQuickTagModal = true;
+    }
+
+    private async Task SaveQuickTagAsync()
+    {
+        if (_quickTagTarget == null) return;
+
+        _quickTagSaving = true;
+        _quickTagError = null;
+
+        Guid tagIdToAttach;
+        if (!string.IsNullOrEmpty(_selectedQuickTagId) && Guid.TryParse(_selectedQuickTagId, out var selectedId))
+        {
+            tagIdToAttach = selectedId;
+        }
+        else if (!string.IsNullOrWhiteSpace(_newQuickTagName))
+        {
+            var createRes = await Mediator.Send(new CreateTagCommand(
+                CurrentUser.DepartmentId,
+                _newQuickTagName.Trim(),
+                CurrentUser.UserId,
+                _newQuickTagColor));
+
+            if (createRes.IsFailure)
+            {
+                _quickTagError = createRes.Error.Message;
+                _quickTagSaving = false;
+                return;
+            }
+
+            tagIdToAttach = createRes.Value;
+        }
+        else
+        {
+            _quickTagError = "Please select an existing tag or enter a new tag name.";
+            _quickTagSaving = false;
+            return;
+        }
+
+        var attachRes = await Mediator.Send(new AddTagToRequestCommand(_quickTagTarget.Id, tagIdToAttach, CurrentUser.UserId));
+        if (attachRes.IsFailure)
+        {
+            _quickTagError = attachRes.Error.Message;
+            _quickTagSaving = false;
+            return;
+        }
+
+        _showQuickTagModal = false;
+        _quickTagSaving = false;
+        ShowToast($"Tag attached to {_quickTagTarget.Reference ?? "request"}");
+
+        // Refresh list to show updated tags
+        await RunQueryAsync();
+    }
+
+    private static string FormatDeptTag(TagDto t) => $"#{t.Name}";
+
+    private void ShowToast(string message)
+    {
+        _toastMessage = message;
+        _showToast = true;
+        _toastCts?.Cancel();
+        _toastCts = new System.Threading.CancellationTokenSource();
+        var token = _toastCts.Token;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2500, token);
+            if (!token.IsCancellationRequested)
+            {
+                await InvokeAsync(() =>
+                {
+                    _showToast = false;
+                    StateHasChanged();
+                });
+            }
+        }, token);
+        StateHasChanged();
+    }
 }

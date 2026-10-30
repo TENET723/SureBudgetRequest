@@ -89,6 +89,8 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
             .Include(r => r.Payments)
                 .ThenInclude(p => p.Receipts)
             .Include(r => r.Attachments)
+            .Include(r => r.Tags)
+                .ThenInclude(t => t.Tag)
             .AsQueryable();
 
         if (requesterId.HasValue)
