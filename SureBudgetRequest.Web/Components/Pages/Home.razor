@@ -3,6 +3,7 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
@@ -212,20 +213,20 @@
         @if (totalPages > 1)
         {
             <div class="dash-pagination">
-                <button class="dash-page-btn" @onclick="() => _page--" disabled="@(_page <= 1)">‹</button>
+                <button class="dash-page-btn" @onclick="() => SetPage(_page - 1)" disabled="@(_page <= 1)">‹</button>
                 @for (var p = 1; p <= totalPages; p++)
                 {
                     var pg = p;
                     @if (p <= 2 || p >= totalPages - 1 || Math.Abs(p - _page) <= 1)
                     {
-                        <button class="dash-page-btn @(_page == pg ? "active" : "")" @onclick="() => { _page = pg; }">@pg</button>
+                        <button class="dash-page-btn @(_page == pg ? "active" : "")" @onclick="() => SetPage(pg)">@pg</button>
                     }
                     else if (p == 3 && _page > 4)
                     {
                         <span class="page-ellipsis">…</span>
                     }
                 }
-                <button class="dash-page-btn" @onclick="() => _page++" disabled="@(_page >= totalPages)">›</button>
+                <button class="dash-page-btn" @onclick="() => SetPage(_page + 1)" disabled="@(_page >= totalPages)">›</button>
             </div>
         }
     }
@@ -553,7 +554,17 @@
             return;
         }
         await LoadAsync();
-        SetDefaultTab();
+        if (FilterState.Dashboard is not null)
+        {
+            _activeTab = FilterState.Dashboard.ActiveTab;
+            _page = FilterState.Dashboard.Page;
+            _sortCol = FilterState.Dashboard.SortColumn;
+            _sortDesc = FilterState.Dashboard.SortDescending;
+        }
+        else
+        {
+            SetDefaultTab();
+        }
     }
 
     private async Task RefreshAsync() => await LoadAsync(); // keeps current tab
@@ -606,6 +617,24 @@
         // Each tab starts from the default order: newest-submitted first.
         _sortCol = "submitted";
         _sortDesc = true;
+        SaveDashboardState();
+    }
+
+    private void SetPage(int p)
+    {
+        _page = p;
+        SaveDashboardState();
+    }
+
+    private void SaveDashboardState()
+    {
+        FilterState.Dashboard = new DashboardFilterState
+        {
+            ActiveTab = _activeTab,
+            Page = _page,
+            SortColumn = _sortCol,
+            SortDescending = _sortDesc
+        };
     }
 
     // ── Sorting (client-side — dashboard rows are already in memory) ──────
@@ -624,6 +653,7 @@
             _sortDesc = col == "submitted";
         }
         _page = 1;
+        SaveDashboardState();
     }
 
     private string SortIndicator(string col) =>

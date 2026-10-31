@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Currencies.Commands.CreateCurrency
@@ -255,11 +256,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("currencies") ?? "";
+        if (FilterState.GetFlag("currencies_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("currencies_inactive", _showInactive);
         _loading = true;
         var result = await Mediator.Send(new ListCurrenciesQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
@@ -270,6 +277,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("currencies", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _currencies.ToList()

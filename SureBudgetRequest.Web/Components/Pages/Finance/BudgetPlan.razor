@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Departments.Commands.UpsertDepartmentMonthlyBudget
@@ -160,17 +161,27 @@
             return;
         }
 
-        // Determine default year
-        var now = DateTime.UtcNow;
-        // FY start month default 4 — use April as approximation here (AppSetting loaded later)
-        _selectedYear = now.Month >= 4 ? now.Year : now.Year - 1;
-
         // Load departments
         var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));
         if (deptsResult.IsSuccess && deptsResult.Value.Count > 0)
         {
             _departments = deptsResult.Value.ToList();
-            _selectedDeptId = _departments[0].Id;
+        }
+
+        if (FilterState.BudgetPlan is not null)
+        {
+            _selectedYear = FilterState.BudgetPlan.SelectedYear;
+            _selectedDeptId = FilterState.BudgetPlan.SelectedDeptId;
+        }
+        else
+        {
+            // Determine default year
+            var now = DateTime.UtcNow;
+            // FY start month default 4 — use April as approximation here (AppSetting loaded later)
+            _selectedYear = now.Month >= 4 ? now.Year : now.Year - 1;
+
+            if (_departments.Count > 0)
+                _selectedDeptId = _departments[0].Id;
         }
 
         await LoadPlan();
@@ -193,6 +204,11 @@
         if (result.IsSuccess)
         {
             _plan = result.Value;
+            FilterState.BudgetPlan = new BudgetPlanFilterState
+            {
+                SelectedYear = _selectedYear,
+                SelectedDeptId = _selectedDeptId
+            };
             _formAmounts = new Dictionary<int, string>();
             foreach (var m in _plan.Months)
             {

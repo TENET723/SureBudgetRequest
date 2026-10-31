@@ -3,6 +3,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Tags.Queries
@@ -478,11 +479,16 @@
             _selectedDepartmentId = CurrentUser.DepartmentId;
         }
 
+        _search = FilterState.GetSearch("tags") ?? "";
+        if (FilterState.GetFlag("tags_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("tags_inactive", _showInactive);
         if (_selectedDepartmentId == Guid.Empty) return;
 
         _loading = true;
@@ -501,6 +507,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("tags", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _tags.ToList()

@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Coas.Commands.CreateCoa
@@ -210,11 +211,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("coas") ?? "";
+        if (FilterState.GetFlag("coas_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("coas_inactive", _showInactive);
         _loading = true;
         var result = await Mediator.Send(new ListCoasQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
@@ -227,6 +234,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("coas", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _coas.ToList()

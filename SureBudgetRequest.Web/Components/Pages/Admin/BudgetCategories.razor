@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetCategories.Queries
 @using SureBudgetRequest.Application.BudgetCategories.Commands.CreateBudgetCategory
@@ -190,11 +191,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("budget_categories") ?? "";
+        if (FilterState.GetFlag("budget_categories_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("budget_categories_inactive", _showInactive);
         _loading = true;
         var result = await Mediator.Send(new ListBudgetCategoriesQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
@@ -207,6 +214,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("budget_categories", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _categories.ToList()

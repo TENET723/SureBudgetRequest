@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Departments.Commands.AssignDepartmentHead
@@ -175,6 +176,8 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("department_heads") ?? "";
         await LoadData();
     }
 
@@ -199,6 +202,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("department_heads", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _departments.ToList()

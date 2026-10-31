@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Commands.CreateWithdrawMethod
@@ -212,11 +213,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("withdraw_methods") ?? "";
+        if (FilterState.GetFlag("withdraw_methods_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("withdraw_methods_inactive", _showInactive);
         _loading = true;
         var result = await Mediator.Send(new ListWithdrawMethodsQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
@@ -229,6 +236,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("withdraw_methods", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _methods.ToList()

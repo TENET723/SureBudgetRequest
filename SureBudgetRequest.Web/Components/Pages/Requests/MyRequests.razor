@@ -4,6 +4,7 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -510,7 +511,24 @@
         if (tagsRes.IsSuccess && tagsRes.Value is not null)
             _availableTags = tagsRes.Value.ToList();
 
-        await LoadPageAsync(1);
+        if (FilterState.MyRequests is not null)
+        {
+            var s = FilterState.MyRequests;
+            _search = s.Search;
+            _selectedTagId = s.SelectedTagId;
+            _selectedStatuses = new HashSet<RequestStatus>(s.SelectedStatuses);
+            _selectedTypes = new HashSet<BudgetRequestType>(s.SelectedTypes);
+            _fromDate = s.FromDate;
+            _toDate = s.ToDate;
+            _sortBy = s.SortBy;
+            _sortDescending = s.SortDescending;
+            _pageSize = s.PageSize;
+            await LoadPageAsync(s.Page);
+        }
+        else
+        {
+            await LoadPageAsync(1);
+        }
     }
 
     private async Task LoadPageAsync(int page)
@@ -561,6 +579,19 @@
         {
             _result = result.Value;
             _currentPage = _result.Page;
+            FilterState.MyRequests = new MyRequestsFilterState
+            {
+                Search = _search,
+                SelectedTagId = _selectedTagId,
+                SelectedStatuses = new HashSet<RequestStatus>(_selectedStatuses),
+                SelectedTypes = new HashSet<BudgetRequestType>(_selectedTypes),
+                FromDate = _fromDate,
+                ToDate = _toDate,
+                SortBy = _sortBy,
+                SortDescending = _sortDescending,
+                Page = _currentPage,
+                PageSize = _pageSize
+            };
         }
         else
         {
@@ -635,6 +666,7 @@
         _selectedTypes.Clear();
         _fromDate = null;
         _toDate = null;
+        FilterState.MyRequests = null;
         await LoadPageAsync(1);
     }
 

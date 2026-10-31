@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -403,7 +404,28 @@
         }
 
         await LoadReferenceDataAsync();
-        await LoadPageAsync(1);
+
+        if (FilterState.Inbox is not null)
+        {
+            var s = FilterState.Inbox;
+            _search = s.Search;
+            _view = s.View;
+            _selectedDepartmentId = s.SelectedDepartmentId;
+            _selectedTagId = s.SelectedTagId;
+            _fromDate = s.FromDate;
+            _toDate = s.ToDate;
+            _amountMmkFrom = s.AmountMmkFrom;
+            _amountMmkTo = s.AmountMmkTo;
+            _selectedTypes = new HashSet<BudgetRequestType>(s.SelectedTypes);
+            _sortBy = s.SortBy;
+            _sortDescending = s.SortDescending;
+            _pageSize = s.PageSize;
+            await LoadPageAsync(s.Page);
+        }
+        else
+        {
+            await LoadPageAsync(1);
+        }
     }
 
     private async Task LoadReferenceDataAsync()
@@ -452,6 +474,7 @@
         if (SeesAllDepartments)
             _selectedDepartmentId = "";
 
+        FilterState.Inbox = null;
         await LoadPageAsync(1);
     }
 
@@ -633,6 +656,26 @@
             {
                 _result = null;
             }
+        }
+
+        if (_result is not null)
+        {
+            FilterState.Inbox = new InboxFilterState
+            {
+                Search = _search,
+                View = _view,
+                SelectedDepartmentId = _selectedDepartmentId,
+                SelectedTagId = _selectedTagId,
+                FromDate = _fromDate,
+                ToDate = _toDate,
+                AmountMmkFrom = _amountMmkFrom,
+                AmountMmkTo = _amountMmkTo,
+                SelectedTypes = new HashSet<BudgetRequestType>(_selectedTypes),
+                SortBy = _sortBy,
+                SortDescending = _sortDescending,
+                Page = _currentPage,
+                PageSize = _pageSize
+            };
         }
 
         _loading = false;

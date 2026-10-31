@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.Users.Commands.CreateUser
@@ -391,6 +392,15 @@
             _departments = depts.Value?.ToList() ?? new();
             _deptNames = depts.Value?.ToDictionary(d => d.Id, d => d.Name) ?? new();
         }
+
+        if (FilterState.Users is not null)
+        {
+            _search = FilterState.Users.Search;
+            _filterDept = FilterState.Users.FilterDept;
+            _filterRole = FilterState.Users.FilterRole;
+            _showInactive = FilterState.Users.ShowInactive;
+        }
+
         await LoadUsers();
     }
 
@@ -416,6 +426,14 @@
                 || (DeptName(u.DepartmentId).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0))
             .OrderBy(u => u.FullName)
             .ToList();
+
+        FilterState.Users = new UsersFilterState
+        {
+            Search = _search,
+            FilterDept = _filterDept,
+            FilterRole = _filterRole,
+            ShowInactive = _showInactive
+        };
     }
 
     private string DeptName(Guid id) =>

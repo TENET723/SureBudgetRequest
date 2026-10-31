@@ -3,6 +3,7 @@
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.AppSettings.Queries
 @using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
@@ -890,11 +891,38 @@
             return;
         }
 
-        // Use Myanmar business time so the default month/day is correct even
-        // when opened between 00:00-06:30 AM MMT (where UTC is still yesterday).
-        var nowMm = DateTime.UtcNow.ToMyanmarDateTime();
-        _fromDate = new DateTime(nowMm.Year, nowMm.Month, 1);
-        _toDate = nowMm.Date;
+        if (FilterState.BudgetReport is not null)
+        {
+            var s = FilterState.BudgetReport;
+            _search = s.Search;
+            _fromDate = s.FromDate;
+            _toDate = s.ToDate;
+            _selectedDepartmentId = s.SelectedDepartmentId;
+            _selectedCoaId = s.SelectedCoaId;
+            _selectedTagId = s.SelectedTagId;
+            _selectedCurrencyCode = s.SelectedCurrencyCode;
+            _selectedWithdrawMethodId = s.SelectedWithdrawMethodId;
+            _selectedRequesterId = s.SelectedRequesterId;
+            _selectedApproverId = s.SelectedApproverId;
+            _overLimitFilter = s.OverLimitFilter;
+            _selectedStatuses = new HashSet<RequestStatus>(s.SelectedStatuses);
+            _selectedTypes = new HashSet<BudgetRequestType>(s.SelectedTypes);
+            _amountMmkFrom = s.AmountMmkFrom;
+            _amountMmkTo = s.AmountMmkTo;
+            _periodOverrunOnly = s.PeriodOverrunOnly;
+            _sortBy = s.SortBy;
+            _sortDescending = s.SortDescending;
+            _page = s.Page;
+            _pageSize = s.PageSize;
+        }
+        else
+        {
+            // Use Myanmar business time so the default month/day is correct even
+            // when opened between 00:00-06:30 AM MMT (where UTC is still yesterday).
+            var nowMm = DateTime.UtcNow.ToMyanmarDateTime();
+            _fromDate = new DateTime(nowMm.Year, nowMm.Month, 1);
+            _toDate = nowMm.Date;
+        }
 
         if (CurrentUser.Role == UserRole.DepartmentHead)
         {
@@ -1010,7 +1038,32 @@
                 ViewerUserId: CurrentUser.UserId));
 
             if (result.IsSuccess)
+            {
                 _result = result.Value!;
+                FilterState.BudgetReport = new BudgetReportFilterState
+                {
+                    Search = _search,
+                    FromDate = _fromDate,
+                    ToDate = _toDate,
+                    SelectedDepartmentId = _selectedDepartmentId,
+                    SelectedCoaId = _selectedCoaId,
+                    SelectedTagId = _selectedTagId,
+                    SelectedCurrencyCode = _selectedCurrencyCode,
+                    SelectedWithdrawMethodId = _selectedWithdrawMethodId,
+                    SelectedRequesterId = _selectedRequesterId,
+                    SelectedApproverId = _selectedApproverId,
+                    OverLimitFilter = _overLimitFilter,
+                    SelectedStatuses = new HashSet<RequestStatus>(_selectedStatuses),
+                    SelectedTypes = new HashSet<BudgetRequestType>(_selectedTypes),
+                    AmountMmkFrom = _amountMmkFrom,
+                    AmountMmkTo = _amountMmkTo,
+                    PeriodOverrunOnly = _periodOverrunOnly,
+                    SortBy = _sortBy,
+                    SortDescending = _sortDescending,
+                    Page = _page,
+                    PageSize = _pageSize
+                };
+            }
             else
             {
                 _errorMessage = result.Error.Message;
@@ -1231,6 +1284,7 @@
         if (!_departmentLocked)
             _selectedDepartmentId = "";
 
+        FilterState.BudgetReport = null;
         _page = 1;
         await RunQueryAsync();
     }

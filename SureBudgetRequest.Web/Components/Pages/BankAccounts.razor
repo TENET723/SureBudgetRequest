@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BankAccounts.Queries
 @using SureBudgetRequest.Application.BankAccounts.Commands.CreateBankAccount
@@ -202,11 +203,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("bank_accounts") ?? "";
+        if (FilterState.GetFlag("bank_accounts_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("bank_accounts_inactive", _showInactive);
         _loading = true;
         var result = await Mediator.Send(new ListBankAccountsQuery(IncludeInactive: _showInactive));
         if (result.IsSuccess)
@@ -219,6 +226,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("bank_accounts", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _accounts.ToList()

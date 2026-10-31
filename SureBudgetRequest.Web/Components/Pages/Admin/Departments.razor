@@ -2,6 +2,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Departments.Commands.CreateDepartment
@@ -248,11 +249,17 @@
             Nav.NavigateTo("/", replace: true);
             return;
         }
+
+        _search = FilterState.GetSearch("departments") ?? "";
+        if (FilterState.GetFlag("departments_inactive") is bool flag)
+            _showInactive = flag;
+
         await LoadData();
     }
 
     private async Task LoadData()
     {
+        FilterState.SetFlag("departments_inactive", _showInactive);
         _loading = true;
         var allUsersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: true));
         if (allUsersResult.IsSuccess)
@@ -271,6 +278,7 @@
 
     private void ApplyFilter()
     {
+        FilterState.SetSearch("departments", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
             ? _departments.ToList()

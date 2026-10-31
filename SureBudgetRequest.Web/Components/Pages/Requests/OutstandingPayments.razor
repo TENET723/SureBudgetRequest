@@ -1,6 +1,7 @@
 @page "/requests/outstanding"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -334,7 +335,25 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadReferenceDataAsync();
-        await LoadPageAsync(1);
+
+        if (FilterState.OutstandingPayments is not null)
+        {
+            var s = FilterState.OutstandingPayments;
+            _search = s.Search;
+            _selectedDepartmentId = s.SelectedDepartmentId;
+            _selectedCurrencyCode = s.SelectedCurrencyCode;
+            _fromDate = s.FromDate;
+            _toDate = s.ToDate;
+            _selectedTypes = new HashSet<BudgetRequestType>(s.SelectedTypes);
+            _sortBy = s.SortBy;
+            _sortDescending = s.SortDescending;
+            _pageSize = s.PageSize;
+            await LoadPageAsync(s.Page);
+        }
+        else
+        {
+            await LoadPageAsync(1);
+        }
     }
 
     private async Task LoadReferenceDataAsync()
@@ -382,6 +401,7 @@
         if (SeesAllDepartments)
             _selectedDepartmentId = "";
 
+        FilterState.OutstandingPayments = null;
         await LoadPageAsync(1);
     }
 
@@ -456,6 +476,19 @@
         {
             _result = result.Value;
             _currentPage = _result.Page;
+            FilterState.OutstandingPayments = new OutstandingPaymentsFilterState
+            {
+                Search = _search,
+                SelectedDepartmentId = _selectedDepartmentId,
+                SelectedCurrencyCode = _selectedCurrencyCode,
+                FromDate = _fromDate,
+                ToDate = _toDate,
+                SelectedTypes = new HashSet<BudgetRequestType>(_selectedTypes),
+                SortBy = _sortBy,
+                SortDescending = _sortDescending,
+                Page = _currentPage,
+                PageSize = _pageSize
+            };
         }
         else
         {
