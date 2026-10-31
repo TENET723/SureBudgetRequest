@@ -113,15 +113,15 @@ public sealed class GetDashboardQueryHandler
         var employee = new EmployeeSectionDto(
             ActionRequired: myActionRequired
                 .OrderByDescending(r => r.CreatedAt)
-                .Select(BudgetRequestSummaryDto.FromEntity)
+                .Select(r => MapToSummaryDto(r, role, departmentId))
                 .ToList(),
             InFlight: myInFlight
                 .OrderByDescending(r => r.SubmittedAt ?? r.CreatedAt)
-                .Select(BudgetRequestSummaryDto.FromEntity)
+                .Select(r => MapToSummaryDto(r, role, departmentId))
                 .ToList(),
             RecentlyCompleted: myCompleted
                 .OrderByDescending(r => r.FinalizedAt ?? r.CreatedAt)
-                .Select(BudgetRequestSummaryDto.FromEntity)
+                .Select(r => MapToSummaryDto(r, role, departmentId))
                 .ToList());
 
         // === Role-specific: "Pending my approval" ===========================
@@ -149,7 +149,7 @@ public sealed class GetDashboardQueryHandler
                 TopItems: pending
                     .OrderBy(r => TypePriority(r.Type))                  // Urgent first
                     .ThenBy(r => r.SubmittedAt ?? r.CreatedAt)            // oldest first
-                    .Select(BudgetRequestSummaryDto.FromEntity)
+                    .Select(r => MapToSummaryDto(r, role, departmentId))
                     .ToList());
         }
 
@@ -170,7 +170,7 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingPayment.Count,
                 TopItems: awaitingPayment
                     .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt) // oldest first
-                    .Select(BudgetRequestSummaryDto.FromEntity)
+                    .Select(r => MapToSummaryDto(r, role, departmentId))
                     .ToList());
 
             // Advances awaiting refund / reimbursement — one combined "to settle"
@@ -183,7 +183,7 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingSettlement.Count,
                 TopItems: awaitingSettlement
                     .OrderBy(r => r.ReconciliationDeadline ?? r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
-                    .Select(BudgetRequestSummaryDto.FromEntity)
+                    .Select(r => MapToSummaryDto(r, role, departmentId))
                     .ToList());
 
             // Metric: count waiting for Finance review
@@ -218,7 +218,7 @@ public sealed class GetDashboardQueryHandler
             stuckRequests = new StuckRequestsDto(
                 TotalCount: stuck.Count,
                 TopItems: stuck
-                    .Select(BudgetRequestSummaryDto.FromEntity)
+                    .Select(r => MapToSummaryDto(r, role, departmentId))
                     .ToList());
         }
 
@@ -274,5 +274,29 @@ public sealed class GetDashboardQueryHandler
     private static void AddIds(HashSet<Guid> set, IEnumerable<BudgetRequestSummaryDto> items)
     {
         foreach (var r in items) set.Add(r.RequesterId);
+    }
+
+    private static BudgetRequestSummaryDto MapToSummaryDto(
+        BudgetRequest e,
+        UserRole viewerRole,
+        Guid viewerDepartmentId)
+    {
+        List<RequestTagSummaryDto>? tagDtos = null;
+        if (e.Tags is { Count: > 0 })
+        {
+            var visibleTags = (viewerRole == UserRole.Admin)
+                ? e.Tags.Where(t => t.Tag is not null && t.Tag.IsActive)
+                : e.Tags.Where(t =>
+                    t.Tag is not null &&
+                    t.Tag.IsActive &&
+                    viewerDepartmentId != Guid.Empty &&
+                    t.TagDepartmentId == viewerDepartmentId);
+
+            tagDtos = visibleTags
+                .Select(t => new RequestTagSummaryDto(t.TagId, t.Tag!.Name, t.Tag.ColorHex, t.Tag.FontColorHex, t.TagDepartmentId))
+                .ToList();
+        }
+
+        return BudgetRequestSummaryDto.FromEntity(e, coa: null, withdrawMethod: null, tags: tagDtos);
     }
 }

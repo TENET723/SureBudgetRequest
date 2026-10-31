@@ -71,13 +71,7 @@
 .status-badge-rejected { display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:4px; font-size:12px; font-weight:600; background:var(--color-rejected-bg); color:var(--color-rejected); border:1px solid var(--color-rejected); }
 .status-badge-draft { display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:4px; font-size:12px; font-weight:600; background:#F1F3F9; color:var(--color-text-muted); border:1px solid var(--color-border); }
 
-/* Row actions kebab */
-.row-kebab {
-  background: none; border: none; cursor: pointer; padding: 4px 6px;
-  color: var(--color-text-muted); border-radius: var(--radius-sm);
-  display: flex; align-items: center;
-}
-.row-kebab:hover { background: var(--color-bg-row-alt); color: var(--color-text-dark); }
+.dash-table tbody tr.menu-open td { background: #EEF2FF; }
 
 /* Pagination */
 .dash-pagination { display: flex; align-items: center; justify-content: flex-end; gap: 4px; padding: 12px 16px; background: white; border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 var(--radius-md) var(--radius-md); }

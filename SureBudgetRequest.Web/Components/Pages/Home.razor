@@ -2,6 +2,15 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject IJSRuntime JS
+
+@using SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RejectRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest
+@using SureBudgetRequest.Application.Coas.Queries
+@using SureBudgetRequest.Application.Tags.Models
+@using SureBudgetRequest.Domain.Common
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetDashboard
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
@@ -98,23 +107,20 @@
                     <tr>
                         <th class="col-no">No</th>
                         <th role="button" style="cursor:pointer"
-                            @onclick='() => SortByColumn("ref")'>
-                            Request ID @SortIndicator("ref")
+                            @onclick='() => SortByColumn("submitted")'>
+                            Request ID & Date @(SortIndicator("submitted") != "" ? SortIndicator("submitted") : SortIndicator("ref"))
                         </th>
                         <th role="button" style="cursor:pointer"
                             @onclick='() => SortByColumn("name")'>
                             Name @SortIndicator("name")
                         </th>
-                        <th role="button" style="cursor:pointer"
-                            @onclick='() => SortByColumn("submitted")'>
-                            Submitted At @SortIndicator("submitted")
-                        </th>
                         <th>Description</th>
+                        <th>Tags</th>
                         <th role="button" style="cursor:pointer"
                             @onclick='() => SortByColumn("status")'>
                             Status @SortIndicator("status")
                         </th>
-                        <th style="width:40px"></th>
+                        <th class="sticky-action-col"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -137,24 +143,63 @@
                         {
                             globalIdx++;
                             var idx = globalIdx;
-                            <tr @onclick="() => OpenRequestSmart(r)" class="clickable-row">
+                            <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
+                                @onclick="() => OpenRequestSmart(r)"
+                                @oncontextmenu="e => OpenContextMenu(e, r)"
+                                @oncontextmenu:preventDefault="true">
                                 <td class="col-no">@idx</td>
-                                <td class="text-sm"><strong>@(r.Reference ?? ShortId(r.Id))</strong></td>
-                                <td class="text-sm">@RequesterName(r.RequesterId)</td>
-                                <td class="text-sm text-muted">
-                                    @r.SubmittedAt.ToMyanmarTime()
+                                <td class="text-sm">
+                                    <div><strong>@(r.Reference ?? ShortId(r.Id))</strong></div>
+                                    <div class="text-muted text-xs">@r.SubmittedAt.ToMyanmarTime()</div>
                                 </td>
+                                <td class="text-sm">@RequesterName(r.RequesterId)</td>
                                 <td class="text-sm text-muted">@Truncate(r.Reasons, 40)</td>
+                                <td class="text-sm">
+                                    @if (r.Tags != null && r.Tags.Count > 0)
+                                    {
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            @foreach (var tag in r.Tags.Take(5))
+                                            {
+                                                <span class="tag-badge-pill"
+                                                      style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                                    #@tag.Name
+                                                </span>
+                                            }
+                                            @if (r.Tags.Count > 5)
+                                            {
+                                                var overflowCount = r.Tags.Count - 5;
+                                                <div class="tag-tooltip-container" @onclick:stopPropagation="true">
+                                                    <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                                        +@overflowCount
+                                                    </span>
+                                                    <div class="tag-tooltip-popup">
+                                                        @foreach (var ot in r.Tags.Skip(5))
+                                                        {
+                                                            <span>#@ot.Name</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted text-xs">—</span>
+                                    }
+                                </td>
                                 <td><span class="@StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span></td>
-                                <td>
-                                    <button class="row-kebab" @onclick:stopPropagation="true"
-                                            @onclick="() => OpenRequest(r.Id)" title="View">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                            <circle cx="12" cy="5"  r="1.5" fill="currentColor"/>
-                                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                                            <circle cx="12" cy="19" r="1.5" fill="currentColor"/>
-                                        </svg>
-                                    </button>
+                                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                    <div class="row-hover-btn-wrapper">
+                                        <div class="row-hover-backdrop"></div>
+                                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                                @onclick="e => OpenContextMenuFromButton(e, r)">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                <circle cx="12" cy="5" r="2"/>
+                                                <circle cx="12" cy="12" r="2"/>
+                                                <circle cx="12" cy="19" r="2"/>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -185,6 +230,288 @@
         }
     }
 </div>
+
+@* ── Cancel confirmation modal ────────────────────────────────────────────── *@
+@if (_cancellingRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Cancel Request</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _cancellingRequest = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _cancellingRequest = null">No</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoCancel" disabled="@_quickActionProcessing">Yes, Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Custom Context Menu / Quick Actions ────────────────────────────────── *@
+@if (_showContextMenu && _contextMenuTarget != null)
+{
+    <div style="position: fixed; inset: 0; z-index: 1045; cursor: default; background: transparent;"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@(_contextMenuTarget.Reference ?? "Draft / No Ref")</span>
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick="() => NavigateToDetail(_contextMenuTarget.Id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span>Open Details</span>
+        </button>
+
+        @if (_contextMenuTarget.Status is RequestStatus.Draft or RequestStatus.SentBack && _contextMenuTarget.RequesterId == CurrentUser.UserId)
+        {
+            <button type="button" class="context-menu-item" @onclick="() => NavigateToEdit(_contextMenuTarget.Id)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                <span>Edit Request</span>
+            </button>
+        }
+
+        <button type="button" class="context-menu-item" @onclick="() => OpenInNewTab(_contextMenuTarget)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>Open in New Tab</span>
+        </button>
+
+        <div class="context-menu-divider"></div>
+
+        @if (!string.IsNullOrEmpty(_contextMenuTarget.Reference))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => CopyReferenceAsync(_contextMenuTarget.Reference)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Copy Reference</span>
+            </button>
+        }
+
+        @if (CanUserAttachTag(_contextMenuTarget))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => OpenTagPopoverFromContextMenu(_contextMenuTarget)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                <span>Manage Tags</span>
+            </button>
+        }
+
+        @if (_activeTab == "approve" && ShouldShowStatusActionsSection())
+        {
+            var approveState = GetApproveActionState(_contextMenuTarget);
+            var sendBackState = GetSendBackActionState(_contextMenuTarget);
+            var rejectState = GetRejectActionState(_contextMenuTarget);
+
+            <div class="context-menu-divider"></div>
+            <div class="menu-section-title">Status Actions</div>
+
+            <button type="button"
+                    class="status-action-item action-approve"
+                    disabled="@(!approveState.Enabled || _quickActionProcessing)"
+                    @onclick="() => ExecuteQuickApproveAsync(_contextMenuTarget)">
+                <div class="action-row">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Approve</span>
+                </div>
+                @if (!approveState.Enabled && !string.IsNullOrEmpty(approveState.Reason))
+                {
+                    <span class="action-reason-hint">@approveState.Reason</span>
+                }
+            </button>
+
+            <button type="button"
+                    class="status-action-item action-sendback"
+                    disabled="@(!sendBackState.Enabled || _quickActionProcessing)"
+                    @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.SendBack)">
+                <div class="action-row">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                    <span>Send Back</span>
+                </div>
+                @if (!sendBackState.Enabled && !string.IsNullOrEmpty(sendBackState.Reason))
+                {
+                    <span class="action-reason-hint">@sendBackState.Reason</span>
+                }
+            </button>
+
+            <button type="button"
+                    class="status-action-item action-reject"
+                    disabled="@(!rejectState.Enabled || _quickActionProcessing)"
+                    @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.Reject)">
+                <div class="action-row">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span>Reject</span>
+                </div>
+                @if (!rejectState.Enabled && !string.IsNullOrEmpty(rejectState.Reason))
+                {
+                    <span class="action-reason-hint">@rejectState.Reason</span>
+                }
+            </button>
+        }
+
+        @if (_activeTab == "inflight" && _contextMenuTarget.RequesterId == CurrentUser.UserId)
+        {
+            var canCancel = _contextMenuTarget.Status == RequestStatus.PendingDeptHead;
+            <div class="context-menu-divider"></div>
+            <div class="menu-section-title">Status Actions</div>
+            <button type="button"
+                    class="context-menu-item @(canCancel ? "text-danger" : "text-muted")"
+                    disabled="@(!canCancel)"
+                    style="@(!canCancel ? "opacity: 0.5; cursor: not-allowed;" : "")"
+                    title="@(canCancel ? "Cancel this request" : GetCancelDisabledReason(_contextMenuTarget.Status))"
+                    @onclick="() => { if (canCancel) PromptCancelFromContextMenu(_contextMenuTarget); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span>Cancel Request</span>
+                @if (!canCancel)
+                {
+                    <span style="margin-left: auto; font-size: 10px; color: var(--color-text-muted);">(@GetCancelDisabledReason(_contextMenuTarget.Status))</span>
+                }
+            </button>
+        }
+    </div>
+}
+
+@* ── Anchored Tag Popover Box ─────────────────────────────────────────────── *@
+<RequestTagPopover IsOpen="_showTagPopover"
+                   Target="_tagPopoverTarget"
+                   X="_tagPopoverX"
+                   Y="_tagPopoverY"
+                   IsButtonAnchor="_tagPopoverIsButton"
+                   OnClose="CloseTagPopover"
+                   OnTagsChanged="args => UpdateDashboardTags(args.RequestId, args.Tags)"
+                   OnToast="ShowToast" />
+
+@* ── Quick Status Action Popover (Anchored like Tag Management) ───────────── *@
+@if (_showQuickActionModal && _quickActionTarget != null)
+{
+    <div style="position: fixed; inset: 0; z-index: 1055; cursor: default; background: transparent;"
+         @onclick="CloseQuickActionModal"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseQuickActionModal"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_quickActionRef" class="tag-popover-box"
+         style="left: @(_quickActionX)px; top: @(_quickActionY)px; width: 310px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
+            <div>
+                <div class="popover-title">
+                    @if (_quickActionType == QuickActionType.SendBack)
+                    {
+                        <span style="color: var(--color-warning); font-weight: 700;">↩</span>
+                        <span>Send Back Request</span>
+                    }
+                    else if (_quickActionType == QuickActionType.Reject)
+                    {
+                        <span style="color: var(--color-danger); font-weight: 700;">✕</span>
+                        <span>Reject Request</span>
+                    }
+                    else if (_quickActionType == QuickActionType.FinanceApprove)
+                    {
+                        <span style="color: var(--color-success); font-weight: 700;">✓</span>
+                        <span>Finance Approval</span>
+                    }
+                </div>
+                <div class="popover-ref-subtitle">
+                    @(_quickActionTarget.Reference ?? "Draft / No Ref")
+                </div>
+            </div>
+            <button type="button" class="btn btn-icon btn-xs"
+                    style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: pointer;"
+                    @onclick="CloseQuickActionModal" title="Close">✕</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_quickActionError))
+        {
+            <div class="alert alert-error" style="font-size: 11px; padding: 4px 8px; margin: 6px 10px 0;">
+                @_quickActionError
+            </div>
+        }
+
+        <div style="padding: 10px 12px;">
+            @if (_quickActionType == QuickActionType.FinanceApprove)
+            {
+                <div class="mb-2">
+                    <label class="form-label text-xs font-semibold mb-1 block" style="font-size: 11px;">Chart of Account (COA) <span style="color: var(--color-danger);">*</span></label>
+                    <select class="input input-sm w-full" @bind="_quickFinanceCoaId">
+                        <option value="">-- Select Chart of Account --</option>
+                        @foreach (var c in _coas.Where(c => c.IsActive))
+                        {
+                            <option value="@c.Id">@c.Code - @c.Name</option>
+                        }
+                    </select>
+                </div>
+                @if (_quickActionTarget.Type == BudgetRequestType.Advance)
+                {
+                    <div class="mb-2">
+                        <label class="form-label text-xs font-semibold mb-1 block" style="font-size: 11px;">Reconciliation Deadline <span style="color: var(--color-danger);">*</span></label>
+                        <input type="date" class="input input-sm w-full" @bind="_quickFinanceReconciliationDeadline" />
+                    </div>
+                }
+            }
+            else
+            {
+                <label class="block text-xs font-semibold mb-1" style="font-size: 11.5px; color: var(--color-text-dark);">
+                    @(_quickActionType == QuickActionType.SendBack ? "Reason / Comments for Requester" : "Rejection Reason")
+                    <span style="color: var(--color-danger);">*</span>
+                </label>
+                <textarea class="input input-sm w-full" rows="3"
+                          style="resize: none; font-size: 12px; padding: 6px 8px;"
+                          placeholder="@(_quickActionType == QuickActionType.SendBack ? "Explain what needs revision..." : "Explain why this request is rejected...")"
+                          @bind="_quickActionComment"
+                          @bind:event="oninput"
+                          autofocus></textarea>
+                <div class="flex justify-between items-center text-muted mt-1" style="font-size: 10px;">
+                    <span>Mandatory for audit trail</span>
+                    <span>@(_quickActionComment?.Length ?? 0) chars</span>
+                </div>
+            }
+        </div>
+
+        <div class="popover-footer-action" style="display: flex; justify-content: flex-end; gap: 6px; padding: 8px 12px; background: #fafafa; border-top: 1px solid var(--color-border);">
+            <button type="button" class="btn btn-outline btn-xs"
+                    style="padding: 3px 8px; font-size: 11.5px;"
+                    @onclick="CloseQuickActionModal" disabled="@_quickActionProcessing">
+                Cancel
+            </button>
+            <button type="button"
+                    class="btn btn-xs @(_quickActionType == QuickActionType.Reject ? "btn-danger" : _quickActionType == QuickActionType.SendBack ? "btn-warning" : "btn-success")"
+                    style="padding: 3px 10px; font-size: 11.5px; font-weight: 600;"
+                    @onclick="ExecuteQuickModalActionAsync"
+                    disabled="@_quickActionProcessing">
+                @if (_quickActionProcessing)
+                {
+                    <span class="spinner spinner-xs me-1"></span>
+                }
+                @(_quickActionType == QuickActionType.Reject ? "Confirm Reject" :
+                  _quickActionType == QuickActionType.SendBack ? "Confirm Send Back" : "Confirm Approval")
+            </button>
+        </div>
+    </div>
+}
+
+@* ── Toast Notification ───────────────────────────────────────────────────── *@
+@if (_showToast)
+{
+    <div class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2EC662" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        <span>@_toastMessage</span>
+    </div>
+}
 
 @code {
     private DashboardDto? _data;
@@ -242,6 +569,13 @@
                 _data = result.Value;
             else
                 _errorMessage = result.Error.Message;
+
+            if (CurrentUser.Role == UserRole.Finance && CurrentUser.IsFinanceApprover && !_coas.Any())
+            {
+                var coas = await Mediator.Send(new ListCoasQuery(IncludeInactive: true));
+                if (coas.IsSuccess)
+                    _coas = coas.Value!.OrderBy(c => c.Code).ToList();
+            }
         }
         finally
         {
@@ -513,4 +847,706 @@
         RequestStatus.Rejected or RequestStatus.Cancelled     => "status-badge-rejected",
         _                                                     => "status-badge-draft"
     };
+
+    private List<CoaDto> _coas = new();
+    private bool _quickActionProcessing;
+
+    // ── In-Memory Dashboard Mutation ─────────────────────────────────────────
+    private void UpdateDashboardItem(Guid requestId, Func<BudgetRequestSummaryDto, BudgetRequestSummaryDto> transform)
+    {
+        if (_data is null) return;
+
+        static IReadOnlyList<BudgetRequestSummaryDto> UpdateList(
+            IReadOnlyList<BudgetRequestSummaryDto>? list,
+            Guid id,
+            Func<BudgetRequestSummaryDto, BudgetRequestSummaryDto> fn,
+            out bool changed)
+        {
+            changed = false;
+            if (list == null || list.Count == 0) return list ?? Array.Empty<BudgetRequestSummaryDto>();
+            var modified = false;
+            var newList = new List<BudgetRequestSummaryDto>(list.Count);
+            foreach (var item in list)
+            {
+                if (item.Id == id)
+                {
+                    newList.Add(fn(item));
+                    modified = true;
+                }
+                else
+                {
+                    newList.Add(item);
+                }
+            }
+            changed = modified;
+            return modified ? newList : list;
+        }
+
+        var emp = _data.Employee;
+        var act = UpdateList(emp.ActionRequired, requestId, transform, out var c1);
+        var inf = UpdateList(emp.InFlight, requestId, transform, out var c2);
+        var cmp = UpdateList(emp.RecentlyCompleted, requestId, transform, out var c3);
+        if (c1 || c2 || c3)
+        {
+            emp = emp with { ActionRequired = act, InFlight = inf, RecentlyCompleted = cmp };
+        }
+
+        var app = _data.MyApprovalQueue;
+        if (app != null)
+        {
+            var appItems = UpdateList(app.TopItems, requestId, transform, out var cApp);
+            if (cApp) app = app with { TopItems = appItems };
+        }
+
+        var pay = _data.PaymentQueue;
+        if (pay != null)
+        {
+            var payItems = UpdateList(pay.TopItems, requestId, transform, out var cPay);
+            if (cPay) pay = pay with { TopItems = payItems };
+        }
+
+        var set = _data.SettlementQueue;
+        if (set != null)
+        {
+            var setItems = UpdateList(set.TopItems, requestId, transform, out var cSet);
+            if (cSet) set = set with { TopItems = setItems };
+        }
+
+        var stk = _data.StuckRequests;
+        if (stk != null)
+        {
+            var stkItems = UpdateList(stk.TopItems, requestId, transform, out var cStk);
+            if (cStk) stk = stk with { TopItems = stkItems };
+        }
+
+        _data = _data with
+        {
+            Employee = emp,
+            MyApprovalQueue = app,
+            PaymentQueue = pay,
+            SettlementQueue = set,
+            StuckRequests = stk
+        };
+
+        if (_contextMenuTarget != null && _contextMenuTarget.Id == requestId)
+        {
+            _contextMenuTarget = transform(_contextMenuTarget);
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateRequestStatus(Guid requestId, RequestStatus newStatus, Guid? coaId = null, string? coaCode = null, string? coaName = null)
+    {
+        UpdateDashboardItem(requestId, item => item with
+        {
+            Status = newStatus,
+            CoaId = coaId ?? item.CoaId,
+            CoaCode = coaCode ?? item.CoaCode,
+            CoaName = coaName ?? item.CoaName
+        });
+    }
+
+    private void UpdateDashboardTags(Guid requestId, IReadOnlyList<RequestTagSummaryDto> tags)
+    {
+        UpdateDashboardItem(requestId, item => item with { Tags = tags });
+    }
+
+    // ── Context menu & Quick actions ─────────────────────────────────────────
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private BudgetRequestSummaryDto? _contextMenuTarget;
+    private ElementReference _contextMenuRef;
+    private bool _menuPendingPosition;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+        if (_showQuickActionModal && _quickActionPendingPosition)
+        {
+            _quickActionPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _quickActionRef, _quickActionX, _quickActionY, false);
+        }
+    }
+
+    private void OpenContextMenu(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = false;
+        _contextMenuX = Math.Max(10, e.ClientX);
+        _contextMenuY = Math.Max(10, e.ClientY);
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = true;
+        _contextMenuX = Math.Max(10, e.ClientX - 220);
+        _contextMenuY = e.ClientY > 400 ? Math.Max(10, e.ClientY - 210) : e.ClientY + 6;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    private void NavigateToDetail(Guid id)
+    {
+        CloseContextMenu();
+        Nav.NavigateTo($"requests/{id}?from=home");
+    }
+
+    private void NavigateToEdit(Guid id)
+    {
+        CloseContextMenu();
+        Nav.NavigateTo($"requests/{id}/edit");
+    }
+
+    private async Task OpenInNewTab(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        var url = (_activeTab == "actions" && r.Status is RequestStatus.Draft or RequestStatus.SentBack)
+            ? $"requests/{r.Id}/edit"
+            : $"requests/{r.Id}?from=home";
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task CopyReferenceAsync(string reference)
+    {
+        CloseContextMenu();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", reference);
+            ShowToast($"Copied \"{reference}\" to clipboard");
+        }
+        catch
+        {
+            ShowToast($"Reference: {reference}");
+        }
+    }
+
+    private bool CanUserAttachTag(BudgetRequestSummaryDto r)
+    {
+        var role = CurrentUser.Role;
+        if (role == UserRole.Admin) return true;
+        if (role is UserRole.Finance or UserRole.Management or UserRole.Accounting) return true;
+        if (role == UserRole.DepartmentHead)
+        {
+            if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
+                return true;
+        }
+        if (r.RequesterId == CurrentUser.UserId) return true;
+        return false;
+    }
+
+    private void OpenTagPopoverFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        var x = _menuClickX > 0 ? _menuClickX : _contextMenuX;
+        var y = _menuClickY > 0 ? _menuClickY : _contextMenuY;
+        CloseContextMenu();
+        _tagPopoverTarget = r;
+        _tagPopoverX = x;
+        _tagPopoverY = y;
+        _tagPopoverIsButton = true;
+        _showTagPopover = true;
+    }
+
+    private void PromptCancelFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        ConfirmCancel(r);
+    }
+
+    private static string GetCancelDisabledReason(RequestStatus status) => status switch
+    {
+        RequestStatus.Draft => "Draft",
+        RequestStatus.SentBack => "Sent back",
+        RequestStatus.Approved => "Approved",
+        RequestStatus.PartiallyPaid => "Part. paid",
+        RequestStatus.Paid => "Paid",
+        RequestStatus.Rejected => "Rejected",
+        RequestStatus.Cancelled => "Cancelled",
+        RequestStatus.PendingManagement => "In Mgmt review",
+        RequestStatus.PendingFinance => "In Finance review",
+        RequestStatus.PendingReconciliation => "Reconciliation",
+        RequestStatus.AwaitingRefund => "Awaiting Refund",
+        RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
+        RequestStatus.Reconciled => "Reconciled",
+        _ => "Cannot cancel"
+    };
+
+    // ── Approver Quick Status Actions ────────────────────────────────────────
+    private enum QuickActionType
+    {
+        None,
+        SendBack,
+        Reject,
+        FinanceApprove
+    }
+
+    private sealed record QuickActionState(bool Enabled, string? Reason);
+
+    private bool _showQuickActionModal;
+    private BudgetRequestSummaryDto? _quickActionTarget;
+    private QuickActionType _quickActionType;
+    private string _quickActionComment = "";
+    private string? _quickActionError;
+    private string _quickFinanceCoaId = "";
+    private DateTime _quickFinanceReconciliationDeadline;
+    private ElementReference _quickActionRef;
+    private bool _quickActionPendingPosition;
+    private double _quickActionX;
+    private double _quickActionY;
+
+    private bool ShouldShowStatusActionsSection()
+    {
+        var role = CurrentUser.Role;
+        if (role is UserRole.Management or UserRole.DepartmentHead)
+            return true;
+
+        if (role == UserRole.Finance && CurrentUser.IsFinanceApprover)
+            return true;
+
+        return false;
+    }
+
+    private QuickActionState GetApproveActionState(BudgetRequestSummaryDto? r)
+    {
+        if (r == null) return new(false, null);
+
+        var role = CurrentUser.Role;
+        var uid = CurrentUser.UserId;
+
+        switch (r.Status)
+        {
+            case RequestStatus.PendingDeptHead:
+                if (role == UserRole.DepartmentHead)
+                {
+                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
+                        return new(true, null);
+                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
+                        return new(true, null);
+                    return new(false, "Assigned to another Dept Head");
+                }
+                return new(false, "Waiting for Dept Head approval");
+
+            case RequestStatus.PendingManagement:
+                if (role == UserRole.Management)
+                    return new(true, null);
+                if (role == UserRole.DepartmentHead)
+                    return new(false, "Already approved by Dept Head");
+                return new(false, "Waiting for Management approval");
+
+            case RequestStatus.PendingFinance:
+                if (role == UserRole.Finance)
+                {
+                    if (CurrentUser.IsFinanceApprover)
+                        return new(true, null);
+                    return new(false, "Restricted: Payer only");
+                }
+                if (role is UserRole.DepartmentHead or UserRole.Management)
+                    return new(false, "Already approved; pending Finance");
+                return new(false, "Waiting for Finance approval");
+
+            case RequestStatus.Approved:
+                return new(false, "Already approved");
+
+            case RequestStatus.Draft:
+                return new(false, "Still in Draft");
+
+            case RequestStatus.SentBack:
+                return new(false, "Sent back to requester");
+
+            case RequestStatus.Rejected or RequestStatus.Cancelled or RequestStatus.Paid or RequestStatus.PartiallyPaid:
+                return new(false, "Request is finalized");
+
+            default:
+                return new(false, "Not available at this stage");
+        }
+    }
+
+    private QuickActionState GetSendBackActionState(BudgetRequestSummaryDto? r)
+    {
+        if (r == null) return new(false, null);
+
+        var role = CurrentUser.Role;
+        var uid = CurrentUser.UserId;
+
+        switch (r.Status)
+        {
+            case RequestStatus.PendingDeptHead:
+                if (role == UserRole.DepartmentHead)
+                {
+                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
+                        return new(true, null);
+                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
+                        return new(true, null);
+                    return new(false, "Assigned to another Dept Head");
+                }
+                return new(false, "Waiting for Dept Head approval");
+
+            case RequestStatus.PendingManagement:
+                if (role == UserRole.Management)
+                    return new(true, null);
+                if (role == UserRole.DepartmentHead)
+                    return new(false, "Stage passed to Management");
+                return new(false, "Waiting for Management approval");
+
+            case RequestStatus.PendingFinance:
+                if (role == UserRole.Finance)
+                {
+                    if (CurrentUser.IsFinanceApprover)
+                        return new(true, null);
+                    return new(false, "Restricted: Payer only");
+                }
+                return new(false, "Pending Finance review");
+
+            case RequestStatus.Approved:
+                if (role == UserRole.Finance && CurrentUser.IsFinanceApprover && r.TotalPaid == 0)
+                    return new(true, "Allowed before payment");
+                if (r.TotalPaid > 0)
+                    return new(false, "Payment has been recorded");
+                return new(false, "Already approved");
+
+            case RequestStatus.Draft:
+                return new(false, "Still in Draft");
+
+            case RequestStatus.SentBack:
+                return new(false, "Already sent back");
+
+            case RequestStatus.Rejected or RequestStatus.Cancelled or RequestStatus.Paid:
+                return new(false, "Request is finalized");
+
+            default:
+                return new(false, "Not available at this stage");
+        }
+    }
+
+    private QuickActionState GetRejectActionState(BudgetRequestSummaryDto? r)
+    {
+        if (r == null) return new(false, null);
+
+        var role = CurrentUser.Role;
+        var uid = CurrentUser.UserId;
+
+        switch (r.Status)
+        {
+            case RequestStatus.PendingDeptHead:
+                if (role == UserRole.DepartmentHead)
+                {
+                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
+                        return new(true, null);
+                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
+                        return new(true, null);
+                    return new(false, "Assigned to another Dept Head");
+                }
+                return new(false, "Waiting for Dept Head approval");
+
+            case RequestStatus.PendingManagement:
+                if (role == UserRole.Management)
+                    return new(true, null);
+                if (role == UserRole.DepartmentHead)
+                    return new(false, "Stage passed to Management");
+                return new(false, "Waiting for Management approval");
+
+            case RequestStatus.PendingFinance:
+                if (role == UserRole.Finance)
+                {
+                    if (CurrentUser.IsFinanceApprover)
+                        return new(true, null);
+                    return new(false, "Restricted: Payer only");
+                }
+                return new(false, "Pending Finance review");
+
+            case RequestStatus.Approved:
+                return new(false, "Already approved");
+
+            case RequestStatus.Draft:
+                return new(false, "Still in Draft");
+
+            case RequestStatus.SentBack:
+                return new(false, "Sent back to requester");
+
+            case RequestStatus.Rejected:
+                return new(false, "Already rejected");
+
+            case RequestStatus.Cancelled or RequestStatus.Paid or RequestStatus.PartiallyPaid:
+                return new(false, "Request is finalized");
+
+            default:
+                return new(false, "Not available at this stage");
+        }
+    }
+
+    private async Task ExecuteQuickApproveAsync(BudgetRequestSummaryDto? target)
+    {
+        if (target == null || _quickActionProcessing) return;
+
+        if (target.Status == RequestStatus.PendingFinance)
+        {
+            OpenQuickActionModal(target, QuickActionType.FinanceApprove);
+            return;
+        }
+
+        CloseContextMenu();
+        _quickActionProcessing = true;
+        try
+        {
+            var res = await Mediator.Send(new ApproveRequestCommand(target.Id, CurrentUser.UserId));
+            if (res.IsSuccess)
+            {
+                var nextStatus = target.Status switch
+                {
+                    RequestStatus.PendingDeptHead => (target.RequestedAmountInMmkAtSubmission > target.DepartmentLimitAtSubmission)
+                        ? RequestStatus.PendingManagement
+                        : RequestStatus.PendingFinance,
+                    RequestStatus.PendingManagement => RequestStatus.PendingFinance,
+                    _ => RequestStatus.Approved
+                };
+
+                UpdateRequestStatus(target.Id, nextStatus);
+                ShowToast($"Approved {target.Reference ?? "request"}");
+            }
+            else
+            {
+                ShowToast($"Error approving: {res.Error.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _quickActionProcessing = false;
+        }
+    }
+
+    private void OpenQuickActionModal(BudgetRequestSummaryDto? target, QuickActionType actionType)
+    {
+        if (target == null) return;
+        var x = _menuClickX > 0 ? _menuClickX : _contextMenuX;
+        var y = _menuClickY > 0 ? _menuClickY : _contextMenuY;
+        CloseContextMenu();
+        _quickActionTarget = target;
+        _quickActionType = actionType;
+        _quickActionComment = "";
+        _quickActionError = null;
+        _quickActionProcessing = false;
+        _quickFinanceCoaId = target.CoaId?.ToString() ?? "";
+        _quickFinanceReconciliationDeadline = DateTimeExtensions.MyanmarToday.AddDays(3);
+        _quickActionX = x;
+        _quickActionY = y;
+        _quickActionPendingPosition = true;
+        _showQuickActionModal = true;
+    }
+
+    private void CloseQuickActionModal()
+    {
+        _showQuickActionModal = false;
+        _quickActionTarget = null;
+        _quickActionType = QuickActionType.None;
+        _quickActionComment = "";
+        _quickActionError = null;
+    }
+
+    private async Task ExecuteQuickModalActionAsync()
+    {
+        if (_quickActionTarget == null || _quickActionProcessing) return;
+        var target = _quickActionTarget;
+
+        if (_quickActionType == QuickActionType.SendBack)
+        {
+            if (string.IsNullOrWhiteSpace(_quickActionComment))
+            {
+                _quickActionError = "A comment is required when sending back.";
+                return;
+            }
+
+            _quickActionProcessing = true;
+            _quickActionError = null;
+            try
+            {
+                var res = await Mediator.Send(new SendBackRequestCommand(target.Id, CurrentUser.UserId, _quickActionComment.Trim()));
+                if (res.IsSuccess)
+                {
+                    UpdateRequestStatus(target.Id, RequestStatus.SentBack);
+                    CloseQuickActionModal();
+                    ShowToast($"Sent back {target.Reference ?? "request"} to requester");
+                }
+                else
+                {
+                    _quickActionError = res.Error.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                _quickActionError = ex.Message;
+            }
+            finally
+            {
+                _quickActionProcessing = false;
+            }
+        }
+        else if (_quickActionType == QuickActionType.Reject)
+        {
+            if (string.IsNullOrWhiteSpace(_quickActionComment))
+            {
+                _quickActionError = "A rejection reason is required.";
+                return;
+            }
+
+            _quickActionProcessing = true;
+            _quickActionError = null;
+            try
+            {
+                var res = await Mediator.Send(new RejectRequestCommand(target.Id, CurrentUser.UserId, _quickActionComment.Trim()));
+                if (res.IsSuccess)
+                {
+                    UpdateRequestStatus(target.Id, RequestStatus.Rejected);
+                    CloseQuickActionModal();
+                    ShowToast($"Rejected {target.Reference ?? "request"}");
+                }
+                else
+                {
+                    _quickActionError = res.Error.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                _quickActionError = ex.Message;
+            }
+            finally
+            {
+                _quickActionProcessing = false;
+            }
+        }
+        else if (_quickActionType == QuickActionType.FinanceApprove)
+        {
+            if (!Guid.TryParse(_quickFinanceCoaId, out var coaId) || coaId == Guid.Empty)
+            {
+                _quickActionError = "Please select a valid Chart of Account.";
+                return;
+            }
+
+            DateTime? deadline = null;
+            if (target.Type == BudgetRequestType.Advance)
+            {
+                var days = (_quickFinanceReconciliationDeadline.Date - DateTimeExtensions.MyanmarToday).Days;
+                if (days <= 0)
+                {
+                    _quickActionError = "The reconciliation deadline must be a future date.";
+                    return;
+                }
+                deadline = DateTime.UtcNow.AddDays(days);
+            }
+
+            _quickActionProcessing = true;
+            _quickActionError = null;
+            try
+            {
+                var res = await Mediator.Send(new ApproveRequestCommand(target.Id, CurrentUser.UserId, coaId, deadline));
+                if (res.IsSuccess)
+                {
+                    var selectedCoa = _coas.FirstOrDefault(c => c.Id == coaId);
+                    UpdateRequestStatus(target.Id, RequestStatus.Approved, coaId, selectedCoa?.Code, selectedCoa?.Name);
+                    CloseQuickActionModal();
+                    ShowToast($"Approved {target.Reference ?? "request"}");
+                }
+                else
+                {
+                    _quickActionError = res.Error.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                _quickActionError = ex.Message;
+            }
+            finally
+            {
+                _quickActionProcessing = false;
+            }
+        }
+    }
+
+    // ── Requester Cancel Flow ────────────────────────────────────────────────
+    private BudgetRequestSummaryDto? _cancellingRequest;
+
+    private void ConfirmCancel(BudgetRequestSummaryDto r) => _cancellingRequest = r;
+
+    private async Task DoCancel()
+    {
+        if (_cancellingRequest is null) return;
+        if (_quickActionProcessing) return;
+        _quickActionProcessing = true;
+        var target = _cancellingRequest;
+        var result = await Mediator.Send(new CancelRequestCommand(target.Id, CurrentUser.UserId));
+        _quickActionProcessing = false;
+        _cancellingRequest = null;
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
+        else
+        {
+            UpdateRequestStatus(target.Id, RequestStatus.Cancelled);
+            ShowToast($"Cancelled {target.Reference ?? "request"}");
+        }
+    }
+
+    // ── Tag Popover & Toast ──────────────────────────────────────────────────
+    private bool _showTagPopover;
+    private BudgetRequestSummaryDto? _tagPopoverTarget;
+    private double _tagPopoverX;
+    private double _tagPopoverY;
+    private bool _tagPopoverIsButton;
+
+    private void CloseTagPopover()
+    {
+        _showTagPopover = false;
+    }
+
+    private bool _showToast;
+    private string _toastMessage = "";
+    private CancellationTokenSource? _toastCts;
+
+    private void ShowToast(string message)
+    {
+        _toastMessage = message;
+        _showToast = true;
+        _toastCts?.Cancel();
+        _toastCts = new CancellationTokenSource();
+        var token = _toastCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(3000, token);
+                if (!token.IsCancellationRequested)
+                {
+                    _showToast = false;
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+            catch (TaskCanceledException) { }
+        }, token);
+        StateHasChanged();
+    }
 }
