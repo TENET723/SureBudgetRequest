@@ -3,6 +3,7 @@
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
@@ -75,7 +76,7 @@
                             @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
                             Submitted @SortIndicator(BudgetRequestSortBy.SubmittedAt)
                         </th>
-                        <th></th>
+                        <th class="sticky-action-col"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,13 +84,15 @@
                     {
                         var r = Items[i];
                         var rowNo = (_result!.Page - 1) * _result.PageSize + i + 1;
-                        <tr @oncontextmenu="e => OpenTagPopover(e, r)" @oncontextmenu:preventDefault="true">
+                        <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
+                            @onclick="() => NavigateToDetail(r.Id)"
+                            @oncontextmenu="e => OpenContextMenu(e, r)"
+                            @oncontextmenu:preventDefault="true">
                             <td class="text-muted text-sm">@rowNo</td>
                             <td><strong>@r.Reference</strong></td>
                             <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
-                            <td class="text-sm" role="button" style="cursor:pointer" title="Click to manage tags"
-                                @onclick="e => OpenTagPopoverFromButton(e, r)">
+                            <td class="text-sm">
                                 @if (r.Tags != null && r.Tags.Count > 0)
                                 {
                                     <div class="flex items-center gap-1 flex-wrap">
@@ -130,20 +133,18 @@
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
                             <td class="text-sm text-muted">@r.SubmittedAt.ToMyanmarTime()</td>
-                            <td class="text-end" @onclick:stopPropagation="true">
-                                <button type="button" class="btn btn-icon" title="Manage tags"
-                                        @onclick="e => OpenTagPopoverFromButton(e, r)">
-                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                                </button>
-                                <a href="requests/@r.Id?from=mine" class="btn btn-icon " title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path fill="currentColor" d="M30.94 15.66A16.69 16.69 0 0 0 16 5A16.69 16.69 0 0 0 1.06 15.66a1 1 0 0 0 0 .68A16.69 16.69 0 0 0 16 27a16.69 16.69 0 0 0 14.94-10.66a1 1 0 0 0 0-.68M16 22.5a6.5 6.5 0 1 1 6.5-6.5a6.51 6.51 0 0 1-6.5 6.5"/></svg></a>
-                                @if (r.Status is RequestStatus.Draft or RequestStatus.SentBack)
-                                {
-                                    <a href="requests/@r.Id/edit" class="btn btn-icon " title="Edit"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="m14.06 9.02l.92.92L5.92 19H5v-.92zM17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83a.996.996 0 0 0 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></svg></a>
-                                }
-                                @if (r.Status == RequestStatus.PendingDeptHead)
-                                {
-                                    <button class="btn btn-icon text-danger" @onclick="() => ConfirmCancel(r)" title="Cancel request"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M0 0h24v24H0z" fill="none"/><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m5 11H7v-2h10z"/></svg></button>
-                                }
+                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                <div class="row-hover-btn-wrapper">
+                                    <div class="row-hover-backdrop"></div>
+                                    <button type="button" class="btn-three-dots" title="Quick actions"
+                                            @onclick="e => OpenContextMenuFromButton(e, r)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                            <circle cx="12" cy="19" r="2"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -291,6 +292,71 @@
                 </button>
             </div>
         </div>
+    </div>
+}
+
+@* ── Custom Context Menu / Quick Actions ────────────────────────────────── *@
+@if (_showContextMenu && _contextMenuTarget != null)
+{
+    <div style="position: fixed; inset: 0; z-index: 1045; cursor: default; background: transparent;"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@(_contextMenuTarget.Reference ?? "Draft / No Ref")</span>
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick="() => NavigateToDetail(_contextMenuTarget.Id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span>Open Details</span>
+        </button>
+
+        <button type="button" class="context-menu-item" @onclick="() => OpenInNewTab(_contextMenuTarget.Id)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>Open in New Tab</span>
+        </button>
+
+        <div class="context-menu-divider"></div>
+
+        @if (!string.IsNullOrEmpty(_contextMenuTarget.Reference))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => CopyReferenceAsync(_contextMenuTarget.Reference)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Copy Reference</span>
+            </button>
+        }
+
+        <button type="button" class="context-menu-item" @onclick="() => OpenTagPopoverFromContextMenu(_contextMenuTarget)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+            <span>Manage Tags</span>
+        </button>
+
+        @{
+            var canCancel = _contextMenuTarget.Status == RequestStatus.PendingDeptHead;
+        }
+        <div class="context-menu-divider"></div>
+        <div class="menu-section-title">Status Actions</div>
+        <button type="button"
+                class="context-menu-item @(canCancel ? "text-danger" : "text-muted")"
+                disabled="@(!canCancel)"
+                style="@(!canCancel ? "opacity: 0.5; cursor: not-allowed;" : "")"
+                title="@(canCancel ? "Cancel this request" : GetCancelDisabledReason(_contextMenuTarget.Status))"
+                @onclick="() => { if (canCancel) PromptCancelFromContextMenu(_contextMenuTarget); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <span>Cancel Request</span>
+            @if (!canCancel)
+            {
+                <span style="margin-left: auto; font-size: 10px; color: var(--color-text-muted);">(@GetCancelDisabledReason(_contextMenuTarget.Status))</span>
+            }
+        </button>
     </div>
 }
 
@@ -511,15 +577,38 @@
         if (_cancellingRequest is null) return;
         if (_saving) return;
         _saving = true;
-        var result = await Mediator.Send(new CancelRequestCommand(_cancellingRequest.Id, CurrentUser.UserId));
+        var target = _cancellingRequest;
+        var result = await Mediator.Send(new CancelRequestCommand(target.Id, CurrentUser.UserId));
         _saving = false;
         _cancellingRequest = null;
-        if (result.IsFailure) { _errorMessage = result.Error.Message; }
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
         else
         {
-            // Reload the current page so the cancelled request reflects its new state.
-            await LoadPageAsync(_currentPage);
+            UpdateRequestStatus(target.Id, RequestStatus.Cancelled);
+            ShowToast($"Cancelled {target.Reference ?? "request"}");
         }
+    }
+
+    private void UpdateRequestStatus(Guid requestId, RequestStatus newStatus)
+    {
+        if (_result?.Items != null)
+        {
+            var newItems = _result.Items
+                .Select(item => item.Id == requestId ? item with { Status = newStatus } : item)
+                .ToList();
+
+            _result = _result with { Items = newItems };
+        }
+
+        if (_contextMenuTarget != null && _contextMenuTarget.Id == requestId)
+        {
+            _contextMenuTarget = _contextMenuTarget with { Status = newStatus };
+        }
+
+        InvokeAsync(StateHasChanged);
     }
 
     private void ToggleStatus(RequestStatus s, bool isChecked)
@@ -590,6 +679,118 @@
         RequestStatus.Rejected => "badge-rejected",
         RequestStatus.Cancelled => "badge-inactive",
         _ => "badge-draft"
+    };
+
+    // ── Context menu & Quick actions ─────────────────────────────────────────
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private BudgetRequestSummaryDto? _contextMenuTarget;
+    private ElementReference _contextMenuRef;
+    private bool _menuPendingPosition;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+    }
+
+    private void OpenContextMenu(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = false;
+        _contextMenuX = Math.Max(10, e.ClientX);
+        _contextMenuY = Math.Max(10, e.ClientY);
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, BudgetRequestSummaryDto request)
+    {
+        _contextMenuTarget = request;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _menuIsButton = true;
+        _contextMenuX = Math.Max(10, e.ClientX - 220);
+        _contextMenuY = e.ClientY > 400 ? Math.Max(10, e.ClientY - 210) : e.ClientY + 6;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    private void NavigateToDetail(Guid id)
+    {
+        CloseContextMenu();
+        Nav.NavigateTo($"requests/{id}?from=mine");
+    }
+
+    private async Task OpenInNewTab(Guid id)
+    {
+        CloseContextMenu();
+        await JS.InvokeVoidAsync("open", $"requests/{id}?from=mine", "_blank");
+    }
+
+    private async Task CopyReferenceAsync(string reference)
+    {
+        CloseContextMenu();
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", reference);
+            ShowToast($"Copied \"{reference}\" to clipboard");
+        }
+        catch
+        {
+            ShowToast($"Reference: {reference}");
+        }
+    }
+
+    private void OpenTagPopoverFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        var x = _menuClickX > 0 ? _menuClickX : _contextMenuX;
+        var y = _menuClickY > 0 ? _menuClickY : _contextMenuY;
+        CloseContextMenu();
+        _tagPopoverTarget = r;
+        _tagPopoverX = x;
+        _tagPopoverY = y;
+        _tagPopoverIsButton = true;
+        _showTagPopover = true;
+    }
+
+    private void PromptCancelFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        ConfirmCancel(r);
+    }
+
+    private static string GetCancelDisabledReason(RequestStatus status) => status switch
+    {
+        RequestStatus.Draft => "Draft",
+        RequestStatus.SentBack => "Sent back",
+        RequestStatus.Approved => "Approved",
+        RequestStatus.PartiallyPaid => "Part. paid",
+        RequestStatus.Paid => "Paid",
+        RequestStatus.Rejected => "Rejected",
+        RequestStatus.Cancelled => "Cancelled",
+        RequestStatus.PendingManagement => "In Mgmt review",
+        RequestStatus.PendingFinance => "In Finance review",
+        RequestStatus.PendingReconciliation => "Reconciliation",
+        RequestStatus.AwaitingRefund => "Awaiting Refund",
+        RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
+        RequestStatus.Reconciled => "Reconciled",
+        _ => "Cannot cancel"
     };
 
     // ── Tag Popover & Toast ──────────────────────────────────────────────────
