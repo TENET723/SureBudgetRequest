@@ -1,4 +1,5 @@
 @page "/requests/mine"
+@implements IDisposable
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -61,6 +62,7 @@
                             Request Date @SortIndicator(BudgetRequestSortBy.RequestDate)
                         </th>
                         <th>Reason</th>
+                        <th>Tags</th>
                         <th class="text-end" role="button" style="cursor:pointer;text-align:right"
                             @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
                             Amount @SortIndicator(BudgetRequestSortBy.AmountInMmk)
@@ -81,11 +83,45 @@
                     {
                         var r = Items[i];
                         var rowNo = (_result!.Page - 1) * _result.PageSize + i + 1;
-                        <tr>
+                        <tr @oncontextmenu="e => OpenTagPopover(e, r)" @oncontextmenu:preventDefault="true">
                             <td class="text-muted text-sm">@rowNo</td>
                             <td><strong>@r.Reference</strong></td>
                             <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
                             <td>@Truncate(r.Reasons, 50)</td>
+                            <td class="text-sm" role="button" style="cursor:pointer" title="Click to manage tags"
+                                @onclick="e => OpenTagPopoverFromButton(e, r)">
+                                @if (r.Tags != null && r.Tags.Count > 0)
+                                {
+                                    <div class="flex items-center gap-1 flex-wrap">
+                                        @foreach (var tag in r.Tags.Take(5))
+                                        {
+                                            <span class="tag-badge-pill"
+                                                  style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                                #@tag.Name
+                                            </span>
+                                        }
+                                        @if (r.Tags.Count > 5)
+                                        {
+                                            var overflowCount = r.Tags.Count - 5;
+                                            <div class="tag-tooltip-container" @onclick:stopPropagation="true">
+                                                <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                                    +@overflowCount
+                                                </span>
+                                                <div class="tag-tooltip-popup">
+                                                    @foreach (var ot in r.Tags.Skip(5))
+                                                    {
+                                                        <span>#@ot.Name</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted text-xs">—</span>
+                                }
+                            </td>
                             <td class="text-end">@r.RequestedAmount.ToString("N2") <span class="text-muted text-sm">@r.CurrencyCode</span></td>
                             <td>
                                 <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
@@ -94,7 +130,11 @@
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
                             <td class="text-sm text-muted">@r.SubmittedAt.ToMyanmarTime()</td>
-                            <td class="text-end">
+                            <td class="text-end" @onclick:stopPropagation="true">
+                                <button type="button" class="btn btn-icon" title="Manage tags"
+                                        @onclick="e => OpenTagPopoverFromButton(e, r)">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                </button>
                                 <a href="requests/@r.Id?from=mine" class="btn btn-icon " title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path fill="currentColor" d="M30.94 15.66A16.69 16.69 0 0 0 16 5A16.69 16.69 0 0 0 1.06 15.66a1 1 0 0 0 0 .68A16.69 16.69 0 0 0 16 27a16.69 16.69 0 0 0 14.94-10.66a1 1 0 0 0 0-.68M16 22.5a6.5 6.5 0 1 1 6.5-6.5a6.51 6.51 0 0 1-6.5 6.5"/></svg></a>
                                 @if (r.Status is RequestStatus.Draft or RequestStatus.SentBack)
                                 {
@@ -111,11 +151,11 @@
                     {
                         @if (_result is not null && _result.TotalCount == 0 && !_appliedHasFilters)
                         {
-                            <tr><td colspan="8" class="text-center text-muted ">No requests yet. <a href="requests/new">Create one.</a></td></tr>
+                            <tr><td colspan="9" class="text-center text-muted ">No requests yet. <a href="requests/new">Create one.</a></td></tr>
                         }
                         else
                         {
-                            <tr><td colspan="8" class="text-center text-muted ">No requests match your search/filters.</td></tr>
+                            <tr><td colspan="9" class="text-center text-muted ">No requests match your search/filters.</td></tr>
                         }
                     }
                 </tbody>
@@ -251,6 +291,25 @@
                 </button>
             </div>
         </div>
+    </div>
+}
+
+@* ── Anchored Tag Popover Box ─────────────────────────────────────────────── *@
+<RequestTagPopover IsOpen="_showTagPopover"
+                   Target="_tagPopoverTarget"
+                   X="_tagPopoverX"
+                   Y="_tagPopoverY"
+                   IsButtonAnchor="_tagPopoverIsButton"
+                   OnClose="CloseTagPopover"
+                   OnTagsChanged="args => UpdateRequestTags(args.RequestId, args.Tags)"
+                   OnToast="ShowToast" />
+
+@* ── Toast Notification ───────────────────────────────────────────────────── *@
+@if (_showToast)
+{
+    <div class="toast-notification">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2EC662" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        <span>@_toastMessage</span>
     </div>
 }
 
@@ -428,7 +487,8 @@
             SortDescending: _sortDescending,
             Page: page,
             PageSize: _pageSize,
-            TagId: tagFilter);
+            TagId: tagFilter,
+            ViewerUserId: CurrentUser.UserId);
 
         var result = await Mediator.Send(query);
         if (result.IsSuccess)
@@ -531,4 +591,85 @@
         RequestStatus.Cancelled => "badge-inactive",
         _ => "badge-draft"
     };
+
+    // ── Tag Popover & Toast ──────────────────────────────────────────────────
+    private bool _showTagPopover;
+    private BudgetRequestSummaryDto? _tagPopoverTarget;
+    private double _tagPopoverX;
+    private double _tagPopoverY;
+    private bool _tagPopoverIsButton;
+
+    private bool _showToast;
+    private string _toastMessage = "";
+    private System.Threading.CancellationTokenSource? _toastCts;
+
+    private void OpenTagPopover(MouseEventArgs e, BudgetRequestSummaryDto r)
+    {
+        _tagPopoverTarget = r;
+        _tagPopoverX = e.ClientX;
+        _tagPopoverY = e.ClientY;
+        _tagPopoverIsButton = false;
+        _showTagPopover = true;
+    }
+
+    private void OpenTagPopoverFromButton(MouseEventArgs e, BudgetRequestSummaryDto r)
+    {
+        _tagPopoverTarget = r;
+        _tagPopoverX = e.ClientX;
+        _tagPopoverY = e.ClientY;
+        _tagPopoverIsButton = true;
+        _showTagPopover = true;
+    }
+
+    private void CloseTagPopover()
+    {
+        _showTagPopover = false;
+    }
+
+    private void UpdateRequestTags(Guid requestId, IReadOnlyList<RequestTagSummaryDto> updatedTags)
+    {
+        if (_result?.Items != null)
+        {
+            var newItems = _result.Items
+                .Select(item => item.Id == requestId ? item with { Tags = updatedTags } : item)
+                .ToList();
+
+            _result = _result with { Items = newItems };
+        }
+
+        if (_tagPopoverTarget != null && _tagPopoverTarget.Id == requestId)
+        {
+            _tagPopoverTarget = _tagPopoverTarget with { Tags = updatedTags };
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ShowToast(string message)
+    {
+        _toastMessage = message;
+        _showToast = true;
+        _toastCts?.Cancel();
+        _toastCts = new System.Threading.CancellationTokenSource();
+        var token = _toastCts.Token;
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(2500, token);
+            if (!token.IsCancellationRequested)
+            {
+                await InvokeAsync(() =>
+                {
+                    _showToast = false;
+                    StateHasChanged();
+                });
+            }
+        }, token);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _toastCts?.Cancel();
+        _toastCts?.Dispose();
+    }
 }

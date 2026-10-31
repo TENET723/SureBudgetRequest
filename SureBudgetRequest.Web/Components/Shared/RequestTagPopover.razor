@@ -1,0 +1,530 @@
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject IJSRuntime JS
+@implements IDisposable
+
+@using MediatR
+@using Microsoft.JSInterop
+@using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
+@using SureBudgetRequest.Application.Tags.Commands.CreateTag
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveTagFromRequest
+@using SureBudgetRequest.Application.Tags.Queries
+@using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Services
+
+@if (IsOpen && Target != null)
+{
+    @* Backdrop to handle click outside *@
+    <div style="position: fixed; inset: 0; z-index: 1055; background: transparent; cursor: @(IsBusy ? "wait" : "default");"
+         @onclick="CloseAsync"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseAsync"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    @* Anchored Popover Box *@
+    <div @ref="_popoverRef" class="tag-popover-box"
+         style="left: @(X)px; top: @(Y)px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
+            <div>
+                <div class="popover-title">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                    <span>Department Tags</span>
+                </div>
+                <div class="popover-ref-subtitle">
+                    @(Target.Reference ?? "Draft / No Ref")
+                </div>
+            </div>
+            <div class="flex items-center gap-2" style="align-self: flex-start;">
+                @if (IsBusy)
+                {
+                    <span class="spinner spinner-xs" title="Saving changes..." style="width: 10px; height: 10px; border-width: 1.5px; border-color: var(--color-primary); border-top-color: transparent;"></span>
+                }
+                <span class="popover-quota">@GetEffectiveDeptTagCount() / 5</span>
+                <button type="button" class="btn btn-icon btn-xs"
+                        style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: @(IsBusy ? "not-allowed" : "pointer"); opacity: @(IsBusy ? "0.35" : "1");"
+                        disabled="@IsBusy"
+                        @onclick="CloseAsync"
+                        title="@(IsBusy ? "Saving changes, please wait..." : "Close")">✕</button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_tagPopoverError))
+        {
+            <div class="alert alert-error" style="font-size: 11px; padding: 4px 8px; margin: 4px 8px;">
+                @_tagPopoverError
+            </div>
+        }
+
+        <div class="popover-search-wrap">
+            <input type="text" class="input input-sm w-full"
+                   placeholder="Search or filter tags..."
+                   @bind="_tagSearchFilter"
+                   @bind:event="oninput" />
+        </div>
+
+        <div class="popover-tag-list">
+            @{
+                var currentAttachedTags = Target != null ? GetCurrentTags(Target.Id) : (IReadOnlyList<RequestTagSummaryDto>)Array.Empty<RequestTagSummaryDto>();
+                var filteredTags = _availableDeptTags
+                    .Where(t => string.IsNullOrWhiteSpace(_tagSearchFilter) || t.Name.Contains(_tagSearchFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            @if (filteredTags.Count > 0)
+            {
+                @foreach (var t in filteredTags)
+                {
+                    var isAttached = currentAttachedTags.Any(rt => rt.TagId == t.Id);
+                    var isProcessing = _processingTagIds.Contains(t.Id);
+                    var isQuotaFull = !isAttached && (GetEffectiveDeptTagCount() >= 5);
+                    var isDisabled = isProcessing || isQuotaFull;
+
+                    <div class="popover-tag-item @(isAttached ? "selected" : "") @(isProcessing ? "processing" : "") @(isDisabled ? "disabled" : "")"
+                         @onclick="async () => { if (!isDisabled) await ToggleTagAsync(t); }">
+                        <span class="tag-checkbox">
+                            @if (isAttached)
+                            {
+                                <span>✓</span>
+                            }
+                        </span>
+                        <span class="tag-color-dot" style="background-color: @(t.ColorHex ?? "#6c757d")"></span>
+                        <span class="tag-item-name">#@t.Name</span>
+                        @if (isProcessing)
+                        {
+                            <span class="tag-processing-label">
+                                <span class="spinner spinner-xs" style="width: 9px; height: 9px; border-width: 1.5px; border-color: var(--color-primary); border-top-color: transparent; margin-right: 4px; display: inline-block; vertical-align: middle;"></span>
+                                @(isAttached ? "Removing..." : "Attaching...")
+                            </span>
+                        }
+                        else if (isAttached)
+                        {
+                            <span class="tag-attached-label">Attached</span>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted text-xs p-3 text-center">
+                    @(string.IsNullOrWhiteSpace(_tagSearchFilter) ? "No tags created for your department yet." : "No matching tags.")
+                </div>
+            }
+        </div>
+
+        <div class="popover-footer-action">
+            @if (GetEffectiveDeptTagCount() >= 5)
+            {
+                <div class="text-xs text-muted text-center py-1">
+                    Maximum 5 department tags reached.
+                </div>
+            }
+            else
+            {
+                <button type="button" class="btn-create-tag-toggle"
+                        @onclick="ToggleCreateTagInline"
+                        disabled="@IsBusy"
+                        style="@(IsBusy ? "opacity:0.5; cursor:not-allowed;" : "")">
+                    <span>@(_showInlineCreateTag ? "–" : "+")</span>
+                    <span>@(_showInlineCreateTag ? "Cancel Create" : "Create New Tag")</span>
+                </button>
+                @if (_showInlineCreateTag)
+                {
+                    <div class="inline-create-box">
+                        <div class="flex items-center gap-2">
+                            <input type="text" class="input input-sm flex-1" placeholder="e.g. Q4-Review"
+                                   @bind="_newTagName" @bind:event="oninput" />
+                            <input type="color" class="color-picker-input-sm" @bind="_newTagColor" />
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm w-full justify-center"
+                                @onclick="CreateAndAttachNewTagAsync" disabled="@_tagPopoverSaving">
+                            @if (_tagPopoverSaving)
+                            {
+                                <span class="spinner spinner-xs me-1"></span>
+                            }
+                            Save & Attach Tag
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    public sealed record RequestTagsChangedEventArgs(Guid RequestId, IReadOnlyList<RequestTagSummaryDto> Tags);
+
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public BudgetRequestSummaryDto? Target { get; set; }
+    [Parameter] public double X { get; set; }
+    [Parameter] public double Y { get; set; }
+    [Parameter] public bool IsButtonAnchor { get; set; } = false;
+
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<RequestTagsChangedEventArgs> OnTagsChanged { get; set; }
+    [Parameter] public EventCallback<string> OnToast { get; set; }
+
+    private ElementReference _popoverRef;
+    private bool _pendingPosition;
+    private double _lastX;
+    private double _lastY;
+    private Guid? _lastTargetId;
+    private bool _wasOpen;
+
+    private readonly SemaphoreSlim _tagLock = new(1, 1);
+    private string _tagSearchFilter = "";
+    private bool _showInlineCreateTag;
+    private string _newTagName = "";
+    private string _newTagColor = "#3B82F6";
+    private bool _tagPopoverSaving;
+    private readonly HashSet<Guid> _processingTagIds = new();
+    private string? _tagPopoverError;
+    private List<TagDto> _availableDeptTags = new();
+    private readonly Dictionary<Guid, List<RequestTagSummaryDto>> _requestTagsTracker = new();
+    private bool IsBusy => _processingTagIds.Count > 0 || _tagPopoverSaving;
+
+    public void Dispose()
+    {
+        _tagLock.Dispose();
+    }
+
+    private IReadOnlyList<RequestTagSummaryDto> GetCurrentTags(Guid requestId)
+    {
+        if (_requestTagsTracker.TryGetValue(requestId, out var list))
+        {
+            return list;
+        }
+        if (Target != null && Target.Id == requestId && Target.Tags != null)
+        {
+            var initial = Target.Tags.ToList();
+            _requestTagsTracker[requestId] = initial;
+            return initial;
+        }
+        return Array.Empty<RequestTagSummaryDto>();
+    }
+
+    private void SetCurrentTags(Guid requestId, IEnumerable<RequestTagSummaryDto> tags)
+    {
+        _requestTagsTracker[requestId] = tags.ToList();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen && Target != null)
+        {
+            if (!_wasOpen || _lastTargetId != Target.Id)
+            {
+                _pendingPosition = true;
+                _tagSearchFilter = "";
+                _showInlineCreateTag = false;
+                _newTagName = "";
+                _newTagColor = "#3B82F6";
+                _tagPopoverError = null;
+                _lastTargetId = Target.Id;
+
+                if (!_processingTagIds.Any())
+                {
+                    _requestTagsTracker[Target.Id] = Target.Tags?.ToList() ?? new List<RequestTagSummaryDto>();
+                }
+
+                await LoadDepartmentTagsAsync();
+            }
+            else if (!_processingTagIds.Any() && Target.Tags != null)
+            {
+                _requestTagsTracker[Target.Id] = Target.Tags.ToList();
+            }
+
+            if (X != _lastX || Y != _lastY)
+            {
+                _pendingPosition = true;
+                _lastX = X;
+                _lastY = Y;
+            }
+        }
+
+        _wasOpen = IsOpen;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && _pendingPosition && Target != null)
+        {
+            _pendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _popoverRef, X, Y, IsButtonAnchor);
+        }
+    }
+
+    private async Task LoadDepartmentTagsAsync()
+    {
+        if (Target == null) return;
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : Target.DepartmentIdAtSubmission;
+
+        if (deptId != Guid.Empty)
+        {
+            var res = await Mediator.Send(new ListTagsByDepartmentQuery(deptId, IncludeInactive: false));
+            _availableDeptTags = res.IsSuccess && res.Value is not null ? res.Value.ToList() : new();
+        }
+        else
+        {
+            _availableDeptTags = new();
+        }
+    }
+
+    private void ToggleCreateTagInline()
+    {
+        if (IsBusy) return;
+        _showInlineCreateTag = !_showInlineCreateTag;
+        _pendingPosition = true;
+    }
+
+    private async Task CloseAsync()
+    {
+        if (IsBusy) return;
+        _tagPopoverError = null;
+        _showInlineCreateTag = false;
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private int GetTargetDeptTagCount()
+    {
+        if (Target == null) return 0;
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : Target.DepartmentIdAtSubmission;
+        var tags = GetCurrentTags(Target.Id);
+        return tags.Count(t => t.DepartmentId == deptId);
+    }
+
+    private int GetEffectiveDeptTagCount()
+    {
+        return GetTargetDeptTagCount();
+    }
+
+    private async Task ToggleTagAsync(TagDto tag)
+    {
+        var target = Target;
+        if (target == null || _processingTagIds.Contains(tag.Id)) return;
+        var requestId = target.Id;
+        var deptId = CurrentUser.DepartmentId != Guid.Empty
+            ? CurrentUser.DepartmentId
+            : target.DepartmentIdAtSubmission;
+
+        // 1. Immediately show spinner on UI
+        _processingTagIds.Add(tag.Id);
+        _tagPopoverError = null;
+        StateHasChanged();
+
+        // 2. Queue and execute one by one
+        await _tagLock.WaitAsync();
+        try
+        {
+            var currentTags = GetCurrentTags(requestId);
+            bool isAttached = currentTags.Any(rt => rt.TagId == tag.Id);
+
+            if (isAttached)
+            {
+                var res = await Mediator.Send(new RemoveTagFromRequestCommand(requestId, tag.Id, CurrentUser.UserId));
+                if (res.IsSuccess)
+                {
+                    var latest = GetCurrentTags(requestId);
+                    var updated = latest.Where(rt => rt.TagId != tag.Id).ToList();
+                    SetCurrentTags(requestId, updated);
+
+                    if (OnTagsChanged.HasDelegate)
+                    {
+                        await OnTagsChanged.InvokeAsync(new RequestTagsChangedEventArgs(requestId, updated));
+                    }
+                    if (OnToast.HasDelegate)
+                    {
+                        await OnToast.InvokeAsync($"Removed #{tag.Name}");
+                    }
+                }
+                else
+                {
+                    _tagPopoverError = res.Error.Message;
+                    if (OnToast.HasDelegate)
+                    {
+                        await OnToast.InvokeAsync($"Failed to remove #{tag.Name}: {res.Error.Message}");
+                    }
+                }
+            }
+            else
+            {
+                var latest = GetCurrentTags(requestId);
+                var attachedCount = latest.Count(t => t.DepartmentId == deptId);
+                if (attachedCount >= 5)
+                {
+                    _tagPopoverError = "Maximum 5 tags per department reached.";
+                    return;
+                }
+
+                var res = await Mediator.Send(new AddTagToRequestCommand(requestId, tag.Id, CurrentUser.UserId));
+                if (res.IsSuccess)
+                {
+                    var newSummary = new RequestTagSummaryDto(
+                        tag.Id,
+                        tag.Name,
+                        tag.ColorHex,
+                        tag.FontColorHex,
+                        tag.DepartmentId);
+
+                    latest = GetCurrentTags(requestId);
+                    var updated = latest.Where(rt => rt.TagId != tag.Id).Concat(new[] { newSummary }).ToList();
+                    SetCurrentTags(requestId, updated);
+
+                    if (OnTagsChanged.HasDelegate)
+                    {
+                        await OnTagsChanged.InvokeAsync(new RequestTagsChangedEventArgs(requestId, updated));
+                    }
+                    if (OnToast.HasDelegate)
+                    {
+                        await OnToast.InvokeAsync($"Attached #{tag.Name}");
+                    }
+                }
+                else
+                {
+                    _tagPopoverError = res.Error.Message;
+                    if (OnToast.HasDelegate)
+                    {
+                        await OnToast.InvokeAsync($"Failed to attach #{tag.Name}: {res.Error.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _tagPopoverError = ex.Message;
+        }
+        finally
+        {
+            _processingTagIds.Remove(tag.Id);
+            _tagLock.Release();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CreateAndAttachNewTagAsync()
+    {
+        var target = Target;
+        if (target == null || _tagPopoverSaving) return;
+        var requestId = target.Id;
+
+        if (string.IsNullOrWhiteSpace(_newTagName))
+        {
+            _tagPopoverError = "Tag name is required.";
+            return;
+        }
+
+        _tagPopoverSaving = true;
+        _tagPopoverError = null;
+        StateHasChanged();
+
+        await _tagLock.WaitAsync();
+        try
+        {
+            var deptId = CurrentUser.DepartmentId != Guid.Empty
+                ? CurrentUser.DepartmentId
+                : target.DepartmentIdAtSubmission;
+
+            if (deptId == Guid.Empty)
+            {
+                _tagPopoverError = "Cannot determine department for tag creation.";
+                return;
+            }
+
+            var latest = GetCurrentTags(requestId);
+            var attachedCount = latest.Count(t => t.DepartmentId == deptId);
+            if (attachedCount >= 5)
+            {
+                _tagPopoverError = "Maximum 5 tags per department reached.";
+                return;
+            }
+
+            var createRes = await Mediator.Send(new CreateTagCommand(
+                deptId,
+                _newTagName.Trim(),
+                CurrentUser.UserId,
+                _newTagColor));
+
+            if (createRes.IsFailure)
+            {
+                _tagPopoverError = createRes.Error.Message;
+                _pendingPosition = true;
+                if (OnToast.HasDelegate)
+                {
+                    await OnToast.InvokeAsync($"Failed to create tag: {createRes.Error.Message}");
+                }
+                return;
+            }
+
+            var newTagId = createRes.Value;
+
+            var attachRes = await Mediator.Send(new AddTagToRequestCommand(requestId, newTagId, CurrentUser.UserId));
+            if (attachRes.IsFailure)
+            {
+                _tagPopoverError = attachRes.Error.Message;
+                _pendingPosition = true;
+                if (OnToast.HasDelegate)
+                {
+                    await OnToast.InvokeAsync($"Failed to attach tag: {attachRes.Error.Message}");
+                }
+                return;
+            }
+
+            var newTagDto = new TagDto(
+                newTagId,
+                deptId,
+                _newTagName.Trim(),
+                _newTagColor,
+                null,
+                true,
+                CurrentUser.UserId,
+                DateTime.UtcNow);
+
+            _availableDeptTags.Add(newTagDto);
+
+            var newSummaryDto = new RequestTagSummaryDto(
+                newTagId,
+                _newTagName.Trim(),
+                _newTagColor,
+                null,
+                deptId);
+
+            latest = GetCurrentTags(requestId);
+            var updated = latest.Where(rt => rt.TagId != newTagId).Concat(new[] { newSummaryDto }).ToList();
+            SetCurrentTags(requestId, updated);
+
+            if (OnTagsChanged.HasDelegate)
+            {
+                await OnTagsChanged.InvokeAsync(new RequestTagsChangedEventArgs(requestId, updated));
+            }
+
+            _newTagName = "";
+            _showInlineCreateTag = false;
+            _pendingPosition = true;
+
+            if (OnToast.HasDelegate)
+            {
+                await OnToast.InvokeAsync($"Created & attached #{newTagDto.Name}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _tagPopoverError = ex.Message;
+        }
+        finally
+        {
+            _tagPopoverSaving = false;
+            _tagLock.Release();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}
