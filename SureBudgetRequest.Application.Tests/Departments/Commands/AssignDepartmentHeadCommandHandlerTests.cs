@@ -95,6 +95,56 @@ public class AssignDepartmentHeadCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenHeadUserIsFinancePayer_ReturnsFinancePayerCannotBeDepartmentHeadError()
+    {
+        // Arrange
+        var deptId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var dept = new Department("IT", null, 1000m, 5000m);
+        var financePayer = new User("finpayer", "Finance Payer", "payer@sure.com", Guid.NewGuid(), UserRole.Finance);
+        // IsFinanceApprover is false by default
+
+        _departmentRepository.GetByIdAsync(deptId, Arg.Any<CancellationToken>()).Returns(dept);
+        _userRepository.GetByIdAsync(headId, Arg.Any<CancellationToken>()).Returns(financePayer);
+
+        var command = new AssignDepartmentHeadCommand(deptId, headId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(DepartmentErrors.FinancePayerCannotBeDepartmentHead);
+
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenHeadUserIsFinanceApprover_AssignsHeadAndSavesChanges()
+    {
+        // Arrange
+        var deptId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var dept = new Department("Finance", null, 1000m, 5000m);
+        var financeApprover = new User("finapprover", "Finance Approver", "approver@sure.com", Guid.NewGuid(), UserRole.Finance);
+        financeApprover.SetFinanceApprover(true);
+
+        _departmentRepository.GetByIdAsync(deptId, Arg.Any<CancellationToken>()).Returns(dept);
+        _userRepository.GetByIdAsync(headId, Arg.Any<CancellationToken>()).Returns(financeApprover);
+
+        var command = new AssignDepartmentHeadCommand(deptId, headId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        dept.HeadUserId.Should().Be(headId);
+
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenDepartmentAndHeadUserAreValid_AssignsHeadAndSavesChanges()
     {
         // Arrange

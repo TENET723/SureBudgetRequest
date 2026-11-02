@@ -2,6 +2,7 @@ using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Departments.Commands.AssignDepartmentHead;
@@ -35,6 +36,9 @@ public sealed class AssignDepartmentHeadCommandHandler
         var head = await _userRepository.GetByIdAsync(command.HeadUserId, ct);
         if (head is null || !head.IsActive)
             return Result.Failure(UserErrors.NotFoundOrInactive);
+
+        if (head.Role == UserRole.Finance && !head.IsFinanceApprover)
+            return Result.Failure(DepartmentErrors.FinancePayerCannotBeDepartmentHead);
 
         dept.ChangeHead(command.HeadUserId);
 

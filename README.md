@@ -119,3 +119,13 @@ When a user has permission to view tags from multiple departments on a single ti
 * **Audit Trail Integration**:
   * Every tag addition and tag removal writes an entry into the existing `BudgetRequestModification` audit log:
     * E.g., `Added tag '#client-dinner' (Sales)` or `Removed tag '#audit-pending' (Finance)`.
+
+---
+
+## Business Rules & Governance
+
+### Department Head Invariant & Separation of Duties
+- **Any User Role Can Head a Department**: Any active user (`Employee`, `Management`, `Finance`, `Admin`) can be assigned as a Department Head (`Department.HeadUserId`).
+- **Finance Payer Invariant (Separation of Duties)**: A Finance Payer (`UserRole.Finance` with `IsFinanceApprover == false`) **cannot** be assigned as a Department Head.
+  - **Rationale**: A Finance Payer is responsible for executing financial disbursements (recording payments, installments, refunds, and reimbursements). Preventing Finance Payers from heading departments strictly enforces separation of duties between budget request approval and money disbursement.
+  - **Enforcement**: Enforced at the domain command layer (`AssignDepartmentHeadCommand`) and filtered out in the Admin UI (`DepartmentHeads.razor`).

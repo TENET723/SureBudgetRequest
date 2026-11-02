@@ -13,6 +13,9 @@ public static class DepartmentErrors
     public static readonly Error Forbidden =
         Error.Forbidden("Department.Forbidden", "Only Finance users can manage department monthly budgets.");
 
+    public static readonly Error FinancePayerCannotBeDepartmentHead =
+        Error.Validation("Department.FinancePayerCannotBeDepartmentHead", "Finance Payers cannot be assigned as Department Heads due to separation of duties.");
+
     public static Error ValidationError(string message) =>
         Error.Validation("Department.Validation", message);
 }

@@ -39,6 +39,13 @@
                         @onclick='() => SwitchView("inbox")'>
                     Pending Finance
                 </button>
+                @if (CurrentUser.IsDepartmentHead)
+                {
+                    <button class="btn @(_view == "dept" ? "btn-primary" : "btn-outline-primary")"
+                            @onclick='() => SwitchView("dept")'>
+                        Pending Head (My Dept)
+                    </button>
+                }
                 <button class="btn @(_view == "overdue" ? "btn-danger" : "btn-outline-danger")"
                         @onclick='() => SwitchView("overdue")'>
                     Overdue advances
@@ -555,7 +562,7 @@
         // Department: Dept Head is forced to their own dept; privileged roles use
         // the dropdown; everyone else is unscoped.
         Guid? deptFilter;
-        if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management))
+        if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role is not (UserRole.Management or UserRole.Finance or UserRole.Admin)))
             deptFilter = CurrentUser.DepartmentId;
         else if (SeesAllDepartments)
             deptFilter = ParseGuid(_selectedDepartmentId);
@@ -637,7 +644,7 @@
         else
         {
             RequestStatus? statusFilter;
-            if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management))
+            if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role is not (UserRole.Management or UserRole.Finance or UserRole.Admin)))
             {
                 statusFilter = RequestStatus.PendingDeptHead;
             }
@@ -707,7 +714,7 @@
         "overdue" => "Advance requests whose reconciliation deadline has already passed.",
         "settle"  => "Reconciled advances awaiting a refund received or reimbursement paid.",
         "dept"    => "Requests from your department awaiting your approval.",
-        _ => (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management)
+        _ => (CurrentUser.IsDepartmentHead && CurrentUser.Role is not (UserRole.Management or UserRole.Finance or UserRole.Admin))
             ? "Requests from your department awaiting your approval."
             : CurrentUser.Role switch
             {
