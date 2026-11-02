@@ -125,7 +125,7 @@ public class ReactivateTagCommandHandlerTests
     public async Task Handle_ShouldSucceed_WhenDeptHeadReactivatesTag()
     {
         var tag = CreateTag();
-        var deptHead = CreateUser(_deptId, UserRole.DepartmentHead);
+        var deptHead = CreateUser(_deptId, UserRole.Employee);
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
 

@@ -147,7 +147,7 @@ public class RejectRequestCommandHandlerTests
         // Arrange
         var deptHeadId = Guid.NewGuid();
         var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
-        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
         _userRepository.GetByIdAsync(deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
@@ -178,7 +178,7 @@ public class RejectRequestCommandHandlerTests
         // Arrange
         var deptHeadId = Guid.NewGuid();
         var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
-        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
         _userRepository.GetByIdAsync(deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
@@ -209,7 +209,7 @@ public class RejectRequestCommandHandlerTests
         // Arrange
         var deptHeadId = Guid.NewGuid();
         var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
-        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var deptHead = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;

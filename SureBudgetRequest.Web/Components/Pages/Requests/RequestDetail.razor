@@ -2410,7 +2410,7 @@ else
         if (r.Status is RequestStatus.Draft or RequestStatus.SentBack && r.RequesterId == uid)
             list.Add("edit");
 
-        if (r.Status == RequestStatus.PendingDeptHead && role == UserRole.DepartmentHead && r.DeptHeadIdAtSubmission == uid)
+        if (r.Status == RequestStatus.PendingDeptHead && r.DeptHeadIdAtSubmission == uid && r.RequesterId != uid)
         {
             list.Add("approve");
             list.Add("reject");

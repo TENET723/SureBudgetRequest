@@ -115,7 +115,6 @@ public class DeactivateUserCommandHandlerTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
     public async Task Handle_WhenUserIsNotFinance_DeactivatesWithoutCheckingApproverCount(UserRole nonFinanceRole)

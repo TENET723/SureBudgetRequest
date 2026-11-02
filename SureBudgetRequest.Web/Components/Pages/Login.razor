@@ -151,6 +151,7 @@
             new(CurrentUserService.ClaimDepartmentId, user.DepartmentId.ToString()),
             new(CurrentUserService.ClaimMustChangePassword, user.MustChangePassword ? "true" : "false"),
             new(CurrentUserService.ClaimIsFinanceApprover, user.IsFinanceApprover ? "true" : "false"),
+            new(CurrentUserService.ClaimIsDepartmentHead, user.IsDepartmentHead ? "true" : "false"),
         };
 
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

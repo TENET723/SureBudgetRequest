@@ -292,7 +292,7 @@ public class SubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var request = CreateDraftRequest(requesterId, headId, withdrawMethodId);
 
@@ -324,7 +324,7 @@ public class SubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Old Method");
         method.Deactivate();
@@ -359,7 +359,7 @@ public class SubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Bank Transfer", requiresAttachment: true);
 
@@ -395,7 +395,7 @@ public class SubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Cash", requiresAttachment: false);
 
@@ -443,7 +443,7 @@ public class SubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Cash");
 

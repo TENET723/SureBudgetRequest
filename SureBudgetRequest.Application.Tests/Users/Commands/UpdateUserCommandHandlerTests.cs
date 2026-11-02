@@ -168,7 +168,6 @@ public class UpdateUserCommandHandlerTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
     public async Task Handle_WhenIsFinanceApproverTrueForNonFinanceRole_ReturnsOnlyFinanceCanBeApproverError(UserRole nonFinanceRole)
@@ -317,7 +316,7 @@ public class UpdateUserCommandHandlerTests
             "Employee Renamed",
             "emp@sure.com",
             deptId,
-            UserRole.DepartmentHead,
+            UserRole.Management,
             null,
             IsFinanceApprover: false);
 

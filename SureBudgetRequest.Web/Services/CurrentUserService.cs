@@ -29,6 +29,7 @@ public sealed class CurrentUserService : ICurrentUser
     public const string ClaimUsername = "asure_username";
     public const string ClaimMustChangePassword = "asure_must_change_password";
     public const string ClaimIsFinanceApprover = "asure_is_finance_approver";
+    public const string ClaimIsDepartmentHead = "asure_is_department_head";
 
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -91,6 +92,15 @@ public sealed class CurrentUserService : ICurrentUser
             // can't grant approver rights to a non-Finance account.
             if (Role != UserRole.Finance) return false;
             var v = Principal.FindFirstValue(ClaimIsFinanceApprover);
+            return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    public bool IsDepartmentHead
+    {
+        get
+        {
+            var v = Principal.FindFirstValue(ClaimIsDepartmentHead);
             return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
         }
     }

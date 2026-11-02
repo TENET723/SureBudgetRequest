@@ -924,7 +924,7 @@
             _toDate = nowMm.Date;
         }
 
-        if (CurrentUser.Role == UserRole.DepartmentHead)
+        if (CurrentUser.IsDepartmentHead && CurrentUser.Role == UserRole.Employee)
         {
             _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
             _departmentLocked = true;
@@ -960,10 +960,10 @@
         {
             _allUsers = users.Value!.OrderBy(u => u.FullName).ToList();
             _approverCandidates = _allUsers
-                .Where(u => u.Role is UserRole.DepartmentHead
-                                   or UserRole.Management
+                .Where(u => u.Role is UserRole.Management
                                    or UserRole.Finance
-                                   or UserRole.Admin)
+                                   or UserRole.Admin
+                            || _departments.Any(d => d.HeadUserId == u.Id))
                 .ToList();
             _userNames = _allUsers.ToDictionary(u => u.Id, u => u.FullName);
         }
@@ -1400,7 +1400,6 @@
 
     private static string RoleLabel(UserRole r) => r switch
     {
-        UserRole.DepartmentHead => "Dept Head",
         UserRole.Management     => "Mgmt",
         UserRole.Finance        => "Finance",
         UserRole.Accounting     => "Accounting",
@@ -1505,7 +1504,7 @@
     private bool ShouldShowStatusActionsSection()
     {
         var role = CurrentUser.Role;
-        if (role is UserRole.Management or UserRole.DepartmentHead)
+        if (role == UserRole.Management || CurrentUser.IsDepartmentHead || (_contextMenuTarget != null && _contextMenuTarget.DeptHeadIdAtSubmission == CurrentUser.UserId))
             return true;
 
         if (role == UserRole.Finance && CurrentUser.IsFinanceApprover)
@@ -1524,20 +1523,16 @@
         switch (r.Status)
         {
             case RequestStatus.PendingDeptHead:
-                if (role == UserRole.DepartmentHead)
-                {
-                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
-                        return new(true, null);
-                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
-                        return new(true, null);
-                    return new(false, "Assigned to another Dept Head");
-                }
+                if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid && r.RequesterId != uid)
+                    return new(true, null);
+                if (CurrentUser.IsDepartmentHead && r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId && r.RequesterId != uid)
+                    return new(true, null);
                 return new(false, "Waiting for Dept Head approval");
 
             case RequestStatus.PendingManagement:
                 if (role == UserRole.Management)
                     return new(true, null);
-                if (role == UserRole.DepartmentHead)
+                if (CurrentUser.IsDepartmentHead)
                     return new(false, "Already approved by Dept Head");
                 return new(false, "Waiting for Management approval");
 
@@ -1548,7 +1543,7 @@
                         return new(true, null);
                     return new(false, "Restricted: Payer only");
                 }
-                if (role is UserRole.DepartmentHead or UserRole.Management)
+                if (CurrentUser.IsDepartmentHead || role == UserRole.Management)
                     return new(false, "Already approved; pending Finance");
                 return new(false, "Waiting for Finance approval");
 
@@ -1579,20 +1574,16 @@
         switch (r.Status)
         {
             case RequestStatus.PendingDeptHead:
-                if (role == UserRole.DepartmentHead)
-                {
-                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
-                        return new(true, null);
-                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
-                        return new(true, null);
-                    return new(false, "Assigned to another Dept Head");
-                }
+                if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid && r.RequesterId != uid)
+                    return new(true, null);
+                if (CurrentUser.IsDepartmentHead && r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId && r.RequesterId != uid)
+                    return new(true, null);
                 return new(false, "Waiting for Dept Head approval");
 
             case RequestStatus.PendingManagement:
                 if (role == UserRole.Management)
                     return new(true, null);
-                if (role == UserRole.DepartmentHead)
+                if (CurrentUser.IsDepartmentHead)
                     return new(false, "Stage passed to Management");
                 return new(false, "Waiting for Management approval");
 
@@ -1636,20 +1627,16 @@
         switch (r.Status)
         {
             case RequestStatus.PendingDeptHead:
-                if (role == UserRole.DepartmentHead)
-                {
-                    if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid)
-                        return new(true, null);
-                    if (r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId)
-                        return new(true, null);
-                    return new(false, "Assigned to another Dept Head");
-                }
+                if (r.DeptHeadIdAtSubmission != Guid.Empty && r.DeptHeadIdAtSubmission == uid && r.RequesterId != uid)
+                    return new(true, null);
+                if (CurrentUser.IsDepartmentHead && r.DepartmentIdAtSubmission != Guid.Empty && r.DepartmentIdAtSubmission == CurrentUser.DepartmentId && r.RequesterId != uid)
+                    return new(true, null);
                 return new(false, "Waiting for Dept Head approval");
 
             case RequestStatus.PendingManagement:
                 if (role == UserRole.Management)
                     return new(true, null);
-                if (role == UserRole.DepartmentHead)
+                if (CurrentUser.IsDepartmentHead)
                     return new(false, "Stage passed to Management");
                 return new(false, "Waiting for Management approval");
 

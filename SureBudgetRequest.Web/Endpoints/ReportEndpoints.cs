@@ -53,14 +53,16 @@ public static class ReportEndpoints
                     ? r
                     : UserRole.Employee;
 
+                var isDeptHead = string.Equals(user.FindFirstValue(CurrentUserService.ClaimIsDepartmentHead), "true", StringComparison.OrdinalIgnoreCase);
+
                 // ── Server-side role scoping (security — do not skip) ───────────
-                // Employees have no report access at all.
-                if (role == UserRole.Employee)
+                // Employees without department head assignment have no report access at all.
+                if (role == UserRole.Employee && !isDeptHead)
                     return Results.Forbid();
 
-                // Dept Heads are locked to their own department regardless of the
-                // departmentId in the query string.
-                if (role == UserRole.DepartmentHead)
+                // Dept Heads (who are not Admin / Management / Finance) are locked to their own department
+                // regardless of the departmentId in the query string.
+                if (isDeptHead && role == UserRole.Employee)
                 {
                     departmentId = Guid.TryParse(
                         user.FindFirstValue(CurrentUserService.ClaimDepartmentId), out var deptId)

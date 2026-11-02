@@ -208,8 +208,8 @@ public sealed class DbSeeder
         _db.Departments.AddRange(itDept, hrDept, adminDept);
 
         var admin = CreateUser("admin", "Mg Mg (Admin)", "admin@asure.local", adminDeptId, UserRole.Admin);
-        var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.DepartmentHead);
-        var deptHeadHr = CreateUser("ma_thida", "Ma Thida (HR Head)", "ma.thida@asure.local", hrDeptId, UserRole.DepartmentHead);
+        var deptHeadIt = CreateUser("ko_zin", "Ko Zin Htet (IT Head)", "ko.zin@asure.local", itDeptId, UserRole.Employee);
+        var deptHeadHr = CreateUser("ma_thida", "Ma Thida (HR Head)", "ma.thida@asure.local", hrDeptId, UserRole.Employee);
         var mgmt1 = CreateUser("u_kyaw", "U Kyaw Zin (Management)", "u.kyaw@asure.local", adminDeptId, UserRole.Management);
         var mgmt2 = CreateUser("daw_mya", "Daw Mya Sein (Management)", "daw.mya@asure.local", adminDeptId, UserRole.Management);
 

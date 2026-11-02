@@ -55,6 +55,7 @@ public interface IBudgetRequestRepository
         string? searchTerm = null,
         Guid? withdrawMethodId = null,
         Guid? tagId = null,
+        Guid? deptHeadId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

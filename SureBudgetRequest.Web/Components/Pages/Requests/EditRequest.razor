@@ -34,7 +34,7 @@
         <a href="requests/mine" class="btn btn-ghost btn-sm">← Back to My Requests</a>
     }
     else if (!(_request.RequesterId == CurrentUser.UserId || 
-              (_request.Status == RequestStatus.PendingDeptHead && CurrentUser.Role == UserRole.DepartmentHead)))
+              (_request.Status == RequestStatus.PendingDeptHead && _request.DeptHeadIdAtSubmission == CurrentUser.UserId)))
     {
         <div class="alert alert-error">You are not authorized to edit this request.</div>
         <a href="requests/@Id" class="btn btn-ghost btn-sm">← Back to request</a>
@@ -438,7 +438,6 @@
 
     private bool IsDhModifying => 
         _request?.Status == RequestStatus.PendingDeptHead 
-        && CurrentUser.Role == UserRole.DepartmentHead 
         && _request?.DeptHeadIdAtSubmission == CurrentUser.UserId;
 
     private string SaveLabel => _request?.Status == RequestStatus.SentBack ? "Save" : "Save Draft";
@@ -508,7 +507,6 @@
             && _request.Status is RequestStatus.Draft or RequestStatus.SentBack;
 
         bool isDeptHeadModifying = _request.Status == RequestStatus.PendingDeptHead
-            && CurrentUser.Role == UserRole.DepartmentHead
             && _request.DeptHeadIdAtSubmission == CurrentUser.UserId;
 
         if (isRequesterEditing || isDeptHeadModifying)

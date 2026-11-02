@@ -112,7 +112,7 @@ public sealed class ListBudgetRequestsQueryHandler
             request.SearchTerm,
             request.WithdrawMethodId,
             request.TagId,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         // Batch-resolve COA codes/names for display. The COA master list is
         // small (global, dozens of rows max), so a single ListAsync call is

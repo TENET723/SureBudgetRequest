@@ -21,6 +21,11 @@ public interface ICurrentUser
     /// </summary>
     bool IsFinanceApprover { get; }
 
+    /// <summary>
+    /// True when the current user is currently assigned as the head of a department.
+    /// </summary>
+    bool IsDepartmentHead { get; }
+
     /// <summary>True once the service has been initialised with an actual user.</summary>
     bool IsLoaded { get; }
 }

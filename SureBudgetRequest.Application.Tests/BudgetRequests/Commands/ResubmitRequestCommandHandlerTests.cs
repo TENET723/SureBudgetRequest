@@ -210,7 +210,7 @@ public class ResubmitRequestCommandHandlerTests
         var headId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var request = CreateSentBackRequest(requesterId, headId, Guid.NewGuid());
 
         _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
@@ -239,7 +239,7 @@ public class ResubmitRequestCommandHandlerTests
         var headId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var request = CreateSentBackRequest(requesterId, headId, Guid.NewGuid());
 
         var currency = new Currency("USD", "US Dollar", 3500m);
@@ -272,7 +272,7 @@ public class ResubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var request = CreateSentBackRequest(requesterId, headId, withdrawMethodId);
 
@@ -304,7 +304,7 @@ public class ResubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Deactivated Method");
         method.Deactivate();
@@ -339,7 +339,7 @@ public class ResubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Cash");
 
@@ -384,7 +384,7 @@ public class ResubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Bank Transfer");
 
@@ -426,7 +426,7 @@ public class ResubmitRequestCommandHandlerTests
         var withdrawMethodId = Guid.NewGuid();
         var dept = new Department("IT", headId, 1_000_000m, 10_000_000m);
         var requester = new User("alice", "Alice", "alice@sure.com", dept.Id, UserRole.Employee);
-        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.DepartmentHead);
+        var head = new User("head", "Dept Head", "head@sure.com", dept.Id, UserRole.Employee);
         var currency = new Currency("MMK", "Myanmar Kyat", 1m);
         var method = new WithdrawMethod("Bank Transfer");
 

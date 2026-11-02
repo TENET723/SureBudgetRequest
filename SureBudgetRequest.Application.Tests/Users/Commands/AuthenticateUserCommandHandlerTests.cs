@@ -16,12 +16,16 @@ public class AuthenticateUserCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+
+    private readonly IDepartmentRepository _departmentRepository = Substitute.For<IDepartmentRepository>();
+
     private readonly AuthenticateUserCommandHandler _handler;
 
     public AuthenticateUserCommandHandlerTests()
     {
         _handler = new AuthenticateUserCommandHandler(
             _userRepository,
+            _departmentRepository,
             _passwordHasher,
             _unitOfWork);
     }

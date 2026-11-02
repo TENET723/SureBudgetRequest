@@ -48,7 +48,7 @@ public sealed class SendBackRequestCommandHandler
 
         var roleCheck = budgetRequest.Status switch
         {
-            RequestStatus.PendingDeptHead   => approver.Role == UserRole.DepartmentHead,
+            RequestStatus.PendingDeptHead   => approver.Id == budgetRequest.DeptHeadIdAtSubmission,
             RequestStatus.PendingManagement => approver.Role == UserRole.Management,
             RequestStatus.PendingFinance    => approver.Role == UserRole.Finance,
             RequestStatus.Approved          => approver.Role is UserRole.Finance or UserRole.Admin,

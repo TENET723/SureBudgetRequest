@@ -189,7 +189,7 @@
         if (usersResult.IsSuccess)
         {
             _userNames = usersResult.Value.ToDictionary(u => u.Id, u => u.FullName);
-            _activeHeadUsers = usersResult.Value.Where(u => u.IsActive && u.Role == UserRole.DepartmentHead).ToList();
+            _activeHeadUsers = usersResult.Value.Where(u => u.IsActive).ToList();
         }
 
         var deptsResult = await Mediator.Send(new ListDepartmentsQuery(IncludeInactive: false));

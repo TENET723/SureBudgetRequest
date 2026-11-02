@@ -76,7 +76,7 @@ public class AssignDepartmentHeadCommandHandlerTests
         var deptId = Guid.NewGuid();
         var headId = Guid.NewGuid();
         var dept = new Department("IT", null, 1000m, 5000m);
-        var headUser = new User("inactivehead", "Inactive Head", "inactive@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("inactivehead", "Inactive Head", "inactive@sure.com", Guid.NewGuid(), UserRole.Employee);
         headUser.Deactivate();
 
         _departmentRepository.GetByIdAsync(deptId, Arg.Any<CancellationToken>()).Returns(dept);
@@ -101,7 +101,7 @@ public class AssignDepartmentHeadCommandHandlerTests
         var deptId = Guid.NewGuid();
         var headId = Guid.NewGuid();
         var dept = new Department("IT", null, 1000m, 5000m);
-        var headUser = new User("validhead", "Valid Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("validhead", "Valid Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         _departmentRepository.GetByIdAsync(deptId, Arg.Any<CancellationToken>()).Returns(dept);
         _userRepository.GetByIdAsync(headId, Arg.Any<CancellationToken>()).Returns(headUser);
@@ -125,7 +125,7 @@ public class AssignDepartmentHeadCommandHandlerTests
         var deptId = Guid.NewGuid();
         var headId = Guid.NewGuid();
         var dept = new Department("IT", null, 1000m, 5000m);
-        var headUser = new User("validhead", "Valid Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("validhead", "Valid Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;

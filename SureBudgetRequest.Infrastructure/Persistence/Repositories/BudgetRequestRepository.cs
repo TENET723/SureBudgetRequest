@@ -47,12 +47,13 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         string? searchTerm = null,
         Guid? withdrawMethodId = null,
         Guid? tagId = null,
+        Guid? deptHeadId = null,
         CancellationToken cancellationToken = default)
     {
         var query = BuildFilteredQuery(
             requesterId, departmentId, status, statuses, submittedFromUtc, submittedUntilUtc,
             coaId, currencyCode, approverId, overLimitOnly, types, amountInMmkFrom, amountInMmkTo,
-            periodOverrunOnly, searchTerm, withdrawMethodId, tagId);
+            periodOverrunOnly, searchTerm, withdrawMethodId, tagId, deptHeadId);
 
         return await query
             .OrderByDescending(r => r.CreatedAt)
@@ -82,7 +83,8 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
         bool? periodOverrunOnly,
         string? searchTerm,
         Guid? withdrawMethodId,
-        Guid? tagId = null)
+        Guid? tagId = null,
+        Guid? deptHeadId = null)
     {
         var query = _context.BudgetRequests
             .Include(r => r.ApprovalActions)
@@ -95,6 +97,9 @@ public sealed class BudgetRequestRepository : IBudgetRequestRepository
 
         if (requesterId.HasValue)
             query = query.Where(r => r.RequesterId == requesterId.Value);
+
+        if (deptHeadId.HasValue)
+            query = query.Where(r => r.DeptHeadIdAtSubmission == deptHeadId.Value);
 
         if (departmentId.HasValue)
             query = query.Where(r => r.DepartmentIdAtSubmission == departmentId.Value);

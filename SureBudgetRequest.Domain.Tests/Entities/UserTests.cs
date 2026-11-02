@@ -105,7 +105,6 @@ public class UserTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
     [InlineData(UserRole.Accounting)]
@@ -140,7 +139,6 @@ public class UserTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Finance)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
@@ -160,7 +158,6 @@ public class UserTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
     [InlineData(UserRole.Accounting)]

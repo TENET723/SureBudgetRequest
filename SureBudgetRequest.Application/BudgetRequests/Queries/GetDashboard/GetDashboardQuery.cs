@@ -124,31 +124,45 @@ public sealed class GetDashboardQueryHandler
                 .Select(r => MapToSummaryDto(r, role, departmentId))
                 .ToList());
 
-        // === Role-specific: "Pending my approval" ===========================
+        // === "Pending my approval" =========================================
 
         ApprovalQueueDto? myApprovalQueue = null;
-        if (role is UserRole.DepartmentHead or UserRole.Management or UserRole.Finance)
+        var pendingItems = new List<BudgetRequest>();
+
+        // 1. Pending Dept Head approval: Any ticket waiting for this user as designated Dept Head
+        var deptPending = await _budgetRequestRepository.ListAsync(
+            status: RequestStatus.PendingDeptHead,
+            deptHeadId: userId,
+            cancellationToken: ct);
+        pendingItems.AddRange(deptPending.Where(r => r.RequesterId != userId));
+
+        // 2. Pending Management approval (if role is Management)
+        if (role == UserRole.Management)
         {
-            var approvalStatus = role switch
-            {
-                UserRole.DepartmentHead => RequestStatus.PendingDeptHead,
-                UserRole.Management     => RequestStatus.PendingManagement,
-                UserRole.Finance        => RequestStatus.PendingFinance,
-                _ => throw new InvalidOperationException()
-            };
-
-            Guid? deptFilter = role == UserRole.DepartmentHead ? departmentId : null;
-
-            var pending = await _budgetRequestRepository.ListAsync(
-                departmentId: deptFilter,
-                status: approvalStatus,
+            var mgmtPending = await _budgetRequestRepository.ListAsync(
+                status: RequestStatus.PendingManagement,
                 cancellationToken: ct);
+            pendingItems.AddRange(mgmtPending.Where(r => r.RequesterId != userId));
+        }
+        else if (role == UserRole.Finance && _currentUser.IsFinanceApprover)
+        {
+            var finPending = await _budgetRequestRepository.ListAsync(
+                status: RequestStatus.PendingFinance,
+                cancellationToken: ct);
+            pendingItems.AddRange(finPending.Where(r => r.RequesterId != userId));
+        }
+
+        if (pendingItems.Count > 0 || _currentUser.IsDepartmentHead || role is UserRole.Management or UserRole.Finance)
+        {
+            var distinctItems = pendingItems
+                .DistinctBy(r => r.Id)
+                .OrderBy(r => TypePriority(r.Type))
+                .ThenBy(r => r.SubmittedAt ?? r.CreatedAt)
+                .ToList();
 
             myApprovalQueue = new ApprovalQueueDto(
-                TotalCount: pending.Count,
-                TopItems: pending
-                    .OrderBy(r => TypePriority(r.Type))                  // Urgent first
-                    .ThenBy(r => r.SubmittedAt ?? r.CreatedAt)            // oldest first
+                TotalCount: distinctItems.Count,
+                TopItems: distinctItems
                     .Select(r => MapToSummaryDto(r, role, departmentId))
                     .ToList());
         }

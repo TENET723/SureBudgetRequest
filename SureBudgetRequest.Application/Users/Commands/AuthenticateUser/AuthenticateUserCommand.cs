@@ -24,21 +24,25 @@ public sealed record AuthenticatedUserDto(
     UserRole Role,
     Guid DepartmentId,
     bool MustChangePassword,
-    bool IsFinanceApprover);
+    bool IsFinanceApprover,
+    bool IsDepartmentHead);
 
 public sealed class AuthenticateUserCommandHandler
     : IRequestHandler<AuthenticateUserCommand, Result<AuthenticatedUserDto>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IDepartmentRepository _departmentRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
 
     public AuthenticateUserCommandHandler(
         IUserRepository userRepository,
+        IDepartmentRepository departmentRepository,
         IPasswordHasher passwordHasher,
         IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
+        _departmentRepository = departmentRepository;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
     }
@@ -60,6 +64,9 @@ public sealed class AuthenticateUserCommandHandler
         user.RecordLogin();
         await _unitOfWork.SaveChangesAsync(ct);
 
+        var activeDepts = await _departmentRepository.ListAsync(includeInactive: false, ct);
+        var isDepartmentHead = activeDepts.Any(d => d.HeadUserId == user.Id);
+
         return Result.Success(new AuthenticatedUserDto(
             user.Id,
             user.Username,
@@ -68,6 +75,7 @@ public sealed class AuthenticateUserCommandHandler
             user.Role,
             user.DepartmentId,
             user.MustChangePassword,
-            user.IsFinanceApprover));
+            user.IsFinanceApprover,
+            isDepartmentHead));
     }
 }

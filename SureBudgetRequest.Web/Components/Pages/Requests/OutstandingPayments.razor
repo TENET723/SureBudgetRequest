@@ -415,12 +415,12 @@
         // Finance/Accounting/Management/Admin see everything (optionally filtered
         // by the Department dropdown); Dept Head is forced to their own dept;
         // Employee sees only their own requests.
-        Guid? requesterFilter = CurrentUser.Role == UserRole.Employee
+        Guid? requesterFilter = (CurrentUser.Role == UserRole.Employee && !CurrentUser.IsDepartmentHead)
             ? CurrentUser.UserId
             : null;
 
         Guid? deptFilter;
-        if (CurrentUser.Role == UserRole.DepartmentHead)
+        if (CurrentUser.IsDepartmentHead && CurrentUser.Role == UserRole.Employee)
             deptFilter = CurrentUser.DepartmentId;
         else if (SeesAllDepartments)
             deptFilter = ParseGuid(_selectedDepartmentId);
@@ -502,16 +502,21 @@
     private static Guid? ParseGuid(string s) =>
         Guid.TryParse(s, out var g) ? g : null;
 
-    private string ScopeDescription() => CurrentUser.Role switch
+    private string ScopeDescription()
     {
-        UserRole.Finance        => "Approved requests still awaiting full payment.",
-        UserRole.Accounting     => "All approved requests still awaiting full payment.",
-        UserRole.Admin          => "All approved requests still awaiting full payment.",
-        UserRole.Management     => "All approved requests still awaiting full payment.",
-        UserRole.DepartmentHead => "Approved requests from your department still awaiting full payment.",
-        UserRole.Employee       => "Your approved requests still awaiting full payment.",
-        _                       => ""
-    };
+        if (CurrentUser.IsDepartmentHead && CurrentUser.Role == UserRole.Employee)
+            return "Approved requests from your department still awaiting full payment.";
+
+        return CurrentUser.Role switch
+        {
+            UserRole.Finance        => "Approved requests still awaiting full payment.",
+            UserRole.Accounting     => "All approved requests still awaiting full payment.",
+            UserRole.Admin          => "All approved requests still awaiting full payment.",
+            UserRole.Management     => "All approved requests still awaiting full payment.",
+            UserRole.Employee       => "Your approved requests still awaiting full payment.",
+            _                       => ""
+        };
+    }
 
     private static string FormatCurrency(CurrencyDto c) => $"{c.Code} — {c.Name}";
 

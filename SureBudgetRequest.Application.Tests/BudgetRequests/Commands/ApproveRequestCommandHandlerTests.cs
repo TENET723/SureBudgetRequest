@@ -248,7 +248,7 @@ public class ApproveRequestCommandHandlerTests
         var deptHeadId = Guid.NewGuid();
         var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
 
-        var deptHead = new User("depthead", "Dept Head Name", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var deptHead = new User("depthead", "Dept Head Name", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
         _userRepository.GetByIdAsync(deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
@@ -271,6 +271,27 @@ public class ApproveRequestCommandHandlerTests
             Arg.Any<CancellationToken>());
 
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenManagementUserIsDeptHeadAndApproves_ReturnsSuccess()
+    {
+        // Arrange
+        var deptHeadId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
+        var mgmtDeptHead = new User("mdhead", "MD Head", "md@sure.com", Guid.NewGuid(), UserRole.Management);
+
+        _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(deptHeadId, Arg.Any<CancellationToken>()).Returns(mgmtDeptHead);
+
+        var command = new ApproveRequestCommand(request.Id, deptHeadId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingFinance);
     }
 
     [Fact]
@@ -370,7 +391,7 @@ public class ApproveRequestCommandHandlerTests
         // Arrange
         var deptHeadId = Guid.NewGuid();
         var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
-        var deptHead = new User("depthead", "Dept Head Name", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var deptHead = new User("depthead", "Dept Head Name", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
 
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;

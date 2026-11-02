@@ -23,6 +23,7 @@ public sealed class CurrentUserSnapshot : ICurrentUser
     public UserRole Role { get; private set; } = UserRole.Employee;
     public Guid DepartmentId { get; private set; }
     public bool IsFinanceApprover { get; private set; }
+        public bool IsDepartmentHead { get; private set; }
     public bool IsLoaded { get; private set; }
 
     public void CopyFrom(ICurrentUser source)
@@ -33,6 +34,7 @@ public sealed class CurrentUserSnapshot : ICurrentUser
         Role = source.Role;
         DepartmentId = source.DepartmentId;
         IsFinanceApprover = source.IsFinanceApprover;
+        IsDepartmentHead = source.IsDepartmentHead;
         IsLoaded = source.IsLoaded;
         IsSet = true;
     }

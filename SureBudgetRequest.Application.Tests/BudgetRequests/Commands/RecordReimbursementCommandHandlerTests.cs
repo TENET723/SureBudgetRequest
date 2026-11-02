@@ -99,7 +99,6 @@ public class RecordReimbursementCommandHandlerTests
 
     [Theory]
     [InlineData(UserRole.Employee)]
-    [InlineData(UserRole.DepartmentHead)]
     [InlineData(UserRole.Management)]
     [InlineData(UserRole.Admin)]
     [InlineData(UserRole.Accounting)]

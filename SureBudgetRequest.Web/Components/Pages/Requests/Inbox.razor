@@ -18,7 +18,7 @@
 <div class="page-wrap">
     <h5 class="mb-4">Inbox</h5>
 
-    @if (CurrentUser.Role == UserRole.Employee)
+    @if (CurrentUser.Role == UserRole.Employee && !CurrentUser.IsDepartmentHead)
     {
         <div class="alert alert-info">You have no inbox as an employee. <a href="requests/mine">View your requests instead.</a></div>
     }
@@ -31,7 +31,7 @@
     }
     else
     {
-        @* View toggle — Finance approvers also chase overdue advance reconciliations. *@
+        @* View toggle — Finance approvers or Management Dept Heads *@
         @if (ShowOverdueToggle)
         {
             <div class="btn-group btn-group-sm mb-4" role="group">
@@ -46,6 +46,19 @@
                 <button class="btn @(_view == "settle" ? "btn-primary" : "btn-outline-primary")"
                         @onclick='() => SwitchView("settle")'>
                     Awaiting settlement
+                </button>
+            </div>
+        }
+        else if (CurrentUser.Role == UserRole.Management && CurrentUser.IsDepartmentHead)
+        {
+            <div class="btn-group btn-group-sm mb-4" role="group">
+                <button class="btn @(_view == "inbox" ? "btn-primary" : "btn-outline-primary")"
+                        @onclick='() => SwitchView("inbox")'>
+                    Pending Management
+                </button>
+                <button class="btn @(_view == "dept" ? "btn-primary" : "btn-outline-primary")"
+                        @onclick='() => SwitchView("dept")'>
+                    Pending Head (My Dept)
                 </button>
             </div>
         }
@@ -371,6 +384,7 @@
     // Roles whose queue spans departments and so get a Department dropdown
     // (Dept Head stays locked to their own dept; Employee/Accounting never reach here).
     private bool SeesAllDepartments =>
+        _view != "dept" &&
         CurrentUser.Role is UserRole.Management
                          or UserRole.Finance
                          or UserRole.Admin;
@@ -500,7 +514,7 @@
     {
         _loading = true;
 
-        if (CurrentUser.Role == UserRole.Employee) { _loading = false; return; }
+        if (CurrentUser.Role == UserRole.Employee && !CurrentUser.IsDepartmentHead) { _loading = false; return; }
 
         // Payer-only Finance users have no inbox — they work from Outstanding Payments.
         if (CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover)
@@ -541,7 +555,7 @@
         // Department: Dept Head is forced to their own dept; privileged roles use
         // the dropdown; everyone else is unscoped.
         Guid? deptFilter;
-        if (CurrentUser.Role == UserRole.DepartmentHead)
+        if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management))
             deptFilter = CurrentUser.DepartmentId;
         else if (SeesAllDepartments)
             deptFilter = ParseGuid(_selectedDepartmentId);
@@ -622,13 +636,20 @@
         }
         else
         {
-            var statusFilter = CurrentUser.Role switch
+            RequestStatus? statusFilter;
+            if (_view == "dept" || (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management))
             {
-                UserRole.DepartmentHead => RequestStatus.PendingDeptHead,
-                UserRole.Management     => RequestStatus.PendingManagement,
-                UserRole.Finance        => RequestStatus.PendingFinance,
-                _                       => (RequestStatus?)null
-            };
+                statusFilter = RequestStatus.PendingDeptHead;
+            }
+            else
+            {
+                statusFilter = CurrentUser.Role switch
+                {
+                    UserRole.Management     => RequestStatus.PendingManagement,
+                    UserRole.Finance        => RequestStatus.PendingFinance,
+                    _                       => (RequestStatus?)null
+                };
+            }
 
             // Default: newest-submitted first. The user can re-sort via the
             // clickable column headers; sorting is applied in SQL.
@@ -685,14 +706,16 @@
     {
         "overdue" => "Advance requests whose reconciliation deadline has already passed.",
         "settle"  => "Reconciled advances awaiting a refund received or reimbursement paid.",
-        _ => CurrentUser.Role switch
-        {
-            UserRole.DepartmentHead => "Requests from your department awaiting your approval.",
-            UserRole.Management     => "Over-limit requests awaiting Management Team approval.",
-            UserRole.Finance        => "Requests awaiting finance processing.",
-            UserRole.Admin          => "All pending requests.",
-            _                       => ""
-        }
+        "dept"    => "Requests from your department awaiting your approval.",
+        _ => (CurrentUser.IsDepartmentHead && CurrentUser.Role != UserRole.Management)
+            ? "Requests from your department awaiting your approval."
+            : CurrentUser.Role switch
+            {
+                UserRole.Management     => "Over-limit requests awaiting Management Team approval.",
+                UserRole.Finance        => "Requests awaiting finance processing.",
+                UserRole.Admin          => "All pending requests.",
+                _                       => ""
+            }
     };
 
     private string EmptyText() => _view switch

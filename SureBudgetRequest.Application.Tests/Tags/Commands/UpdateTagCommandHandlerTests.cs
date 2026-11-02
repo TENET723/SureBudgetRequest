@@ -96,7 +96,7 @@ public class UpdateTagCommandHandlerTests
     public async Task Handle_ShouldReturnForbidden_WhenActorIsDeptHeadOfDifferentDepartment()
     {
         var tag = CreateTag();
-        var otherDeptHead = CreateUser(Guid.NewGuid(), UserRole.DepartmentHead); // Different dept
+        var otherDeptHead = CreateUser(Guid.NewGuid(), UserRole.Employee); // Different dept
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(otherDeptHead);
 
@@ -111,7 +111,7 @@ public class UpdateTagCommandHandlerTests
     public async Task Handle_ShouldReturnConflict_WhenNewNameConflictsWithAnotherTagInSameDepartment()
     {
         var tag = CreateTag("Original");
-        var deptHead = CreateUser(_deptId, UserRole.DepartmentHead);
+        var deptHead = CreateUser(_deptId, UserRole.Employee);
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
 
@@ -131,7 +131,7 @@ public class UpdateTagCommandHandlerTests
     public async Task Handle_ShouldReturnFailure_WhenDomainValidationFails()
     {
         var tag = CreateTag("Original");
-        var deptHead = CreateUser(_deptId, UserRole.DepartmentHead);
+        var deptHead = CreateUser(_deptId, UserRole.Employee);
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
 
@@ -147,7 +147,7 @@ public class UpdateTagCommandHandlerTests
     public async Task Handle_ShouldSucceed_WhenDeptHeadUpdatesTheirDepartmentTag()
     {
         var tag = CreateTag("Original", "#FFF");
-        var deptHead = CreateUser(_deptId, UserRole.DepartmentHead);
+        var deptHead = CreateUser(_deptId, UserRole.Employee);
         _tagRepository.GetByIdAsync(_tagId, Arg.Any<CancellationToken>()).Returns(tag);
         _userRepository.GetByIdAsync(_deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
 

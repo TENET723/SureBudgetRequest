@@ -30,7 +30,7 @@ public class CreateDepartmentCommandHandlerTests
     {
         // Arrange
         var headId = Guid.NewGuid();
-        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
         _userRepository.GetByIdAsync(headId, Arg.Any<CancellationToken>()).Returns(headUser);
 
         var generatedId = Guid.NewGuid();
@@ -211,7 +211,7 @@ public class CreateDepartmentCommandHandlerTests
     {
         // Arrange
         var headId = Guid.NewGuid();
-        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
         using var cts = new CancellationTokenSource();
         var ct = cts.Token;
 

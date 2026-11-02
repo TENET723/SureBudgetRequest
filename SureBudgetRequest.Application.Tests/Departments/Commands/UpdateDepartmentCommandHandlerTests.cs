@@ -72,7 +72,7 @@ public class UpdateDepartmentCommandHandlerTests
         // Arrange
         var deptId = Guid.NewGuid();
         var headId = Guid.NewGuid();
-        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
         var dept = new Department("Old Name", null, 1000m, 5000m);
 
         _departmentRepository.GetByIdAsync(deptId, Arg.Any<CancellationToken>()).Returns(dept);
@@ -235,7 +235,7 @@ public class UpdateDepartmentCommandHandlerTests
         // Arrange
         var deptId = Guid.NewGuid();
         var headId = Guid.NewGuid();
-        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.DepartmentHead);
+        var headUser = new User("depthead", "Dept Head", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
         var dept = new Department("Original", null, 1000m, 5000m);
 
         using var cts = new CancellationTokenSource();
