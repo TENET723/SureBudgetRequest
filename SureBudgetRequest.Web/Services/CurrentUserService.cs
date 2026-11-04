@@ -30,6 +30,9 @@ public sealed class CurrentUserService : ICurrentUser
     public const string ClaimMustChangePassword = "asure_must_change_password";
     public const string ClaimIsFinanceApprover = "asure_is_finance_approver";
     public const string ClaimIsDepartmentHead = "asure_is_department_head";
+    public const string ClaimIsFallbackPersonAct = "asure_is_fallback_act";
+    public const string ClaimRealActorUserId = "asure_real_actor_user_id";
+    public const string ClaimRealActorFullName = "asure_real_actor_full_name";
 
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -104,6 +107,21 @@ public sealed class CurrentUserService : ICurrentUser
             return string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    public bool IsFallbackPersonAct =>
+        string.Equals(Principal.FindFirstValue(ClaimIsFallbackPersonAct), "true", StringComparison.OrdinalIgnoreCase);
+
+    public Guid RealActorUserId
+    {
+        get
+        {
+            var v = Principal.FindFirstValue(ClaimRealActorUserId);
+            return Guid.TryParse(v, out var id) ? id : UserId;
+        }
+    }
+
+    public string RealActorFullName =>
+        Principal.FindFirstValue(ClaimRealActorFullName) is { Length: > 0 } name ? name : FullName;
 
     public bool IsLoaded => Principal.Identity?.IsAuthenticated == true;
 }

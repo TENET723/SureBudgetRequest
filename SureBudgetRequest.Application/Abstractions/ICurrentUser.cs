@@ -26,6 +26,21 @@ public interface ICurrentUser
     /// </summary>
     bool IsDepartmentHead { get; }
 
+    /// <summary>
+    /// True when the current session is acting as a fallback person on behalf of someone on leave.
+    /// </summary>
+    bool IsFallbackPersonAct { get; }
+
+    /// <summary>
+    /// The actual logged-in user ID when in fallback act mode; otherwise equal to <see cref="UserId"/>.
+    /// </summary>
+    Guid RealActorUserId { get; }
+
+    /// <summary>
+    /// The actual logged-in user's full name when in fallback act mode; otherwise equal to <see cref="FullName"/>.
+    /// </summary>
+    string RealActorFullName { get; }
+
     /// <summary>True once the service has been initialised with an actual user.</summary>
     bool IsLoaded { get; }
 }

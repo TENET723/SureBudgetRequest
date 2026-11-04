@@ -34,4 +34,9 @@ public interface IUserRepository
     /// Used by the bus-factor safeguard to prevent removing the last approver.
     /// </summary>
     Task<int> CountActiveFinanceApproversAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets active users who are currently on leave and have designated <paramref name="fallbackUserId"/> as their fallback.
+    /// </summary>
+    Task<IReadOnlyList<User>> GetUsersOnLeaveDelegatedToAsync(Guid fallbackUserId, CancellationToken cancellationToken = default);
 }

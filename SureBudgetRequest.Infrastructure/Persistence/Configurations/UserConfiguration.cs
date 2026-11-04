@@ -22,6 +22,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Role).IsRequired().HasConversion<int>();
         builder.Property(u => u.IsActive).IsRequired();
         builder.Property(u => u.IsFinanceApprover).IsRequired();
+        builder.Property(u => u.FallbackUserId);
+        builder.Property(u => u.IsOnLeave).IsRequired().HasDefaultValue(false);
         builder.Property(u => u.CreatedAt).IsRequired();
         builder.Property(u => u.LastLoginAt);
         builder.HasIndex(u => u.Username).IsUnique();
@@ -32,5 +34,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.HasIndex(u => u.DepartmentId);
         builder.HasIndex(u => u.Role); // for fast role-based lookups
+        builder.HasIndex(u => u.FallbackUserId);
     }
 }

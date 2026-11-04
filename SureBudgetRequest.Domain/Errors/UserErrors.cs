@@ -46,6 +46,21 @@ public static class UserErrors
     public static readonly Error NoUserSignedIn = 
         Error.Unauthorized("User.NoUserSignedIn", "No user signed in.");
 
+    public static readonly Error FallbackCannotChangePassword =
+        Error.Forbidden("User.FallbackCannotChangePassword", "Cannot change password while acting as a fallback person.");
+
+    public static readonly Error FallbackCannotModifyFallback =
+        Error.Forbidden("User.FallbackCannotModifyFallback", "Cannot modify fallback settings while acting as a fallback person.");
+
+    public static readonly Error CannotAssignSelfAsFallback =
+        Error.Validation("User.CannotAssignSelfAsFallback", "Cannot assign yourself as your fallback person.");
+
+    public static readonly Error LeaveRequiresFallback =
+        Error.Validation("User.LeaveRequiresFallback", "Cannot turn on leave without designating a fallback person.");
+
+    public static readonly Error DelegationNotFoundOrInactive =
+        Error.Forbidden("User.DelegationNotFoundOrInactive", "Target user has not delegated fallback authority to you or is not currently on leave.");
+
     public static Error ValidationError(string message) =>
         Error.Validation("User.Validation", message);
 }

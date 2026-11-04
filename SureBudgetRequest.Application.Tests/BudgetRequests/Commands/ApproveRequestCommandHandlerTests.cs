@@ -101,7 +101,7 @@ public class ApproveRequestCommandHandlerTests
         // Arrange
         var approverId = Guid.NewGuid();
         var approver = new User("approver", "Approver Name", "app@sure.com", Guid.NewGuid(), nonDeptHeadRole);
-        var request = CreateSubmittedRequest(Guid.NewGuid(), approverId);
+        var request = CreateSubmittedRequest(Guid.NewGuid(), Guid.NewGuid());
 
         request.Status.Should().Be(RequestStatus.PendingDeptHead);
 

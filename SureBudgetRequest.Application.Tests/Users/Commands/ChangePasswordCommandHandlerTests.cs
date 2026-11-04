@@ -26,6 +26,23 @@ public class ChangePasswordCommandHandlerTests
             _unitOfWork);
     }
 
+    [Fact]
+    public async Task Handle_WhenActingAsFallback_ReturnsFallbackCannotChangePasswordError()
+    {
+        // Arrange
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.IsFallbackPersonAct.Returns(true);
+        var handler = new ChangePasswordCommandHandler(_userRepository, _passwordHasher, _unitOfWork, currentUser);
+        var command = new ChangePasswordCommand(Guid.NewGuid(), "OldPass123!", "NewPass123!");
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(UserErrors.FallbackCannotChangePassword);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

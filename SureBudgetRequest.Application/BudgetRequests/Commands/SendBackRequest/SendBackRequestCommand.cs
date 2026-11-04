@@ -20,17 +20,20 @@ public sealed class SendBackRequestCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
+    private readonly ICurrentUser? _currentUser;
 
     public SendBackRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
-        INotificationDispatcher dispatcher)
+        INotificationDispatcher dispatcher,
+        ICurrentUser? currentUser = null)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(
@@ -48,7 +51,7 @@ public sealed class SendBackRequestCommandHandler
 
         var roleCheck = budgetRequest.Status switch
         {
-            RequestStatus.PendingDeptHead   => approver.Id == budgetRequest.DeptHeadIdAtSubmission,
+            RequestStatus.PendingDeptHead   => command.ApproverId == budgetRequest.DeptHeadIdAtSubmission,
             RequestStatus.PendingManagement => approver.Role == UserRole.Management,
             RequestStatus.PendingFinance    => approver.Role == UserRole.Finance,
             RequestStatus.Approved          => approver.Role is UserRole.Finance or UserRole.Admin,
@@ -70,11 +73,15 @@ public sealed class SendBackRequestCommandHandler
         var result = budgetRequest.SendBack(command.ApproverId, command.Comment);
         if (result.IsFailure) return result;
 
+        var actorName = _currentUser?.IsFallbackPersonAct == true
+            ? $"{_currentUser.RealActorFullName} (acting for {approver.FullName})"
+            : approver.FullName;
+
         await _dispatcher.DispatchAsync(
             budgetRequest,
             previousStatus,
             command.ApproverId,
-            actorName: approver.FullName,
+            actorName: actorName,
             comment: command.Comment,
             cancellationToken);
 

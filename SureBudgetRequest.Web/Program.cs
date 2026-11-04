@@ -130,6 +130,9 @@ app.MapAttachmentEndpoints();
 // Report export HTTP endpoints (xlsx download).
 app.MapReportEndpoints();
 
+// Account HTTP endpoints (user switching, delegation).
+app.MapAccountEndpoints();
+
 // Logout endpoint. Form-posted from MainLayout with an antiforgery token.
 app.MapPost("/logout", async (HttpContext ctx) =>
 {
@@ -137,8 +140,4 @@ app.MapPost("/logout", async (HttpContext ctx) =>
     return Results.Redirect("/login");
 });
 
-app.Run(); 
-
-
-
-
+app.Run();

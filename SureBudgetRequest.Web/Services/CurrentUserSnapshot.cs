@@ -24,6 +24,9 @@ public sealed class CurrentUserSnapshot : ICurrentUser
     public Guid DepartmentId { get; private set; }
     public bool IsFinanceApprover { get; private set; }
         public bool IsDepartmentHead { get; private set; }
+    public bool IsFallbackPersonAct { get; private set; }
+    public Guid RealActorUserId { get; private set; }
+    public string RealActorFullName { get; private set; } = "";
     public bool IsLoaded { get; private set; }
 
     public void CopyFrom(ICurrentUser source)
@@ -35,6 +38,9 @@ public sealed class CurrentUserSnapshot : ICurrentUser
         DepartmentId = source.DepartmentId;
         IsFinanceApprover = source.IsFinanceApprover;
         IsDepartmentHead = source.IsDepartmentHead;
+        IsFallbackPersonAct = source.IsFallbackPersonAct;
+        RealActorUserId = source.RealActorUserId;
+        RealActorFullName = source.RealActorFullName;
         IsLoaded = source.IsLoaded;
         IsSet = true;
     }

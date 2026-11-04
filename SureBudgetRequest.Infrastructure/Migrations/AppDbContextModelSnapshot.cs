@@ -930,6 +930,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("email");
 
+                    b.Property<Guid?>("FallbackUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("fallback_user_id");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -943,6 +947,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Property<bool>("IsFinanceApprover")
                         .HasColumnType("boolean")
                         .HasColumnName("is_finance_approver");
+
+                    b.Property<bool>("IsOnLeave")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_on_leave");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone")
@@ -982,6 +992,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ix_users_email");
+
+                    b.HasIndex("FallbackUserId")
+                        .HasDatabaseName("ix_users_fallback_user_id");
 
                     b.HasIndex("Role")
                         .HasDatabaseName("ix_users_role");

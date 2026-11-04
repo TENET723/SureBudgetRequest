@@ -94,7 +94,7 @@ public class SendBackRequestCommandHandlerTests
     {
         // Arrange: Request is at PendingDeptHead
         var approverId = Guid.NewGuid();
-        var request = CreateSubmittedRequest(Guid.NewGuid(), approverId);
+        var request = CreateSubmittedRequest(Guid.NewGuid(), Guid.NewGuid());
         var approver = new User("user", "User", "user@sure.com", Guid.NewGuid(), nonDeptHeadRole);
 
         _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);

@@ -63,4 +63,10 @@ public sealed class UserRepository : IUserRepository
         => _context.Users
             .Where(u => u.IsActive && u.Role == UserRole.Finance && u.IsFinanceApprover)
             .CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<User>> GetUsersOnLeaveDelegatedToAsync(Guid fallbackUserId, CancellationToken cancellationToken = default)
+        => await _context.Users
+            .Where(u => u.IsActive && u.IsOnLeave && u.FallbackUserId == fallbackUserId)
+            .OrderBy(u => u.FullName)
+            .ToListAsync(cancellationToken);
 }

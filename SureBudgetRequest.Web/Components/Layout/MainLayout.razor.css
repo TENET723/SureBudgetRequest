@@ -20,3 +20,30 @@
 
 .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
 .page-content { flex: 1; overflow-y: auto; }
+
+/* ── Fallback Delegation Banner ─────────────────────────────────────────── */
+.delegation-banner {
+    background-color: #fffbeb;
+    border-bottom: 1px solid #fef3c7;
+    color: #92400e;
+    padding: 8px 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 100;
+}
+.btn-switch-back {
+    background: #ffffff;
+    border: 1px solid #d97706;
+    color: #b45309;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.btn-switch-back:hover {
+    background: #fef3c7;
+}

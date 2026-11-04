@@ -30,6 +30,17 @@ public class User
     /// </summary>
     public bool IsFinanceApprover { get; private set; }
 
+    /// <summary>
+    /// The user designated to act on behalf of this user when <see cref="IsOnLeave"/> is true.
+    /// </summary>
+    public Guid? FallbackUserId { get; private set; }
+
+    /// <summary>
+    /// When true, the designated <see cref="FallbackUserId"/> can switch into this user's account
+    /// and act with this user's authority.
+    /// </summary>
+    public bool IsOnLeave { get; private set; }
+
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
@@ -84,6 +95,26 @@ public class User
                 "Only a user with the Finance role can be marked as a Finance Approver.");
 
         IsFinanceApprover = value;
+    }
+
+    public void SetFallbackUser(Guid? fallbackUserId)
+    {
+        if (fallbackUserId.HasValue && fallbackUserId.Value == Id)
+            throw new ArgumentException("Cannot assign yourself as your fallback person.", nameof(fallbackUserId));
+
+        FallbackUserId = fallbackUserId;
+        if (!fallbackUserId.HasValue)
+        {
+            IsOnLeave = false;
+        }
+    }
+
+    public void SetOnLeave(bool isOnLeave)
+    {
+        if (isOnLeave && !FallbackUserId.HasValue)
+            throw new InvalidOperationException("Cannot turn on leave without designating a fallback person.");
+
+        IsOnLeave = isOnLeave;
     }
 
     public void SetEmail(string email)

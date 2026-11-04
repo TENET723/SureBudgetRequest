@@ -364,4 +364,58 @@ public class UserTests
         user.Reactivate();
         user.IsActive.Should().BeTrue();
     }
+
+    // =========================================================================
+    // 6. Fallback Colleague & On-Leave
+    // =========================================================================
+
+    [Fact]
+    public void SetFallbackUser_ValidColleague_ShouldSetFallbackUserId()
+    {
+        var user = new User("user1", "User One", "user@co.com", Guid.NewGuid(), UserRole.Employee);
+        var fallbackId = Guid.NewGuid();
+
+        user.SetFallbackUser(fallbackId);
+
+        user.FallbackUserId.Should().Be(fallbackId);
+    }
+
+    [Fact]
+    public void SetFallbackUser_Null_ShouldClearFallbackAndTurnOffLeave()
+    {
+        var user = new User("user1", "User One", "user@co.com", Guid.NewGuid(), UserRole.Employee);
+        var fallbackId = Guid.NewGuid();
+        user.SetFallbackUser(fallbackId);
+        user.SetOnLeave(true);
+
+        user.SetFallbackUser(null);
+
+        user.FallbackUserId.Should().BeNull();
+        user.IsOnLeave.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SetOnLeave_WithoutFallback_ShouldThrowInvalidOperationException()
+    {
+        var user = new User("user1", "User One", "user@co.com", Guid.NewGuid(), UserRole.Employee);
+
+        var act = () => user.SetOnLeave(true);
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Cannot turn on leave without designating a fallback person*");
+    }
+
+    [Fact]
+    public void SetOnLeave_WithFallback_ShouldSetOnLeaveTrue()
+    {
+        var user = new User("user1", "User One", "user@co.com", Guid.NewGuid(), UserRole.Employee);
+        user.SetFallbackUser(Guid.NewGuid());
+
+        user.SetOnLeave(true);
+
+        user.IsOnLeave.Should().BeTrue();
+
+        user.SetOnLeave(false);
+        user.IsOnLeave.Should().BeFalse();
+    }
 }

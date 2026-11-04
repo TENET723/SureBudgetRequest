@@ -1,8 +1,17 @@
 @inherits LayoutComponentBase
 @using System.Security.Claims
+@using MediatR
 @using Microsoft.AspNetCore.Components.Authorization
+@using SureBudgetRequest.Application.Abstractions
+@using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Application.Users.Queries.GetAvailableDelegations
+@using SureBudgetRequest.Application.Users.Commands.UpdateUserFallback
+@using SureBudgetRequest.Web.Components.Shared
+@using SureBudgetRequest.Web.Services
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
+@inject IMediator Mediator
+@inject ToastService Toast
 
 <div class="app-shell @(_sidebarCollapsed ? "sidebar-collapsed" : "")" id="app-shell">
     <aside class="sidebar" id="app-sidebar">
@@ -21,6 +30,28 @@
     </aside>
 
     <div class="main-area">
+        @if (CurrentUser.IsFallbackPersonAct)
+        {
+            <div class="delegation-banner">
+                <div class="flex items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span>
+                        Acting as <strong>@CurrentUser.FullName</strong> (while on leave). Actions are recorded under your name (<strong>@CurrentUser.RealActorFullName</strong>).
+                    </span>
+                </div>
+                <form method="post" action="/account/switch-back" style="margin:0;">
+                    <AntiforgeryToken />
+                    <button type="submit" class="btn-switch-back">
+                        Switch Back to My Account
+                    </button>
+                </form>
+            </div>
+        }
+
         <header class="topbar">
             <div class="topbar-left">
                 @* Page title injected by each page via CascadingValue or left blank *@
@@ -28,22 +59,48 @@
             <div class="topbar-right">
                 @if (CurrentUser.IsLoaded)
                 {
-                   @*  <button class="notif-bell" title="Notifications">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M10 2a6 6 0 0 0-6 6v3l-1.5 2.5A1 1 0 0 0 3.5 15h13a1 1 0 0 0 .866-1.5L16 11V8a6 6 0 0 0-6-6Z" stroke="currentColor" stroke-width="1.5"/>
-                            <path d="M8 15a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.5"/>
-                        </svg>
-                        <span class="notif-badge">!</span>
-                    </button> *@
+                    @if (!CurrentUser.IsFallbackPersonAct)
+                    {
+                        @if (_availableDelegations.Count > 0)
+                        {
+                            <div class="flex items-center gap-1" style="margin-right:8px;">
+                                @foreach (var del in _availableDelegations)
+                                {
+                                    <form method="post" action="/account/switch-user" style="display:inline;margin:0;">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="targetUserId" value="@del.Id" />
+                                        <button type="submit" class="btn btn-outline btn-sm" title="Act on behalf of @del.FullName">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
+                                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                                <circle cx="8.5" cy="7" r="4"/>
+                                                <polyline points="17 11 19 13 23 9"/>
+                                            </svg>
+                                            Switch to @del.FullName
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        }
+
+                        <button type="button" class="btn btn-outline btn-sm" style="margin-right:8px;" @onclick="OpenDelegationModal" title="Configure your fallback delegate and leave status">
+                            @if (_isOnLeave)
+                            {
+                                <span class="badge badge-role" style="background:#fef3c7;color:#b45309;margin-right:4px;">On Leave</span>
+                            }
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            Leave & Fallback
+                        </button>
+                    }
+
                     <div class="topbar-user">
                         <div class="user-avatar">@(CurrentUser.FullName.Length > 0 ? CurrentUser.FullName[0].ToString().ToUpper() : "?")</div>
                         <div class="user-info">
                             <span class="user-name">@CurrentUser.FullName</span>
                             <span class="user-role"><span class="role-dot"></span>@CurrentUser.Role</span>
                         </div>
-                       @*  <svg class="user-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        </svg> *@
                     </div>
                 }
             </div>
@@ -58,6 +115,59 @@
 <ToastContainer />
 <LoadingOverlay />
 
+@* ── Delegation & Leave Modal ───────────────────────────────────────────────── *@
+@if (_showDelegationModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal" style="max-width:480px;overflow: visible;">
+            <div class="modal-header">
+                <h6 class="modal-title">Delegation & Out of Office</h6>
+                <button type="button" class="btn btn-icon modal-close" @onclick="CloseDelegationModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="alert alert-error mb-4">@_modalError</div>
+                }
+
+               
+
+                <div class="form-field mb-2" style="background:var(--color-bg-subtle, #f8fafc);padding:12px;border-radius:8px;border:1px solid var(--color-border,#e2e8f0);">
+                    <label class="flex items-center gap-2 cursor-pointer" style="margin:0;">
+                        <input type="checkbox" @bind="_modalIsOnLeave" style="width:18px;height:18px;" />
+                        <span class="font-medium text-sm">I am currently on leave (Out of Office)</span>
+                    </label>
+                    <div class="text-xs text-muted mt-1" style="margin-left:26px;">
+                        When checked, your designated fallback colleague can switch to your account and approve requests on your behalf.
+                    </div>
+                </div>
+            </div>
+            <div class="form-field mb-4">
+                <label class="form-label text-sm font-semibold">Fallback Colleague</label>
+                <div class="text-xs text-muted mb-2">
+                    Designate a colleague who can temporarily switch into your account to process approvals when you are away.
+                </div>
+                <Dropdown TItem="UserDto" TValue="string"
+                          Items="_eligibleFallbackUsers"
+                          @bind-Value="_modalFallbackUserId"
+                          ValueSelector="u => u.Id.ToString()"
+                          TextSelector="FormatUserOption"
+                          Placeholder="— select fallback person —"
+                          Searchable="true"
+                          SearchPlaceholder="Search colleague..."
+                          AllowClear="true" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-sm" @onclick="CloseDelegationModal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" @onclick="SaveDelegationSettings" disabled="@_savingDelegation">
+                    @if (_savingDelegation) { <span class="spinner spinner-sm mr-1"></span> }
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -68,6 +178,17 @@
     [CascadingParameter] private Task<AuthenticationState> AuthStateTask { get; set; } = default!;
 
     private bool _sidebarCollapsed = false;
+    private List<UserDto> _availableDelegations = new();
+    private List<UserDto> _eligibleFallbackUsers = new();
+
+    // Leave & fallback state
+    private bool _isOnLeave;
+    private Guid? _currentFallbackUserId;
+    private bool _showDelegationModal;
+    private string _modalFallbackUserId = "";
+    private bool _modalIsOnLeave;
+    private string? _modalError;
+    private bool _savingDelegation;
 
     private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
 
@@ -83,6 +204,88 @@
         if (mustChange && !relative.StartsWith("/account/change-password", StringComparison.OrdinalIgnoreCase))
         {
             Nav.NavigateTo("/account/change-password", forceLoad: false);
+            return;
+        }
+
+        await LoadDelegationData();
+    }
+
+    private async Task LoadDelegationData()
+    {
+        if (!CurrentUser.IsLoaded) return;
+
+        // Load available delegations (who delegated to me)
+        var delResult = await Mediator.Send(new GetAvailableDelegationsQuery());
+        if (delResult.IsSuccess)
+        {
+            _availableDelegations = delResult.Value.ToList();
+        }
+
+        // Load current user's own fallback and leave status
+        var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+        var userResult = await Mediator.Send(new GetUserQuery(realId));
+        if (userResult.IsSuccess)
+        {
+            _isOnLeave = userResult.Value.IsOnLeave;
+            _currentFallbackUserId = userResult.Value.FallbackUserId;
         }
     }
+
+    private async Task OpenDelegationModal()
+    {
+        _modalError = null;
+        _modalFallbackUserId = _currentFallbackUserId?.ToString() ?? "";
+        _modalIsOnLeave = _isOnLeave;
+
+        var usersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
+        if (usersResult.IsSuccess)
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            _eligibleFallbackUsers = usersResult.Value.Where(u => u.Id != realId).OrderBy(u => u.FullName).ToList();
+        }
+
+        _showDelegationModal = true;
+    }
+
+    private void CloseDelegationModal()
+    {
+        _showDelegationModal = false;
+        _modalError = null;
+    }
+
+    private async Task SaveDelegationSettings()
+    {
+        if (_savingDelegation) return;
+
+        Guid? selectedFallbackId = Guid.TryParse(_modalFallbackUserId, out var parsedId) ? parsedId : null;
+        if (_modalIsOnLeave && !selectedFallbackId.HasValue)
+        {
+            _modalError = "Please select a fallback colleague before marking yourself on leave.";
+            return;
+        }
+
+        _savingDelegation = true;
+        _modalError = null;
+        try
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            var result = await Mediator.Send(new UpdateUserFallbackCommand(realId, selectedFallbackId, _modalIsOnLeave));
+            if (result.IsFailure)
+            {
+                _modalError = result.Error.Message;
+                return;
+            }
+
+            _isOnLeave = _modalIsOnLeave;
+            _currentFallbackUserId = selectedFallbackId;
+            _showDelegationModal = false;
+            Toast.Show(ToastLevel.Success, "Delegation updated", _isOnLeave ? "You are marked as on leave." : "Your fallback settings have been saved.");
+        }
+        finally
+        {
+            _savingDelegation = false;
+        }
+    }
+
+    private static string FormatUserOption(UserDto u) => $"{u.FullName} ({u.Role})";
 }

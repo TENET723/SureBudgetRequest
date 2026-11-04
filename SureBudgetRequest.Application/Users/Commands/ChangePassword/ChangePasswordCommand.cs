@@ -24,19 +24,25 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUser? _currentUser;
 
     public ChangePasswordCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentUser? currentUser = null)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(ChangePasswordCommand command, CancellationToken ct)
     {
+        if (_currentUser?.IsFallbackPersonAct == true)
+            return Result.Failure(UserErrors.FallbackCannotChangePassword);
+
         if (string.IsNullOrEmpty(command.NewPassword)
             || command.NewPassword.Length < MinimumPasswordLength)
             return Result.Failure(UserErrors.PasswordTooShort(MinimumPasswordLength));
