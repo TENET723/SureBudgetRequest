@@ -178,6 +178,11 @@ public sealed class SearchBudgetRequestsQueryHandler
                             t.TagDepartmentId == viewer.DepartmentId);
                     }
 
+                    if (request.DepartmentId.HasValue && request.DepartmentId.Value != Guid.Empty)
+                    {
+                        visibleTags = visibleTags.Where(t => t.TagDepartmentId == request.DepartmentId.Value);
+                    }
+
                     tagDtos = visibleTags
                         .Select(t => new RequestTagSummaryDto(t.TagId, t.Tag!.Name, t.Tag.ColorHex, t.Tag.FontColorHex, t.TagDepartmentId))
                         .ToList();

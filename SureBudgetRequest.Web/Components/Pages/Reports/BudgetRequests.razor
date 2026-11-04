@@ -41,7 +41,7 @@
         }
     </div>
 
-    @if (CurrentUser.Role == UserRole.Employee)
+    @if (CurrentUser.Role == UserRole.Employee && !CurrentUser.IsDepartmentHead)
     {
         <div class="alert alert-info">
             Reports are not available for the Employee role.
@@ -284,12 +284,13 @@
                         @if (_departmentLocked)
                         {
                             <input type="text" class="input" readonly
-                                   value="@(_departments.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "—")" />
+                                   value="@(_departments.FirstOrDefault(d => d.Id.ToString() == _selectedDepartmentId)?.Name ?? _departments.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "—")" />
                         }
                         else
                         {
                             <Dropdown Items="_departments"
                                       @bind-Value="_selectedDepartmentId"
+                                      @bind-Value:after="OnDepartmentFilterChanged"
                                       ValueSelector="d => d.Id.ToString()"
                                       TextSelector="d => d.Name"
                                       Placeholder="All departments"
@@ -387,7 +388,7 @@
                     @* Tag *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Tag</label>
-                        <Dropdown Items="_availableTags"
+                        <Dropdown Items="AvailableTagsForDepartment"
                                   @bind-Value="_selectedTagId"
                                   ValueSelector="tag => tag.Id.ToString()"
                                   TextSelector="FormatTag"
@@ -796,6 +797,35 @@
     // ── Reference data ───────────────────────────────────────────────────────
     private List<DepartmentDto> _departments = new();
     private List<VisibleTagDto> _availableTags = new();
+
+    private List<VisibleTagDto> AvailableTagsForDepartment
+    {
+        get
+        {
+            if (Guid.TryParse(_selectedDepartmentId, out var deptId) && deptId != Guid.Empty)
+            {
+                return _availableTags.Where(t => t.DepartmentId == deptId).ToList();
+            }
+
+            if (CurrentUser.IsDepartmentHead || CurrentUser.Role != UserRole.Admin)
+            {
+                return _availableTags.Where(t => t.DepartmentId == CurrentUser.DepartmentId).ToList();
+            }
+
+            return _availableTags;
+        }
+    }
+
+    private void OnDepartmentFilterChanged()
+    {
+        if (!string.IsNullOrEmpty(_selectedTagId))
+        {
+            if (!AvailableTagsForDepartment.Any(t => t.Id.ToString() == _selectedTagId))
+            {
+                _selectedTagId = "";
+            }
+        }
+    }
     private List<CoaDto> _coas = new();
     private List<CurrencyDto> _currencies = new();
     private List<WithdrawMethodDto> _withdrawMethods = new();
@@ -885,7 +915,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser.Role == UserRole.Employee)
+        if (CurrentUser.Role == UserRole.Employee && !CurrentUser.IsDepartmentHead)
         {
             _loading = false;
             return;
@@ -924,7 +954,7 @@
             _toDate = nowMm.Date;
         }
 
-        if (CurrentUser.IsDepartmentHead && CurrentUser.Role == UserRole.Employee)
+        if (CurrentUser.IsDepartmentHead)
         {
             _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
             _departmentLocked = true;
@@ -1011,6 +1041,11 @@
             {
                 amountFrom = null;
                 amountTo = null;
+            }
+
+            if (_departmentLocked)
+            {
+                _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
             }
 
             var result = await Mediator.Send(new SearchBudgetRequestsQuery(
@@ -1283,6 +1318,8 @@
 
         if (!_departmentLocked)
             _selectedDepartmentId = "";
+        else
+            _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
 
         FilterState.BudgetReport = null;
         _page = 1;

@@ -60,9 +60,9 @@ public static class ReportEndpoints
                 if (role == UserRole.Employee && !isDeptHead)
                     return Results.Forbid();
 
-                // Dept Heads (who are not Admin / Management / Finance) are locked to their own department
+                // Dept Heads (who are not Admin) are locked to their own department
                 // regardless of the departmentId in the query string.
-                if (isDeptHead && role == UserRole.Employee)
+                if (isDeptHead && role != UserRole.Admin)
                 {
                     departmentId = Guid.TryParse(
                         user.FindFirstValue(CurrentUserService.ClaimDepartmentId), out var deptId)

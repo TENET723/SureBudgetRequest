@@ -2184,7 +2184,7 @@ else
         "home"        => ("/",                       "Dashboard"),
         _ => CurrentUser.Role switch
         {
-            UserRole.Employee   => ("requests/mine",           "My Requests"),
+            UserRole.Employee when !CurrentUser.IsDepartmentHead => ("requests/mine", "My Requests"),
             UserRole.Accounting => ("reports/budget-requests", "Reports"),
             _                   => ("requests/inbox",          "Inbox"),
         }

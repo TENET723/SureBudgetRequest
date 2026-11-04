@@ -136,4 +136,44 @@ public class SearchBudgetRequestsQueryTests
         item.Tags!.Should().HaveCount(2);
         item.Tags!.Select(t => t.Name).Should().Contain(new[] { "DeptA-Tag", "DeptB-Tag" });
     }
+
+    [Fact]
+    public async Task Handle_WhenDepartmentIdSupplied_IsolatesVisibleTagsToSuppliedDepartment()
+    {
+        // Arrange
+        var adminId = Guid.NewGuid();
+        var admin = new User("admin", "Admin", "admin@test.com", Guid.Empty, UserRole.Admin);
+        typeof(User).GetProperty(nameof(User.Id))!.SetValue(admin, adminId);
+        _userRepository.GetByIdAsync(adminId, Arg.Any<CancellationToken>()).Returns(admin);
+
+        var request = CreateRequest();
+
+        var tagA = CreateTag(_deptA, "DeptA-Tag");
+        var tagB = CreateTag(_deptB, "DeptB-Tag");
+
+        request.AddTag(tagA, _actorId, _deptA);
+        request.AddTag(tagB, _actorId, _deptB);
+
+        _requestRepository.SearchAsync(
+            Arg.Any<Guid?>(), Arg.Any<Guid?>(), Arg.Any<RequestStatus?>(), Arg.Any<IReadOnlyCollection<RequestStatus>?>(),
+            Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<Guid?>(),
+            Arg.Any<bool?>(), Arg.Any<IReadOnlyCollection<BudgetRequestType>?>(), Arg.Any<decimal?>(), Arg.Any<decimal?>(),
+            Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<BudgetRequestSortBy>(), Arg.Any<bool>(),
+            Arg.Any<int>(), Arg.Any<int>(), Arg.Any<Guid?>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns((new List<BudgetRequest> { request }, 1));
+
+        var query = new SearchBudgetRequestsQuery(DepartmentId: _deptA, ViewerUserId: adminId);
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(1);
+        var item = result.Value.Items[0];
+        item.Tags.Should().NotBeNull();
+        item.Tags!.Should().HaveCount(1);
+        item.Tags![0].Name.Should().Be("DeptA-Tag");
+        item.Tags[0].DepartmentId.Should().Be(_deptA);
+    }
 }
