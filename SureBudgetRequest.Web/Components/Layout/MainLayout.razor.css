@@ -47,3 +47,108 @@
 .btn-switch-back:hover {
     background: #fef3c7;
 }
+
+/* ── Switch Account Dropdown ────────────────────────────────────────────── */
+.switch-dropdown-wrap {
+    position: relative;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.switch-dropdown-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background: transparent;
+}
+
+.switch-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 240px;
+    background: #ffffff;
+    border: 1px solid var(--color-border, #e2e8f0);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    z-index: 999;
+    padding: 6px 0;
+}
+
+.switch-dropdown-header {
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted, #64748b);
+    border-bottom: 1px solid var(--color-border, #f1f5f9);
+    margin-bottom: 4px;
+}
+
+.switch-dropdown-list {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.switch-dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 150ms ease;
+    gap: 10px;
+}
+
+.switch-dropdown-item:hover {
+    background-color: var(--color-bg-row-alt, #f8fafc);
+}
+
+.switch-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4338ca;
+    font-weight: 600;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.switch-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.switch-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-dark, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.switch-role {
+    font-size: 11px;
+    color: var(--color-text-muted, #64748b);
+}
+
+.switch-arrow {
+    color: var(--color-text-muted, #94a3b8);
+    flex-shrink: 0;
+}
+
+.switch-dropdown-item:hover .switch-arrow {
+    color: var(--color-primary, #3b82f6);
+}

@@ -43,7 +43,8 @@
                         Acting as <strong>@CurrentUser.FullName</strong> (while on leave). Actions are recorded under your name (<strong>@CurrentUser.RealActorFullName</strong>).
                     </span>
                 </div>
-                <form method="post" action="/account/switch-back" style="margin:0;">
+                <form method="post" action="/account/switch-back" style="margin:0;"
+                      onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching back to your account…';if(o)o.style.display='flex';">
                     <AntiforgeryToken />
                     <button type="submit" class="btn-switch-back">
                         Switch Back to My Account
@@ -61,23 +62,66 @@
                 {
                     @if (!CurrentUser.IsFallbackPersonAct)
                     {
-                        @if (_availableDelegations.Count > 0)
+                        @if (_availableDelegations.Count == 1)
                         {
-                            <div class="flex items-center gap-1" style="margin-right:8px;">
-                                @foreach (var del in _availableDelegations)
+                            var del = _availableDelegations[0];
+                            <form method="post" action="/account/switch-user" style="display:inline;margin:0;"
+                                  onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching to @del.FullName…';if(o)o.style.display='flex';">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="targetUserId" value="@del.Id" />
+                                <button type="submit" class="btn btn-outline btn-sm" title="Act on behalf of @del.FullName">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="8.5" cy="7" r="4"/>
+                                        <polyline points="17 11 19 13 23 9"/>
+                                    </svg>
+                                    Switch to @del.FullName
+                                </button>
+                            </form>
+                        }
+                        else if (_availableDelegations.Count > 1)
+                        {
+                            <div class="switch-dropdown-wrap">
+                                <button type="button" class="btn btn-outline btn-sm" @onclick="ToggleSwitchDropdown" title="Switch account to act on behalf of a colleague">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="8.5" cy="7" r="4"/>
+                                        <polyline points="17 11 19 13 23 9"/>
+                                    </svg>
+                                    Switch Account (@_availableDelegations.Count)
+                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="margin-left:4px;">
+                                        <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                    </svg>
+                                </button>
+
+                                @if (_showSwitchDropdown)
                                 {
-                                    <form method="post" action="/account/switch-user" style="display:inline;margin:0;">
-                                        <AntiforgeryToken />
-                                        <input type="hidden" name="targetUserId" value="@del.Id" />
-                                        <button type="submit" class="btn btn-outline btn-sm" title="Act on behalf of @del.FullName">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
-                                                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                                <circle cx="8.5" cy="7" r="4"/>
-                                                <polyline points="17 11 19 13 23 9"/>
-                                            </svg>
-                                            Switch to @del.FullName
-                                        </button>
-                                    </form>
+                                    <div class="switch-dropdown-backdrop" @onclick="CloseSwitchDropdown" @onclick:stopPropagation="true"></div>
+                                    <div class="switch-dropdown-menu">
+                                        <div class="switch-dropdown-header">
+                                            Available Accounts (@_availableDelegations.Count)
+                                        </div>
+                                        <div class="switch-dropdown-list">
+                                            @foreach (var del in _availableDelegations)
+                                            {
+                                                <form method="post" action="/account/switch-user" style="display:block;margin:0;"
+                                                      onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching to @del.FullName…';if(o)o.style.display='flex';">
+                                                    <AntiforgeryToken />
+                                                    <input type="hidden" name="targetUserId" value="@del.Id" />
+                                                    <button type="submit" class="switch-dropdown-item">
+                                                        <div class="switch-avatar">@(del.FullName.Length > 0 ? del.FullName[0].ToString().ToUpper() : "?")</div>
+                                                        <div class="switch-info">
+                                                            <span class="switch-name">@del.FullName</span>
+                                                            <span class="switch-role">@del.Role</span>
+                                                        </div>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="switch-arrow">
+                                                            <polyline points="9 18 15 12 9 6"/>
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </div>
+                                    </div>
                                 }
                             </div>
                         }
@@ -114,6 +158,12 @@
 
 <ToastContainer />
 <LoadingOverlay />
+
+@* ── Instant Feedback Overlay for Account Switching ──────────────────────── *@
+<div id="switching-overlay" class="loading-overlay" style="display:none;">
+    <div class="spinner"></div>
+    <span class="loading-overlay-text" id="switching-overlay-text">Switching account…</span>
+</div>
 
 @* ── Delegation & Leave Modal ───────────────────────────────────────────────── *@
 @if (_showDelegationModal)
@@ -180,6 +230,7 @@
     private bool _sidebarCollapsed = false;
     private List<UserDto> _availableDelegations = new();
     private List<UserDto> _eligibleFallbackUsers = new();
+    private bool _showSwitchDropdown;
 
     // Leave & fallback state
     private bool _isOnLeave;
@@ -191,6 +242,8 @@
     private bool _savingDelegation;
 
     private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
+    private void ToggleSwitchDropdown() => _showSwitchDropdown = !_showSwitchDropdown;
+    private void CloseSwitchDropdown() => _showSwitchDropdown = false;
 
     protected override async Task OnInitializedAsync()
     {
