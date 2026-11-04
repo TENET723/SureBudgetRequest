@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.Users.Commands.UpdateUserFallback;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
@@ -15,13 +16,14 @@ public class UpdateUserFallbackCommandHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IDelegationRevocationNotifier _delegationNotifier = Substitute.For<IDelegationRevocationNotifier>();
 
     [Fact]
     public async Task Handle_WhenActingAsFallback_ShouldFailWithForbidden()
     {
         // Arrange
         _currentUser.IsFallbackPersonAct.Returns(true);
-        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork);
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
         var command = new UpdateUserFallbackCommand(Guid.NewGuid(), Guid.NewGuid(), false);
 
         // Act
@@ -42,7 +44,7 @@ public class UpdateUserFallbackCommandHandlerTests
         _currentUser.RealActorUserId.Returns(myId);
         _currentUser.Role.Returns(UserRole.Employee);
 
-        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork);
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
         var command = new UpdateUserFallbackCommand(otherUserId, Guid.NewGuid(), false);
 
         // Act
@@ -64,7 +66,7 @@ public class UpdateUserFallbackCommandHandlerTests
         var user = new User("myuser", "My User", "user@test.com", Guid.NewGuid(), UserRole.Employee);
         _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
 
-        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork);
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
         var command = new UpdateUserFallbackCommand(myId, myId, false);
 
         // Act
@@ -86,7 +88,7 @@ public class UpdateUserFallbackCommandHandlerTests
         var user = new User("myuser", "My User", "user@test.com", Guid.NewGuid(), UserRole.Employee);
         _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
 
-        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork);
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
         var command = new UpdateUserFallbackCommand(myId, null, true);
 
         // Act
@@ -112,7 +114,7 @@ public class UpdateUserFallbackCommandHandlerTests
         _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
         _userRepository.GetByIdAsync(fallbackId, Arg.Any<CancellationToken>()).Returns(fallbackUser);
 
-        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork);
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
         var command = new UpdateUserFallbackCommand(myId, fallbackId, true);
 
         // Act
@@ -123,5 +125,98 @@ public class UpdateUserFallbackCommandHandlerTests
         user.FallbackUserId.Should().Be(fallbackId);
         user.IsOnLeave.Should().BeTrue();
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _delegationNotifier.DidNotReceive().NotifyRevocation(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenSettingOnLeaveFalse_ShouldNotifyRevocation()
+    {
+        // Arrange
+        var myId = Guid.NewGuid();
+        var fallbackId = Guid.NewGuid();
+        _currentUser.IsFallbackPersonAct.Returns(false);
+        _currentUser.RealActorUserId.Returns(myId);
+
+        var user = new User("myuser", "My User", "user@test.com", Guid.NewGuid(), UserRole.Employee);
+        var fallbackUser = new User("fallback", "Fallback User", "fb@test.com", Guid.NewGuid(), UserRole.Employee);
+        user.SetFallbackUser(fallbackId);
+        user.SetOnLeave(true);
+
+        _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
+        _userRepository.GetByIdAsync(fallbackId, Arg.Any<CancellationToken>()).Returns(fallbackUser);
+
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
+        var command = new UpdateUserFallbackCommand(myId, fallbackId, false);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        user.IsOnLeave.Should().BeFalse();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _delegationNotifier.Received(1).NotifyRevocation(myId);
+    }
+
+    [Fact]
+    public async Task Handle_WhenClearingFallbackUser_ShouldNotifyRevocation()
+    {
+        // Arrange
+        var myId = Guid.NewGuid();
+        var fallbackId = Guid.NewGuid();
+        _currentUser.IsFallbackPersonAct.Returns(false);
+        _currentUser.RealActorUserId.Returns(myId);
+
+        var user = new User("myuser", "My User", "user@test.com", Guid.NewGuid(), UserRole.Employee);
+        user.SetFallbackUser(fallbackId);
+        user.SetOnLeave(true);
+
+        _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
+
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
+        var command = new UpdateUserFallbackCommand(myId, null, false);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        user.FallbackUserId.Should().BeNull();
+        user.IsOnLeave.Should().BeFalse();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _delegationNotifier.Received(1).NotifyRevocation(myId);
+    }
+
+    [Fact]
+    public async Task Handle_WhenChangingFallbackUserWhileOnLeave_ShouldNotifyRevocation()
+    {
+        // Arrange
+        var myId = Guid.NewGuid();
+        var oldFallbackId = Guid.NewGuid();
+        var newFallbackId = Guid.NewGuid();
+        _currentUser.IsFallbackPersonAct.Returns(false);
+        _currentUser.RealActorUserId.Returns(myId);
+
+        var user = new User("myuser", "My User", "user@test.com", Guid.NewGuid(), UserRole.Employee);
+        user.SetFallbackUser(oldFallbackId);
+        user.SetOnLeave(true);
+
+        var newFallbackUser = new User("newfb", "New Fallback", "newfb@test.com", Guid.NewGuid(), UserRole.Employee);
+
+        _userRepository.GetByIdAsync(myId, Arg.Any<CancellationToken>()).Returns(user);
+        _userRepository.GetByIdAsync(newFallbackId, Arg.Any<CancellationToken>()).Returns(newFallbackUser);
+
+        var handler = new UpdateUserFallbackCommandHandler(_userRepository, _currentUser, _unitOfWork, _delegationNotifier);
+        var command = new UpdateUserFallbackCommand(myId, newFallbackId, true);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        user.FallbackUserId.Should().Be(newFallbackId);
+        user.IsOnLeave.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _delegationNotifier.Received(1).NotifyRevocation(myId);
     }
 }

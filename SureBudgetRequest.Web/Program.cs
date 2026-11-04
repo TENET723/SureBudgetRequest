@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediatR;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -5,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SureBudgetRequest.Application;
 using SureBudgetRequest.Application.Abstractions;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Infrastructure;
 using SureBudgetRequest.Infrastructure.Persistence;
@@ -60,6 +62,39 @@ builder.Services
         // 8-hour sliding session — users typically log in once per workday.
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+
+        options.Events.OnValidatePrincipal = async context =>
+        {
+            var principal = context.Principal;
+            if (principal is null) return;
+
+            var isFallback = string.Equals(
+                principal.FindFirst(CurrentUserService.ClaimIsFallbackPersonAct)?.Value,
+                "true",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (!isFallback) return;
+
+            var targetUserIdStr = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var realActorIdStr = principal.FindFirst(CurrentUserService.ClaimRealActorUserId)?.Value;
+
+            if (!Guid.TryParse(targetUserIdStr, out var targetUserId) ||
+                !Guid.TryParse(realActorIdStr, out var realActorId))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                return;
+            }
+
+            var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            var targetUser = await dbContext.Users.FindAsync(targetUserId);
+
+            if (targetUser is null || !targetUser.IsActive || !targetUser.IsOnLeave || targetUser.FallbackUserId != realActorId)
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
+        };
     });
 
 builder.Services.AddAuthorization();
@@ -84,6 +119,7 @@ builder.Services.AddScoped<SureBudgetRequest.Web.Services.ToastService>();
 // Circuit-scoped global busy signal for the full-screen LoadingOverlay.
 builder.Services.AddScoped<BusyState>();
 builder.Services.AddScoped<FilterStateService>();
+builder.Services.AddSingleton<IDelegationRevocationNotifier, DelegationRevocationNotifier>();
 
 var app = builder.Build();
 
@@ -133,8 +169,8 @@ app.MapReportEndpoints();
 // Account HTTP endpoints (user switching, delegation).
 app.MapAccountEndpoints();
 
-// Logout endpoint. Form-posted from MainLayout with an antiforgery token.
-app.MapPost("/logout", async (HttpContext ctx) =>
+// Logout endpoint. Form-posted from MainLayout with an antiforgery token or GET-redirected on delegation revocation.
+app.MapMethods("/logout", ["GET", "POST"], async (HttpContext ctx) =>
 {
     await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
     return Results.Redirect("/login");

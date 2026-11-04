@@ -1,6 +1,7 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
+using SureBudgetRequest.Application.Abstractions.Services;
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
@@ -18,15 +19,18 @@ public sealed class UpdateUserFallbackCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDelegationRevocationNotifier _delegationNotifier;
 
     public UpdateUserFallbackCommandHandler(
         IUserRepository userRepository,
         ICurrentUser currentUser,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IDelegationRevocationNotifier delegationNotifier)
     {
         _userRepository = userRepository;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
+        _delegationNotifier = delegationNotifier;
     }
 
     public async Task<Result> Handle(UpdateUserFallbackCommand command, CancellationToken ct)
@@ -59,10 +63,21 @@ public sealed class UpdateUserFallbackCommandHandler
             return Result.Failure(UserErrors.LeaveRequiresFallback);
         }
 
+        var previousFallbackUserId = user.FallbackUserId;
+
         user.SetFallbackUser(command.FallbackUserId);
         user.SetOnLeave(command.IsOnLeave);
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        var fallbackChanged = previousFallbackUserId.HasValue && previousFallbackUserId != user.FallbackUserId;
+        var leaveRevoked = !user.IsOnLeave || !user.FallbackUserId.HasValue;
+
+        if (fallbackChanged || leaveRevoked)
+        {
+            _delegationNotifier.NotifyRevocation(command.UserId);
+        }
+
         return Result.Success();
     }
 }
