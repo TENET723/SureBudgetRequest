@@ -40,6 +40,7 @@ public sealed class UpdateBudgetRequestCommandHandler
     private readonly IUnitOfWork _unitOfWork;
     private readonly IFileStorage _fileStorage;
     private readonly ILogger<UpdateBudgetRequestCommandHandler> _logger;
+    private readonly ICurrentUser? _currentUser;
 
     public UpdateBudgetRequestCommandHandler(
         IBudgetRequestRepository repository,
@@ -49,7 +50,8 @@ public sealed class UpdateBudgetRequestCommandHandler
         IBudgetRequestModificationRepository modificationRepository,
         IUnitOfWork unitOfWork,
         IFileStorage fileStorage,
-        ILogger<UpdateBudgetRequestCommandHandler> logger)
+        ILogger<UpdateBudgetRequestCommandHandler> logger,
+        ICurrentUser? currentUser = null)
     {
         _repository = repository;
         _currencyRepository = currencyRepository;
@@ -59,6 +61,7 @@ public sealed class UpdateBudgetRequestCommandHandler
         _unitOfWork = unitOfWork;
         _fileStorage = fileStorage;
         _logger = logger;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(
@@ -142,8 +145,9 @@ public sealed class UpdateBudgetRequestCommandHandler
         }
 
         // Record the modification in the audit trail.
+        var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
         await _modificationRepository.AddAsync(
-            new BudgetRequestModification(request.Id, command.ActorId, command.Note),
+            new BudgetRequestModification(request.Id, command.ActorId, command.Note, fallbackUserId),
             cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

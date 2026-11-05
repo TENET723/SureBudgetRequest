@@ -28,6 +28,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IDateTimeProvider _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationDispatcher _dispatcher;
+    private readonly ICurrentUser? _currentUser;
 
     public SubmitRequestCommandHandler(
         IBudgetRequestRepository budgetRequestRepository,
@@ -40,7 +41,8 @@ public sealed class SubmitRequestCommandHandler
         IAppSettingRepository appSettingRepository,
         IDateTimeProvider clock,
         IUnitOfWork unitOfWork,
-        INotificationDispatcher dispatcher)
+        INotificationDispatcher dispatcher,
+        ICurrentUser? currentUser = null)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
@@ -53,6 +55,7 @@ public sealed class SubmitRequestCommandHandler
         _clock = clock;
         _unitOfWork = unitOfWork;
         _dispatcher = dispatcher;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(
@@ -153,8 +156,9 @@ public sealed class SubmitRequestCommandHandler
         if (result.IsFailure) return result;
 
         // Record the submission in the audit trail.
+        var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
         await _modificationRepository.AddAsync(
-            new BudgetRequestModification(budgetRequest.Id, command.RequesterId),
+            new BudgetRequestModification(budgetRequest.Id, command.RequesterId, fallbackUserId: fallbackUserId),
             cancellationToken);
 
         // Dispatch FIRST so the outbox entry joins the same transaction.

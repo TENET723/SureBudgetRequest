@@ -27,6 +27,7 @@ public sealed class AddTagToRequestCommandHandler
     private readonly IAppSettingRepository _appSettingRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUser? _currentUser;
 
     public AddTagToRequestCommandHandler(
         IBudgetRequestRepository requestRepository,
@@ -35,7 +36,8 @@ public sealed class AddTagToRequestCommandHandler
         IDepartmentRepository departmentRepository,
         IAppSettingRepository appSettingRepository,
         IBudgetRequestModificationRepository modificationRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentUser? currentUser = null)
     {
         _requestRepository = requestRepository;
         _tagRepository = tagRepository;
@@ -44,6 +46,7 @@ public sealed class AddTagToRequestCommandHandler
         _appSettingRepository = appSettingRepository;
         _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(AddTagToRequestCommand command, CancellationToken ct)
@@ -98,8 +101,9 @@ public sealed class AddTagToRequestCommandHandler
             var dept = await _departmentRepository.GetByIdAsync(tag.DepartmentId, ct);
             var deptName = dept?.Name ?? "Department";
 
+            var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
             await _modificationRepository.AddAsync(
-                new BudgetRequestModification(request.Id, actor.Id, $"Added tag '{tag.Name}' ({deptName})"),
+                new BudgetRequestModification(request.Id, actor.Id, $"Added tag '{tag.Name}' ({deptName})", fallbackUserId),
                 ct);
 
             await _unitOfWork.SaveChangesAsync(ct);

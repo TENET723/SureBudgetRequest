@@ -10,7 +10,9 @@ public sealed record BudgetRequestModificationDto(
     Guid ModifiedByUserId,
     string ModifiedByUserName,
     DateTime ModifiedAt,
-    string? Note);
+    string? Note,
+    Guid? FallbackUserId = null,
+    string? FallbackUserName = null);
 
 public sealed record GetBudgetRequestHistoryQuery(Guid BudgetRequestId) : IRequest<Result<IReadOnlyList<BudgetRequestModificationDto>>>;
 
@@ -46,13 +48,26 @@ public sealed class GetBudgetRequestHistoryQueryHandler
                 userCache[log.ModifiedByUserId] = userName;
             }
 
+            string? fallbackUserName = null;
+            if (log.FallbackUserId.HasValue)
+            {
+                if (!userCache.TryGetValue(log.FallbackUserId.Value, out fallbackUserName))
+                {
+                    var fbUser = await _userRepository.GetByIdAsync(log.FallbackUserId.Value, cancellationToken);
+                    fallbackUserName = fbUser?.FullName ?? "Unknown User";
+                    userCache[log.FallbackUserId.Value] = fallbackUserName;
+                }
+            }
+
             dtos.Add(new BudgetRequestModificationDto(
                 log.Id,
                 log.BudgetRequestId,
                 log.ModifiedByUserId,
                 userName,
                 log.ModifiedAt,
-                log.Note));
+                log.Note,
+                log.FallbackUserId,
+                fallbackUserName));
         }
 
         return Result.Success<IReadOnlyList<BudgetRequestModificationDto>>(dtos);

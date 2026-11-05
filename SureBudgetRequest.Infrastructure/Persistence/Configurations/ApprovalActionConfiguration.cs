@@ -18,8 +18,16 @@ public class ApprovalActionConfiguration : IEntityTypeConfiguration<ApprovalActi
         builder.Property(a => a.ApproverId).IsRequired();
         builder.Property(a => a.Comment).HasMaxLength(1000);
         builder.Property(a => a.ActionedAt).IsRequired();
+        builder.Property(a => a.FallbackUserId);
+
+        // FK to Users (FallbackUser)
+        builder.HasOne<User>()
+            .WithMany()
+            .HasForeignKey(a => a.FallbackUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(a => a.BudgetRequestId);
         builder.HasIndex(a => a.ApproverId);
+        builder.HasIndex(a => a.FallbackUserId);
     }
 }

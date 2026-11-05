@@ -92,7 +92,8 @@ public sealed class ApproveRequestCommandHandler
             : (DateTime?)null;
 
         var previousStatus = budgetRequest.Status;
-        var result = budgetRequest.ApproveBy(command.ApproverId, command.CoaId, reconciliationDeadline);
+        var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
+        var result = budgetRequest.ApproveBy(command.ApproverId, command.CoaId, reconciliationDeadline, fallbackUserId);
         if (result.IsFailure) return result;
 
         var actorName = _currentUser?.IsFallbackPersonAct == true

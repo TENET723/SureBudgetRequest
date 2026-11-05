@@ -11,6 +11,8 @@ public class ApprovalAction
     public Guid ApproverId { get; private set; }
     public string? Comment { get; private set; }
     public DateTime ActionedAt { get; private set; }
+    public Guid? FallbackUserId { get; private set; }
+    public bool IsFallback => FallbackUserId.HasValue;
 
     // For EF Core
     private ApprovalAction() { }
@@ -23,7 +25,8 @@ public class ApprovalAction
         ApprovalDecision decision,
         Guid approverId,
         string? comment,
-        DateTime actionedAt)
+        DateTime actionedAt,
+        Guid? fallbackUserId = null)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -32,5 +35,6 @@ public class ApprovalAction
         ApproverId = approverId;
         Comment = comment;
         ActionedAt = actionedAt;
+        FallbackUserId = fallbackUserId;
     }
 }

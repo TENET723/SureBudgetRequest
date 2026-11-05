@@ -171,10 +171,11 @@ public sealed record ApprovalActionDto(
     ApprovalDecision Decision,
     Guid ApproverId,
     string? Comment,
-    DateTime ActionedAt)
+    DateTime ActionedAt,
+    Guid? FallbackUserId = null)
 {
     public static ApprovalActionDto FromEntity(ApprovalAction e) => new(
-        e.Id, e.Stage, e.Decision, e.ApproverId, e.Comment, e.ActionedAt);
+        e.Id, e.Stage, e.Decision, e.ApproverId, e.Comment, e.ActionedAt, e.FallbackUserId);
 }
 
 public sealed record PaymentDto(

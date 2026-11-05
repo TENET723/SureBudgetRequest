@@ -11,11 +11,17 @@ public class BudgetRequestModification
     public Guid ModifiedByUserId { get; private set; }
     public DateTime ModifiedAt { get; private set; }
     public string? Note { get; private set; }
+    public Guid? FallbackUserId { get; private set; }
+    public bool IsFallback => FallbackUserId.HasValue;
 
     // For EF Core
     private BudgetRequestModification() { }
 
-    public BudgetRequestModification(Guid budgetRequestId, Guid modifiedByUserId, string? note = null)
+    public BudgetRequestModification(
+        Guid budgetRequestId,
+        Guid modifiedByUserId,
+        string? note = null,
+        Guid? fallbackUserId = null)
     {
         if (budgetRequestId == Guid.Empty)
             throw new ArgumentException("Budget request ID is required.", nameof(budgetRequestId));
@@ -26,5 +32,6 @@ public class BudgetRequestModification
         ModifiedByUserId = modifiedByUserId;
         ModifiedAt = DateTime.UtcNow;
         Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        FallbackUserId = fallbackUserId;
     }
 }

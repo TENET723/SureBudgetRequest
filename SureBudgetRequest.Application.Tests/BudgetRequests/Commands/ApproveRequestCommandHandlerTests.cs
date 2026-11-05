@@ -411,4 +411,42 @@ public class ApproveRequestCommandHandlerTests
         await _dispatcher.Received(1).DispatchAsync(request, RequestStatus.PendingDeptHead, deptHeadId, "Dept Head Name", null, ct);
         await _unitOfWork.Received(1).SaveChangesAsync(ct);
     }
+
+    [Fact]
+    public async Task Handle_WhenFallbackPersonActs_RecordsFallbackUserIdInApprovalAction()
+    {
+        // Arrange
+        var deptHeadId = Guid.NewGuid();
+        var fallbackUserId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(Guid.NewGuid(), deptHeadId);
+        var deptHead = new User("depthead", "Dept Head Name", "head@sure.com", Guid.NewGuid(), UserRole.Employee);
+
+        var currentUser = Substitute.For<ICurrentUser>();
+        currentUser.IsFallbackPersonAct.Returns(true);
+        currentUser.RealActorUserId.Returns(fallbackUserId);
+        currentUser.RealActorFullName.Returns("Fallback Person");
+
+        var handler = new ApproveRequestCommandHandler(
+            _budgetRequestRepository,
+            _userRepository,
+            _coaRepository,
+            _unitOfWork,
+            _dispatcher,
+            currentUser);
+
+        _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
+        _userRepository.GetByIdAsync(deptHeadId, Arg.Any<CancellationToken>()).Returns(deptHead);
+
+        var command = new ApproveRequestCommand(request.Id, deptHeadId);
+
+        // Act
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.ApprovalActions.Should().ContainSingle();
+        var action = request.ApprovalActions.Single();
+        action.FallbackUserId.Should().Be(fallbackUserId);
+        action.IsFallback.Should().BeTrue();
+    }
 }

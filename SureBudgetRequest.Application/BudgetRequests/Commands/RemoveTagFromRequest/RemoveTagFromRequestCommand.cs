@@ -25,6 +25,7 @@ public sealed class RemoveTagFromRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICurrentUser? _currentUser;
 
     public RemoveTagFromRequestCommandHandler(
         IBudgetRequestRepository requestRepository,
@@ -32,7 +33,8 @@ public sealed class RemoveTagFromRequestCommandHandler
         IUserRepository userRepository,
         IDepartmentRepository departmentRepository,
         IBudgetRequestModificationRepository modificationRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICurrentUser? currentUser = null)
     {
         _requestRepository = requestRepository;
         _tagRepository = tagRepository;
@@ -40,6 +42,7 @@ public sealed class RemoveTagFromRequestCommandHandler
         _departmentRepository = departmentRepository;
         _modificationRepository = modificationRepository;
         _unitOfWork = unitOfWork;
+        _currentUser = currentUser;
     }
 
     public async Task<Result> Handle(RemoveTagFromRequestCommand command, CancellationToken ct)
@@ -71,8 +74,9 @@ public sealed class RemoveTagFromRequestCommandHandler
             var dept = await _departmentRepository.GetByIdAsync(tag.DepartmentId, ct);
             var deptName = dept?.Name ?? "Department";
 
+            var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
             await _modificationRepository.AddAsync(
-                new BudgetRequestModification(request.Id, actor.Id, $"Removed tag '{tag.Name}' ({deptName})"),
+                new BudgetRequestModification(request.Id, actor.Id, $"Removed tag '{tag.Name}' ({deptName})", fallbackUserId),
                 ct);
 
             await _unitOfWork.SaveChangesAsync(ct);

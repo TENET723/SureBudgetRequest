@@ -578,6 +578,10 @@ else
                                     </div>
                                     <div class="tl-meta">
                                         @(_userNames.TryGetValue(a.ApproverId, out var an) ? an : "System")
+                                        @if (a.FallbackUserId.HasValue)
+                                        {
+                                            <span class="text-xs text-muted"> (acting: @(_userNames.TryGetValue(a.FallbackUserId.Value, out var fbn) ? fbn : "Fallback Person"))</span>
+                                        }
                                         · @a.ActionedAt.ToMyanmarTime()
                                     </div>
                                     @if (!string.IsNullOrEmpty(a.Comment))
@@ -1390,7 +1394,13 @@ else
                                         <tr>
                                             <td class="col-no">@histNo</td>
                                             <td class="nowrap">@h.ModifiedAt.ToMyanmarTime()</td>
-                                            <td>@h.ModifiedByUserName</td>
+                                            <td>
+                                                @h.ModifiedByUserName
+                                                @if (!string.IsNullOrEmpty(h.FallbackUserName))
+                                                {
+                                                    <div class="text-xs text-muted">acting: @h.FallbackUserName</div>
+                                                }
+                                            </td>
                                             <td class="text-muted-cell">@(string.IsNullOrWhiteSpace(h.Note) ? "—" : h.Note)</td>
                                         </tr>
                                     }
@@ -2375,7 +2385,11 @@ else
             _request = result.Value;
             // Resolve all user IDs in one pass
             var ids = new HashSet<Guid> { _request.RequesterId, _request.DeptHeadIdAtSubmission };
-            foreach (var a in _request.ApprovalActions) ids.Add(a.ApproverId);
+            foreach (var a in _request.ApprovalActions)
+            {
+                ids.Add(a.ApproverId);
+                if (a.FallbackUserId.HasValue) ids.Add(a.FallbackUserId.Value);
+            }
             foreach (var p in _request.Payments) ids.Add(p.RecordedByUserId);
             foreach (var id in ids)
             {

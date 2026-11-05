@@ -70,7 +70,8 @@ public sealed class SendBackRequestCommandHandler
             return Result.Failure(BudgetRequestErrors.FinanceApproverRequired);
 
         var previousStatus = budgetRequest.Status;
-        var result = budgetRequest.SendBack(command.ApproverId, command.Comment);
+        var fallbackUserId = _currentUser?.IsFallbackPersonAct == true ? _currentUser.RealActorUserId : (Guid?)null;
+        var result = budgetRequest.SendBack(command.ApproverId, command.Comment, fallbackUserId);
         if (result.IsFailure) return result;
 
         var actorName = _currentUser?.IsFallbackPersonAct == true

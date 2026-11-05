@@ -119,6 +119,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("decision");
 
+                    b.Property<Guid?>("FallbackUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("fallback_user_id");
+
                     b.Property<int>("Stage")
                         .HasColumnType("integer")
                         .HasColumnName("stage");
@@ -131,6 +135,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
                     b.HasIndex("BudgetRequestId")
                         .HasDatabaseName("ix_approval_actions_budget_request_id");
+
+                    b.HasIndex("FallbackUserId")
+                        .HasDatabaseName("ix_approval_actions_fallback_user_id");
 
                     b.ToTable("approval_actions", (string)null);
                 });
@@ -500,6 +507,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("budget_request_id");
 
+                    b.Property<Guid?>("FallbackUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("fallback_user_id");
+
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_at");
@@ -518,6 +529,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
                     b.HasIndex("BudgetRequestId")
                         .HasDatabaseName("ix_budget_request_modifications_budget_request_id");
+
+                    b.HasIndex("FallbackUserId")
+                        .HasDatabaseName("ix_budget_request_modifications_fallback_user_id");
 
                     b.HasIndex("ModifiedAt")
                         .HasDatabaseName("ix_budget_request_modifications_modified_at");
@@ -1103,6 +1117,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_approval_actions_budget_requests_budget_request_id");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FallbackUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_approval_actions_users_fallback_user_id");
                 });
 
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Attachment", b =>
@@ -1163,6 +1183,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_budget_request_modifications_budget_requests_budget_request");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("FallbackUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_budget_request_modifications_users_fallback_user_id");
 
                     b.HasOne("SureBudgetRequest.Domain.Entities.User", null)
                         .WithMany()

@@ -18,7 +18,7 @@ public partial class BudgetRequest
     /// request is an <see cref="BudgetRequestType.Advance"/>, and must be null
     /// for every other type. Ignored at non-Finance stages.
     /// </summary>
-    public Result ApproveBy(Guid approverId, Guid? coaId = null, DateTime? reconciliationDeadline = null)
+    public Result ApproveBy(Guid approverId, Guid? coaId = null, DateTime? reconciliationDeadline = null, Guid? fallbackUserId = null)
     {
         if (Status is not RequestStatus.PendingDeptHead
             and not RequestStatus.PendingManagement
@@ -67,7 +67,7 @@ public partial class BudgetRequest
 
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
-            Id, stage, ApprovalDecision.Approved, approverId, comment: null, actionedAt: now));
+            Id, stage, ApprovalDecision.Approved, approverId, comment: null, actionedAt: now, fallbackUserId: fallbackUserId));
 
         // Whether the Management stage is required is derivable from the existing
         // submission snapshot — no need for a dedicated flag.
@@ -103,7 +103,7 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
-    public Result Reject(Guid approverId, string comment)
+    public Result Reject(Guid approverId, string comment, Guid? fallbackUserId = null)
     {
         if (string.IsNullOrWhiteSpace(comment))
             return Result.Failure("A comment is required when rejecting.");
@@ -121,14 +121,14 @@ public partial class BudgetRequest
 
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
-            Id, stage.Value, ApprovalDecision.Rejected, approverId, comment, actionedAt: now));
+            Id, stage.Value, ApprovalDecision.Rejected, approverId, comment, actionedAt: now, fallbackUserId: fallbackUserId));
 
         Status = RequestStatus.Rejected;
         FinalizedAt = now;
         return Result.Success();
     }
 
-    public Result SendBack(Guid approverId, string comment)
+    public Result SendBack(Guid approverId, string comment, Guid? fallbackUserId = null)
     {
         // Send-back is available at every approval stage and also after Finance approval (before any payment).
         // The action is recorded against whichever stage the request currently sits at (mirrors Reject()).
@@ -158,7 +158,7 @@ public partial class BudgetRequest
 
         var now = DateTime.UtcNow;
         _approvalActions.Add(new ApprovalAction(
-            Id, stage.Value, ApprovalDecision.SentBack, approverId, comment, actionedAt: now));
+            Id, stage.Value, ApprovalDecision.SentBack, approverId, comment, actionedAt: now, fallbackUserId: fallbackUserId));
 
         Status = RequestStatus.SentBack;
         ApprovedAmount = 0;
