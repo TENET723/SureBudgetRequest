@@ -49,6 +49,10 @@
                         <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
                 </button>
+                @if (t.DurationMs > 0)
+                {
+                    <div class="toast-progress-bar" style="animation-duration:@(t.DurationMs)ms;"></div>
+                }
             </div>
         }
     </div>
@@ -57,11 +61,16 @@
 @code {
     protected override void OnInitialized()
     {
-        Toast.OnChange += StateHasChanged;
+        Toast.OnChange += HandleToastChange;
+    }
+
+    private void HandleToastChange()
+    {
+        _ = InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
     {
-        Toast.OnChange -= StateHasChanged;
+        Toast.OnChange -= HandleToastChange;
     }
 }

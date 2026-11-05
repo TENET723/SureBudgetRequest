@@ -461,6 +461,8 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 /* 12. Toast */
 .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
 .toast {
+  position: relative;
+  overflow: hidden;
   background: white; border-radius: var(--radius-md); box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06);
   border-left: 4px solid; padding: 14px 16px; min-width: 320px; max-width: 420px;
   display: flex; gap: 12px; align-items: flex-start;
@@ -471,6 +473,24 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .toast-error   { border-left-color: var(--color-danger); }
 .toast-warning { border-left-color: var(--color-warning); }
 .toast-info    { border-left-color: var(--color-info); }
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  animation-name: toastProgress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.toast-success .toast-progress-bar { background: var(--color-success); opacity: 0.4; }
+.toast-error   .toast-progress-bar { background: var(--color-danger); opacity: 0.4; }
+.toast-warning .toast-progress-bar { background: var(--color-warning); opacity: 0.4; }
+.toast-info    .toast-progress-bar { background: var(--color-info); opacity: 0.4; }
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
 @keyframes toastIn { from { transform: translateX(24px) scale(0.97); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
 .toast-icon { flex-shrink: 0; margin-top: 1px; }
 .toast-content { flex: 1; min-width: 0; }
