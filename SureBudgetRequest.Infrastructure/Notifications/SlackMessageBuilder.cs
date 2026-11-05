@@ -132,6 +132,9 @@ internal static class SlackMessageBuilder
             NotificationTrigger.FinancePaidToRequester
                 => $"ID: {reference} is marked as paid by {actor}. 💸",
 
+            NotificationTrigger.PaymentVoidedToRequester
+                => $"ID: {reference}: a payment record was voided by {actor}. ⚠️",
+
             NotificationTrigger.SentBackToRequester
                 => $"ID: {reference} was sent back by {actor} for revision. 🔄",
 

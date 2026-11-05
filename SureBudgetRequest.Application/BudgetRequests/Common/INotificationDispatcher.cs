@@ -51,4 +51,15 @@ public interface INotificationDispatcher
         BudgetRequest request,
         string? actorName,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies the requester that a payment record was voided by Finance.
+    /// Call AFTER <c>BudgetRequest.VoidPayment</c>.
+    /// </summary>
+    Task DispatchPaymentVoidedAsync(
+        BudgetRequest request,
+        decimal amount,
+        string currencyCode,
+        string? actorName,
+        CancellationToken cancellationToken);
 }

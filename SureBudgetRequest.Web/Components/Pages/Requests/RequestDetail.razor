@@ -12,6 +12,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.VoidPayment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.AddAdvanceUsage
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateAdvanceUsage
@@ -618,9 +619,9 @@ else
                 <div class="card-body">
                     <div class="section-head">
                         <h6 class="text-sm font-semibold">Payments</h6>
-                        @if (_request.Payments.Any())
+                        @if (_request.Payments.Any(x => !x.IsVoided))
                         {
-                            <span class="badge-total">Total Paid : @_request.Payments.Sum(x => x.Amount).ToString("N2") @_request.CurrencyCode</span>
+                            <span class="badge-total">Total Paid : @_request.Payments.Where(x => !x.IsVoided).Sum(x => x.Amount).ToString("N2") @_request.CurrencyCode</span>
                         }
                     </div>
                     @if (_request.Payments.Any())
@@ -636,6 +637,10 @@ else
                                         <th>Reference</th>
                                         <th>Receipt</th>
                                         <th>Recorded By</th>
+                                        @if (CanVoidPayment)
+                                        {
+                                            <th class="sticky-action-col"></th>
+                                        }
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -644,10 +649,16 @@ else
                                     {
                                         payNo++;
                                         var paidLocal = p.PaidAt.ToMyanmarDateTime();
-                                        <tr>
+                                        <tr class="clickable-row" style="@(p.IsVoided ? "opacity: 0.6;" : "")">
                                             <td class="col-no">@payNo</td>
                                             <td class="nowrap">@paidLocal.ToString("d/M/yyyy h:mm tt")</td>
-                                            <td class="text-end font-semibold tabular">@p.Amount.ToString("N2")</td>
+                                            <td class="text-end font-semibold tabular">
+                                                <span style="@(p.IsVoided ? "text-decoration: line-through;" : "")">@p.Amount.ToString("N2")</span>
+                                                @if (p.IsVoided)
+                                                {
+                                                    <span class="badge badge-xs badge-rejected ms-1" style="font-size:0.65rem;">VOIDED</span>
+                                                }
+                                            </td>
                                             <td>
                                                 @if (!string.IsNullOrWhiteSpace(p.SourceBankName))
                                                 {
@@ -677,7 +688,33 @@ else
                                                     <span class="text-muted">—</span>
                                                 }
                                             </td>
-                                            <td>@(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")</td>
+                                            <td>
+                                                @(_userNames.TryGetValue(p.RecordedByUserId, out var pn) ? pn : "—")
+                                                @if (p.IsVoided && p.VoidedByUserId.HasValue)
+                                                {
+                                                    <div class="text-xs text-muted">
+                                                        Voided by @(_userNames.TryGetValue(p.VoidedByUserId.Value, out var vn) ? vn : "Finance")
+                                                    </div>
+                                                }
+                                            </td>
+                                            @if (CanVoidPayment)
+                                            {
+                                                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                                    @if (!p.IsVoided)
+                                                    {
+                                                        <div class="row-hover-btn-wrapper">
+                                                            <div class="row-hover-backdrop"></div>
+                                                            <button type="button" class="btn-three-dots btn-void-row" title="Void Payment"
+                                                                    @onclick="() => OpenVoidPaymentModal(p)" disabled="@_actioning">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </td>
+                                            }
                                         </tr>
                                     }
                                 </tbody>
@@ -1123,6 +1160,38 @@ else
                     <button class="btn btn-outline btn-sm" @onclick="CancelPaymentModal" disabled="@_actioning">Cancel</button>
                     <button class="btn btn-success btn-sm" @onclick="DoRecordPayment" disabled="@(_actioning || _pendingPaymentReceipts.Any(p => p.Uploading))">Record Payment</button>
                 </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Void Payment Modal ────────────────────────────────────────────────────── *@
+@if (_showVoidPaymentModal && _targetPaymentToVoid is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h6 class="modal-title">Void Payment</h6>
+                <button class="btn btn-icon modal-close" @onclick="() => _showVoidPaymentModal = false" aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm">
+                    Are you sure you want to void this payment of <strong>@_targetPaymentToVoid.Amount.ToString("N2") @_request.CurrencyCode</strong> paid on @_targetPaymentToVoid.PaidAt.ToMyanmarDateTime().ToString("d/M/yyyy h:mm tt")?
+                </p>
+                <div class="alert alert-warning text-xs mt-3">
+                    This will mark this payment as voided and adjust the request status and remaining balance accordingly.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="() => _showVoidPaymentModal = false" disabled="@_actioning">Cancel</button>
+                <button class="btn btn-danger btn-sm" @onclick="DoVoidPayment" disabled="@_actioning">
+                    @if (_actioning && _actionTarget == "voidpayment") { <span class="spinner spinner-sm mr-1"></span> }
+                    Confirm Void
+                </button>
             </div>
         </div>
     </div>
@@ -2338,6 +2407,51 @@ else
         return $"{bytes / (1024.0 * 1024.0):F1} MB";
     }
 
+
+    private bool CanVoidPayment => IsFinance && _request is not null
+        && _request.Status is RequestStatus.PartiallyPaid or RequestStatus.Paid or RequestStatus.PendingReconciliation
+        && (_request.Type != BudgetRequestType.Advance || _request.AdvanceUsages.Count == 0);
+
+    private bool _showVoidPaymentModal;
+    private PaymentDto? _targetPaymentToVoid;
+
+    private void OpenVoidPaymentModal(PaymentDto payment)
+    {
+        _targetPaymentToVoid = payment;
+        _showVoidPaymentModal = true;
+    }
+
+    private async Task DoVoidPayment()
+    {
+        if (_targetPaymentToVoid is null || _actioning) return;
+        _actioning = true;
+        _actionTarget = "voidpayment";
+        _actionError = null;
+        try
+        {
+            var result = await Mediator.Send(new VoidPaymentCommand(Id, _targetPaymentToVoid.Id, CurrentUser.UserId));
+            if (result.IsFailure)
+            {
+                _actionError = result.Error.Message;
+            }
+            else
+            {
+                _showVoidPaymentModal = false;
+                _targetPaymentToVoid = null;
+                _actionSuccess = "Payment voided successfully. Request status has been reverted.";
+                await LoadRequest();
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Failed to void payment: {ex.Message}";
+        }
+        finally
+        {
+            _actioning = false;
+            _actionTarget = null;
+        }
+    }
 
     private bool CanEditUsage => _request is not null
         && _request.Status == RequestStatus.PendingReconciliation

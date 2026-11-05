@@ -242,4 +242,138 @@ public class BudgetRequestPaymentsTests
         payment.SourceAccountNumber.Should().Be("0123456789");
         payment.SourceAccountHolderName.Should().Be("Company Payroll");
     }
+    // =========================================================================
+    // =========================================================================
+    // 6. Void / Soft-Void Payment Invariants
+    // =========================================================================
+
+    [Fact]
+    public void VoidPayment_NonExistentPayment_ShouldFail()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m);
+        var financeUser = Guid.NewGuid();
+        request.RecordPayment(100_000m, DateTime.UtcNow, financeUser, "REF", "Full payment");
+
+        // Act
+        var result = request.VoidPayment(Guid.NewGuid(), financeUser, DateTime.UtcNow);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Be("Payment not found on this request.");
+        request.Status.Should().Be(RequestStatus.Paid);
+    }
+
+    [Fact]
+    public void VoidPayment_AlreadyVoided_ShouldFail()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m);
+        var financeUser = Guid.NewGuid();
+        request.RecordPayment(100_000m, DateTime.UtcNow, financeUser, "REF", "Full payment");
+        var paymentId = request.Payments.Single().Id;
+        request.VoidPayment(paymentId, financeUser, DateTime.UtcNow).IsSuccess.Should().BeTrue();
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, DateTime.UtcNow);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Be("Payment is already voided.");
+    }
+
+    [Fact]
+    public void VoidPayment_SinglePaymentOnPaidRequest_ShouldMarkIsVoidedAndRevertToApproved()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m);
+        var financeUser = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        request.RecordPayment(100_000m, now, financeUser, "REF", "Full payment");
+        request.Status.Should().Be(RequestStatus.Paid);
+        request.FinalizedAt.Should().NotBeNull();
+        var paymentId = request.Payments.Single().Id;
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, now);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Approved);
+        request.FinalizedAt.Should().BeNull();
+        request.TotalPaid.Should().Be(0m);
+        request.Payments.Should().HaveCount(1);
+        var payment = request.Payments.Single();
+        payment.IsVoided.Should().BeTrue();
+        payment.VoidedByUserId.Should().Be(financeUser);
+        payment.VoidedAt.Should().Be(now);
+    }
+
+    [Fact]
+    public void VoidPayment_OneOfMultiplePayments_ShouldRevertToPartiallyPaid()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m, allowsPartialPayment: true);
+        var financeUser = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        request.RecordPayment(40_000m, now, financeUser, "REF-1", "Part 1");
+        request.RecordPayment(60_000m, now, financeUser, "REF-2", "Part 2");
+        request.Status.Should().Be(RequestStatus.Paid);
+        var secondPaymentId = request.Payments.Last().Id;
+
+        // Act
+        var result = request.VoidPayment(secondPaymentId, financeUser, now);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PartiallyPaid);
+        request.FinalizedAt.Should().BeNull();
+        request.TotalPaid.Should().Be(40_000m);
+        request.Payments.Should().HaveCount(2);
+        request.Payments.First().IsVoided.Should().BeFalse();
+        request.Payments.Last().IsVoided.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VoidPayment_OnAdvanceInPendingReconciliation_ShouldRevertToApproved()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m, type: BudgetRequestType.Advance);
+        var financeUser = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        request.RecordPayment(100_000m, now, financeUser, "ADV-REF", "Disbursement");
+        request.Status.Should().Be(RequestStatus.PendingReconciliation);
+        var paymentId = request.Payments.Single().Id;
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, now);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Approved);
+        request.TotalPaid.Should().Be(0m);
+        request.Payments.Should().HaveCount(1);
+        request.Payments.Single().IsVoided.Should().BeTrue();
+    }
+
+    [Fact]
+    public void VoidPayment_OnAdvanceWithRecordedUsages_ShouldFail()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m, type: BudgetRequestType.Advance);
+        var financeUser = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        request.RecordPayment(100_000m, now, financeUser, "ADV-REF", "Disbursement");
+        request.AddAdvanceUsage(now, 20_000m, "Lunch", null, request.RequesterId, now);
+        var paymentId = request.Payments.Single().Id;
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, now);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("advance usages have already been recorded");
+        request.Status.Should().Be(RequestStatus.PendingReconciliation);
+        request.Payments.Single().IsVoided.Should().BeFalse();
+    }
 }

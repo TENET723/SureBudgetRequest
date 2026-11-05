@@ -13,6 +13,9 @@ public static class BudgetRequestErrors
     public static readonly Error OnlyFinanceCanRecordPayment = 
         Error.Forbidden("BudgetRequest.OnlyFinanceCanRecordPayment", "Only a Finance user can record payments.");
 
+    public static readonly Error OnlyFinanceCanVoidPayment = 
+        Error.Forbidden("BudgetRequest.OnlyFinanceCanVoidPayment", "Only a Finance user can void payments.");
+
     public static readonly Error CoaRequiredForFinanceApproval = 
         Error.Validation("BudgetRequest.CoaRequiredForFinanceApproval", "Chart of Account is required when Finance approves.");
 

@@ -169,7 +169,7 @@ public partial class BudgetRequest
     public IReadOnlyList<BudgetRequestTag> Tags => _tags.AsReadOnly();
 
     // === Computed helpers ===
-    public decimal TotalPaid => _payments.Sum(p => p.Amount);
+    public decimal TotalPaid => _payments.Where(p => !p.IsVoided).Sum(p => p.Amount);
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
     /// <summary>Total usage self-reported so far against an advance.</summary>

@@ -28,6 +28,11 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.SourceAccountNumber).HasMaxLength(100);
         builder.Property(p => p.SourceAccountHolderName).HasMaxLength(200);
 
+        // Void tracking
+        builder.Property(p => p.IsVoided).IsRequired().HasDefaultValue(false);
+        builder.Property(p => p.VoidedAt);
+        builder.Property(p => p.VoidedByUserId);
+
         builder.HasIndex(p => p.BudgetRequestId);
         builder.HasIndex(p => p.SourceBankAccountId);
 

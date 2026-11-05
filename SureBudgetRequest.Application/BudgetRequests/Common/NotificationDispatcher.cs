@@ -231,6 +231,24 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             cancellationToken);
     }
 
+    public async Task DispatchPaymentVoidedAsync(
+        BudgetRequest request,
+        decimal amount,
+        string currencyCode,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.PaymentVoidedToRequester,
+                request.Id,
+                new[] { request.RequesterId },
+                request.RequesterNameAtSubmission,
+                actorName,
+                $"Voided payment amount: {amount:N2} {currencyCode}"),
+            cancellationToken);
+    }
+
     private async Task<IReadOnlyList<Guid>> GetUserIdsByRoleAsync(
         UserRole role, CancellationToken ct)
     {

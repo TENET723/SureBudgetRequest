@@ -96,4 +96,44 @@ public partial class BudgetRequest
 
         return Result.Success();
     }
+
+    /// <summary>
+    /// Voids a recorded payment transaction (soft void for audit preservation).
+    /// Only applicable when the request is in <see cref="RequestStatus.PartiallyPaid"/>,
+    /// <see cref="RequestStatus.Paid"/>, or <see cref="RequestStatus.PendingReconciliation"/>
+    /// (advance with no usages recorded yet).
+    /// Reverts status to <see cref="RequestStatus.Approved"/> if no non-voided payments remain,
+    /// or to <see cref="RequestStatus.PartiallyPaid"/> if partial balance has still been paid.
+    /// </summary>
+    public Result VoidPayment(Guid paymentId, Guid financeUserId, DateTime now)
+    {
+        if (Status is not RequestStatus.PartiallyPaid and not RequestStatus.Paid and not RequestStatus.PendingReconciliation)
+            return Result.Failure($"Cannot void payment while status is '{Status}'.");
+
+        if (Status == RequestStatus.PendingReconciliation && _advanceUsages.Any())
+            return Result.Failure("Cannot void payment because advance usages have already been recorded.");
+
+        var payment = _payments.FirstOrDefault(p => p.Id == paymentId);
+        if (payment is null)
+            return Result.Failure("Payment not found on this request.");
+
+        if (payment.IsVoided)
+            return Result.Failure("Payment is already voided.");
+
+        payment.MarkVoided(financeUserId, now);
+
+        var remainingPaid = TotalPaid;
+        if (remainingPaid == 0)
+        {
+            Status = RequestStatus.Approved;
+            FinalizedAt = null;
+        }
+        else
+        {
+            Status = RequestStatus.PartiallyPaid;
+            FinalizedAt = null;
+        }
+
+        return Result.Success();
+    }
 }

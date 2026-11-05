@@ -19,6 +19,11 @@ public class Payment
     public string? SourceAccountNumber { get; private set; }
     public string? SourceAccountHolderName { get; private set; }
 
+    // Void tracking (soft void for audit preservation)
+    public bool IsVoided { get; private set; }
+    public DateTime? VoidedAt { get; private set; }
+    public Guid? VoidedByUserId { get; private set; }
+
     // Navigation — receipt attachments linked to this payment.
     // EF Core uses this to determine INSERT ordering (payment before attachments).
     private readonly List<Attachment> _receipts = new();
@@ -29,6 +34,13 @@ public class Payment
 
     /// <summary>Links an already-tracked attachment to this payment via navigation.</summary>
     internal void AddReceipt(Attachment attachment) => _receipts.Add(attachment);
+
+    internal void MarkVoided(Guid voidedByUserId, DateTime voidedAt)
+    {
+        IsVoided = true;
+        VoidedByUserId = voidedByUserId;
+        VoidedAt = voidedAt;
+    }
 
     // Internal: only Domain code (BudgetRequest.RecordPayment) can create payments.
     internal Payment(
@@ -55,5 +67,6 @@ public class Payment
         SourceBankName = sourceBankName;
         SourceAccountNumber = sourceAccountNumber;
         SourceAccountHolderName = sourceAccountHolderName;
+        IsVoided = false;
     }
 }

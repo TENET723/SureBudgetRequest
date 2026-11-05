@@ -847,6 +847,13 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   transform: scale(1.06);
 }
 
+.btn-void-row:hover {
+  background: #EF4444 !important;
+  color: white !important;
+  border-color: #EF4444 !important;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.35) !important;
+}
+
 .tag-badge-pill {
   display: inline-flex;
   align-items: center;
