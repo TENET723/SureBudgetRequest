@@ -177,6 +177,21 @@
                 <h6 class="modal-title">Delegation & Out of Office</h6>
                 <button type="button" class="btn btn-icon modal-close" @onclick="CloseDelegationModal"></button>
             </div>
+            <div class="form-field mb-4">
+                <label class="form-label text-sm font-semibold">Fallback Colleague</label>
+                <div class="text-xs text-muted mb-2">
+                    Designate a colleague who can temporarily switch into your account to process approvals when you are away.
+                </div>
+                <Dropdown TItem="UserDto" TValue="string"
+                          Items="_eligibleFallbackUsers"
+                          @bind-Value="_modalFallbackUserId"
+                          ValueSelector="u => u.Id.ToString()"
+                          TextSelector="FormatUserOption"
+                          Placeholder="— select fallback person —"
+                          Searchable="true"
+                          SearchPlaceholder="Search colleague..."
+                          AllowClear="true" />
+            </div>
             <div class="modal-body">
                 @if (!string.IsNullOrEmpty(_modalError))
                 {
@@ -195,21 +210,7 @@
                     </div>
                 </div>
             </div>
-            <div class="form-field mb-4">
-                <label class="form-label text-sm font-semibold">Fallback Colleague</label>
-                <div class="text-xs text-muted mb-2">
-                    Designate a colleague who can temporarily switch into your account to process approvals when you are away.
-                </div>
-                <Dropdown TItem="UserDto" TValue="string"
-                          Items="_eligibleFallbackUsers"
-                          @bind-Value="_modalFallbackUserId"
-                          ValueSelector="u => u.Id.ToString()"
-                          TextSelector="FormatUserOption"
-                          Placeholder="— select fallback person —"
-                          Searchable="true"
-                          SearchPlaceholder="Search colleague..."
-                          AllowClear="true" />
-            </div>
+            
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline btn-sm" @onclick="CloseDelegationModal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" @onclick="SaveDelegationSettings" disabled="@_savingDelegation">
