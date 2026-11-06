@@ -20,7 +20,9 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateAdvanceUsage
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAdvanceUsage
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitReconciliation
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoReconciliationSubmit
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordRefund
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoRefund
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ExtendReconciliationDeadline
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UploadAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
@@ -796,14 +798,24 @@ else
                     }
                     else if (_request.Status == RequestStatus.Reconciled)
                     {
-                        <div class="alert alert-success">
-                            This advance has been fully reconciled.
-                            @if (_request.RefundReceivedAt.HasValue)
+                        <div class="alert alert-success flex items-center justify-between" style="gap: 12px;">
+                            <div>
+                                This advance has been fully reconciled.
+                                @if (_request.RefundReceivedAt.HasValue)
+                                {
+                                    <span>
+                                        Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
+                                        received on @_request.RefundReceivedAt.ToMyanmarTime() (recorded on @(_request.FinalizedAt?.ToMyanmarTime() ?? "—")).
+                                    </span>
+                                }
+                            </div>
+                            @if (IsFinance && _request.RefundReceivedAt.HasValue)
                             {
-                                <span>
-                                    Refund of @_request.RefundAmount.ToString("N2") @_request.CurrencyCode
-                                    received on @_request.RefundReceivedAt.ToMyanmarTime() (recorded on @(_request.FinalizedAt?.ToMyanmarTime() ?? "—")).
-                                </span>
+                                <button class="btn btn-outline btn-xs text-danger" style="white-space: nowrap;" @onclick="() => _showUndoRefundModal = true" disabled="@_actioning">Undo Refund</button>
+                            }
+                            else if (CanWithdrawReconciliation && !_request.RefundReceivedAt.HasValue)
+                            {
+                                <button class="btn btn-outline btn-xs" style="white-space: nowrap;" @onclick="() => _showWithdrawReconModal = true" disabled="@_actioning">Reopen Reconciliation</button>
                             }
                         </div>
                     }
@@ -899,10 +911,17 @@ else
                             <button class="btn btn-outline btn-sm" @onclick="OpenExtendModal" disabled="@_actioning">Extend deadline</button>
                         </div>
                     }
-                    @if (IsFinance && _request.Status == RequestStatus.AwaitingRefund)
+                    @if (_request.Status == RequestStatus.AwaitingRefund)
                     {
                         <div class="flex gap-2 mt-2">
-                            <button class="btn btn-success btn-sm" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
+                            @if (IsFinance)
+                            {
+                                <button class="btn btn-success btn-sm" @onclick="OpenRefundModal" disabled="@_actioning">Record refund received</button>
+                            }
+                            @if (CanWithdrawReconciliation)
+                            {
+                                <button class="btn btn-outline btn-sm text-warning" @onclick="() => _showWithdrawReconModal = true" disabled="@_actioning">Withdraw reconciliation</button>
+                            }
                         </div>
                     }
 
@@ -1418,6 +1437,56 @@ else
                 <div class="modal-footer">
                     <button class="btn btn-outline btn-sm" @onclick="() => _showRefundModal = false" disabled="@_actioning">Cancel</button>
                     <button class="btn btn-success btn-sm" @onclick="DoRecordRefund" disabled="@_actioning">Record Refund</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Withdraw / Reopen Reconciliation Modal ─────────────────────────────────── *@
+@if (_showWithdrawReconModal && _request is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showWithdrawReconModal = false"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    This will return the advance back to <strong>Pending Reconciliation</strong> so expense line items can be added, updated, or deleted. All current usage items and receipts are preserved. Continue?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showWithdrawReconModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoUndoReconciliationSubmit" disabled="@_actioning">
+                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
+                        @(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw to Pending")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Undo Refund Modal ───────────────────────────────────────────────────────── *@
+@if (_showUndoRefundModal && _request is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Undo Recorded Refund</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showUndoRefundModal = false"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    This will undo the recorded receipt of <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong> and return the request to <strong>Awaiting Refund</strong>. Continue?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showUndoRefundModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoUndoRefund" disabled="@_actioning">
+                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
+                        Undo Refund
+                    </button>
                 </div>
             </div>
         </div>
@@ -2401,10 +2470,25 @@ else
     private bool _showExtendModal;
     private DateTime _newDeadline = DateTimeExtensions.MyanmarToday;
     private string? _extendError;
+    private bool _showWithdrawReconModal;
+    private bool _showUndoRefundModal;
 
     // Reconciliation visibility helpers
     private bool IsRequester => _request is not null && _request.RequesterId == CurrentUser.UserId;
     private bool IsFinance => CurrentUser.Role == UserRole.Finance;
+
+    private bool CanWithdrawReconciliation =>
+        _request is not null
+        && _request.Type == BudgetRequestType.Advance
+        && (_request.Status == RequestStatus.AwaitingRefund || (_request.Status == RequestStatus.Reconciled && !_request.RefundReceivedAt.HasValue))
+        && (IsRequester || IsFinance || CurrentUser.Role == UserRole.Admin);
+
+    private bool CanUndoRefund =>
+        _request is not null
+        && _request.Type == BudgetRequestType.Advance
+        && _request.Status == RequestStatus.Reconciled
+        && _request.RefundReceivedAt.HasValue
+        && IsFinance;
 
     public sealed record GalleryItem(
         Guid Id,
@@ -3284,6 +3368,36 @@ else
         _showRefundModal = false;
         _actionSuccess = "Refund recorded.";
         await LoadRequest();
+    }
+
+    private async Task DoUndoReconciliationSubmit()
+    {
+        if (_actioning) return;
+        _actioning = true;
+        var res = await Mediator.Send(new UndoReconciliationSubmitCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (res.IsFailure) { _actionError = res.Error.Message; }
+        else
+        {
+            _showWithdrawReconModal = false;
+            _actionSuccess = "Reconciliation returned to pending.";
+            await LoadRequest();
+        }
+    }
+
+    private async Task DoUndoRefund()
+    {
+        if (_actioning) return;
+        _actioning = true;
+        var res = await Mediator.Send(new UndoRefundCommand(Id, CurrentUser.UserId));
+        _actioning = false;
+        if (res.IsFailure) { _actionError = res.Error.Message; }
+        else
+        {
+            _showUndoRefundModal = false;
+            _actionSuccess = "Refund record undone.";
+            await LoadRequest();
+        }
     }
 
 

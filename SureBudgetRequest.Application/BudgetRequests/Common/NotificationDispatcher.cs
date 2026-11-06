@@ -261,6 +261,51 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             cancellationToken);
     }
 
+    public async Task DispatchReconciliationSubmissionUndoneAsync(
+        BudgetRequest request,
+        string? actorName,
+        bool isFinanceActor,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Guid> recipients;
+        if (isFinanceActor)
+        {
+            // Finance reopened it -> notify requester
+            recipients = new[] { request.RequesterId };
+        }
+        else
+        {
+            // Requester withdrew it -> notify Finance approvers
+            recipients = await GetFinanceApproverIdsAsync(cancellationToken);
+        }
+
+        if (recipients.Count == 0) return;
+
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.ReconciliationSubmissionUndone,
+                request.Id,
+                recipients,
+                request.RequesterNameAtSubmission,
+                actorName),
+            cancellationToken);
+    }
+
+    public async Task DispatchRefundUndoneAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.RefundUndoneToRequester,
+                request.Id,
+                new[] { request.RequesterId },
+                request.RequesterNameAtSubmission,
+                actorName),
+            cancellationToken);
+    }
+
     private async Task<IReadOnlyList<Guid>> GetUserIdsByRoleAsync(
         UserRole role, CancellationToken ct)
     {

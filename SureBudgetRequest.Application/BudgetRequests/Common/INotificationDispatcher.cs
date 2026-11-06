@@ -73,4 +73,23 @@ public interface INotificationDispatcher
         RequestStatus previousStatus,
         string? actorName,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies parties that reconciliation submission was withdrawn or reopened back to PendingReconciliation.
+    /// Call AFTER <c>BudgetRequest.UndoReconciliationSubmit</c>.
+    /// </summary>
+    Task DispatchReconciliationSubmissionUndoneAsync(
+        BudgetRequest request,
+        string? actorName,
+        bool isFinanceActor,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies the requester that Finance undid the recorded refund.
+    /// Call AFTER <c>BudgetRequest.UndoRefund</c>.
+    /// </summary>
+    Task DispatchRefundUndoneAsync(
+        BudgetRequest request,
+        string? actorName,
+        CancellationToken cancellationToken);
 }

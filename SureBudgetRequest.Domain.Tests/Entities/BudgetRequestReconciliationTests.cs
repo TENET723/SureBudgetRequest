@@ -327,4 +327,155 @@ public class BudgetRequestReconciliationTests
         earlierResult.IsFailure.Should().BeTrue();
         earlierResult.Error.Message.Should().Be("The new deadline must be later than the current deadline.");
     }
+
+    // =========================================================================
+    // 6. UndoReconciliationSubmit & UndoRefund Tests
+    // =========================================================================
+
+    [Fact]
+    public void UndoReconciliationSubmit_FromAwaitingRefund_ShouldResetToPendingReconciliation()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 400_000m, "Trip expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        request.Status.Should().Be(RequestStatus.AwaitingRefund);
+        request.RefundAmount.Should().Be(100_000m);
+        request.ReconciliationSubmittedAt.Should().NotBeNull();
+
+        // Act
+        var result = request.UndoReconciliationSubmit(request.RequesterId);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingReconciliation);
+        request.RefundAmount.Should().Be(0m);
+        request.ReconciliationSubmittedAt.Should().BeNull();
+        request.FinalizedAt.Should().BeNull();
+        request.AdvanceUsages.Should().ContainSingle();
+        request.TotalUsageRecorded.Should().Be(400_000m);
+    }
+
+    [Fact]
+    public void UndoReconciliationSubmit_FromExactMatchReconciled_ShouldResetToPendingReconciliation()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 500_000m, "Full exact match expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        request.Status.Should().Be(RequestStatus.Reconciled);
+        request.RefundAmount.Should().Be(0m);
+
+        // Act
+        var result = request.UndoReconciliationSubmit(request.RequesterId);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingReconciliation);
+        request.RefundAmount.Should().Be(0m);
+        request.ReconciliationSubmittedAt.Should().BeNull();
+        request.FinalizedAt.Should().BeNull();
+        request.AdvanceUsages.Should().ContainSingle();
+        request.TotalUsageRecorded.Should().Be(500_000m);
+    }
+
+    [Fact]
+    public void UndoReconciliationSubmit_WhenRefundAlreadyReceived_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 400_000m, "Trip expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        request.RecordRefund(100_000m, Guid.NewGuid(), now);
+        request.Status.Should().Be(RequestStatus.Reconciled);
+        request.RefundReceivedAt.Should().NotBeNull();
+
+        // Act
+        var result = request.UndoReconciliationSubmit(request.RequesterId);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Cannot withdraw reconciliation after the refund has been processed");
+    }
+
+    [Fact]
+    public void UndoReconciliationSubmit_WhenStatusNotEligible_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        request.Status.Should().Be(RequestStatus.PendingReconciliation);
+
+        // Act
+        var result = request.UndoReconciliationSubmit(request.RequesterId);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Reconciliation can only be withdrawn from AwaitingRefund or Reconciled");
+    }
+
+    [Fact]
+    public void UndoRefund_WhenReconciledWithRefund_ShouldResetToAwaitingRefund()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 400_000m, "Trip expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        var financeUser = Guid.NewGuid();
+        request.RecordRefund(100_000m, financeUser, now);
+        request.Status.Should().Be(RequestStatus.Reconciled);
+        request.RefundReceivedAt.Should().NotBeNull();
+        request.RefundReceivedByUserId.Should().Be(financeUser);
+
+        // Act
+        var result = request.UndoRefund(financeUser);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.AwaitingRefund);
+        request.RefundReceivedAt.Should().BeNull();
+        request.RefundReceivedByUserId.Should().BeNull();
+        request.FinalizedAt.Should().BeNull();
+        request.RefundAmount.Should().Be(100_000m);
+    }
+
+    [Fact]
+    public void UndoRefund_WhenNotReconciled_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 400_000m, "Trip expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        request.Status.Should().Be(RequestStatus.AwaitingRefund);
+
+        // Act
+        var result = request.UndoRefund(Guid.NewGuid());
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Can only undo refund on a Reconciled request");
+    }
+
+    [Fact]
+    public void UndoRefund_WhenExactMatchWithoutRefund_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        request.AddAdvanceUsage(now, 500_000m, "Full exact match expenses", null, request.RequesterId, now);
+        request.SubmitReconciliation(request.RequesterId, now);
+        request.Status.Should().Be(RequestStatus.Reconciled);
+        request.RefundReceivedAt.Should().BeNull();
+
+        // Act
+        var result = request.UndoRefund(Guid.NewGuid());
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("There is no recorded refund to undo");
+    }
 }

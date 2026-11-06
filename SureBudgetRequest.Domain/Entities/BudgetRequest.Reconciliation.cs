@@ -265,6 +265,67 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
+    /// <summary>
+    /// Reverts a submitted reconciliation back to PendingReconciliation so the
+    /// requester can adjust, add, or remove usage line items.
+    /// Allowed when the advance is awaiting a refund (<see cref="RequestStatus.AwaitingRefund"/>)
+    /// or when it was reconciled via exact spend with no refund (<see cref="RequestStatus.Reconciled"/>
+    /// and <see cref="RefundReceivedAt"/> is null).
+    /// </summary>
+    public Result UndoReconciliationSubmit(Guid actorUserId)
+    {
+        if (Type != BudgetRequestType.Advance)
+            return Result.Failure("Reconciliation can only be undone on advance requests.");
+
+        if (Status == RequestStatus.Reconciled && RefundReceivedAt.HasValue)
+        {
+            return Result.Failure(
+                "Cannot withdraw reconciliation after a refund has been recorded. Undo the refund first.");
+        }
+
+        if (Status != RequestStatus.AwaitingRefund && Status != RequestStatus.Reconciled)
+        {
+            return Result.Failure(
+                $"Reconciliation submission can only be undone while awaiting refund or reconciled with exact spend (current status: '{Status}').");
+        }
+
+        Status = RequestStatus.PendingReconciliation;
+        ReconciliationSubmittedAt = null;
+        RefundAmount = 0m;
+        FinalizedAt = null;
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Undoes a recorded refund on an advance request, moving the request from
+    /// <see cref="RequestStatus.Reconciled"/> back to <see cref="RequestStatus.AwaitingRefund"/>.
+    /// Finance-only at Application layer.
+    /// </summary>
+    public Result UndoRefund(Guid actorUserId)
+    {
+        if (Type != BudgetRequestType.Advance)
+            return Result.Failure("Refund can only be undone on advance requests.");
+
+        if (Status != RequestStatus.Reconciled)
+        {
+            return Result.Failure(
+                $"Refund can only be undone on a reconciled advance (current status: '{Status}').");
+        }
+
+        if (!RefundReceivedAt.HasValue)
+        {
+            return Result.Failure("This request does not have a recorded refund to undo.");
+        }
+
+        Status = RequestStatus.AwaitingRefund;
+        RefundReceivedAt = null;
+        RefundReceivedByUserId = null;
+        FinalizedAt = null;
+
+        return Result.Success();
+    }
+
 
     /// <summary>
     /// Pushes the reconciliation deadline out. Finance-only at the Application

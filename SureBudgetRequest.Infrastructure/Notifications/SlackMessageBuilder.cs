@@ -162,6 +162,12 @@ internal static class SlackMessageBuilder
                 => $"ID: {reference}: refund received and recorded by {actor}.\n "
                  + "The advance is now fully reconciled. ✅",
 
+            NotificationTrigger.ReconciliationSubmissionUndone
+                => $"ID: {reference}: reconciliation submission was withdrawn/reopened by {actor}. Status returned to Pending Reconciliation. 🔄",
+
+            NotificationTrigger.RefundUndoneToRequester
+                => $"ID: {reference}: recorded refund was undone by {actor}. Advance returned to Awaiting Refund. 🔄",
+
             _ => $"ID: {reference} status updated."
         };
 

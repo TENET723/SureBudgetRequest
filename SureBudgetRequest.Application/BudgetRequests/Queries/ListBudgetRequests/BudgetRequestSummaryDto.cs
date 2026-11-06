@@ -56,6 +56,7 @@ public sealed record BudgetRequestSummaryDto(
     // Refund = amount the requester owes back; Reimbursement = amount owed to the
     // requester. Both 0 for non-advances and before reconciliation.
     decimal RefundAmount = 0m,
+    DateTime? RefundReceivedAt = null,
     decimal ReimbursementAmount = 0m,
     // Optional free-text external references (voucher / transaction numbers).
     string? ExternalReferences = null,
@@ -136,6 +137,7 @@ public sealed record BudgetRequestSummaryDto(
         e.ReconciliationDeadline,
         e.RequesterNameAtSubmission,
         e.RefundAmount,
+        e.RefundReceivedAt,
         e.ReimbursementAmount,
         e.ExternalReferences,
         tags,

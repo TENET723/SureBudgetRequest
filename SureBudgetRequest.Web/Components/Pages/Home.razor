@@ -17,6 +17,8 @@
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetDashboard
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoReconciliationSubmit
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoRefund
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Web.Components.Shared
 @using SureBudgetRequest.Web.Services
@@ -256,7 +258,7 @@
     </div>
 }
 
-@* ── Undo Submit confirmation modal ─────────────────────────────────────── *@
+
 @if (_unsubmittingRequest is not null)
 {
     <div class="modal-backdrop">
@@ -277,6 +279,62 @@
                     <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_quickActionProcessing">
                         @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
                         Withdraw to Draft
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Withdraw / Reopen Reconciliation confirmation modal ── *@
+@if (_withdrawingReconciliationRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _withdrawingReconciliationRequest = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Are you sure you want to @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "reopen" : "withdraw") reconciliation for <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
+                    <div class="alert alert-warning text-xs mt-3">
+                        This will return the advance to <strong>Pending Reconciliation</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _withdrawingReconciliationRequest = null" disabled="@_quickActionProcessing">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoUndoReconciliationSubmit" disabled="@_quickActionProcessing">
+                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
+                        @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen to Pending" : "Withdraw to Pending")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Undo Refund confirmation modal ── *@
+@if (_undoingRefundRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Undo Recorded Refund</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _undoingRefundRequest = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Are you sure you want to undo the recorded refund for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
+                    <div class="alert alert-warning text-xs mt-3">
+                        This will return the request to <strong>Awaiting Refund</strong>.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _undoingRefundRequest = null" disabled="@_quickActionProcessing">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoUndoRefund" disabled="@_quickActionProcessing">
+                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
+                        Undo Refund
                     </button>
                 </div>
             </div>
@@ -453,6 +511,34 @@
                     {
                         <span class="action-reason-hint">@GetCancelDisabledReason(_contextMenuTarget.Status)</span>
                     }
+                </button>
+            }
+
+            @if (CanWithdrawReconciliation(_contextMenuTarget))
+            {
+                <button type="button"
+                        class="status-action-item action-undo"
+                        disabled="@_quickActionProcessing"
+                        title="@(_contextMenuTarget.Status == RequestStatus.Reconciled ? "Reopen reconciliation to pending" : "Withdraw reconciliation to pending")"
+                        @onclick="() => PromptUndoReconciliationFromContextMenu(_contextMenuTarget)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>@(_contextMenuTarget.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")</span>
+                    </div>
+                </button>
+            }
+
+            @if (CanUndoRefund(_contextMenuTarget))
+            {
+                <button type="button"
+                        class="status-action-item action-reject"
+                        disabled="@_quickActionProcessing"
+                        title="Undo recorded refund"
+                        @onclick="() => PromptUndoRefundFromContextMenu(_contextMenuTarget)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                        <span>Undo Refund</span>
+                    </div>
                 </button>
             }
         }
@@ -1261,10 +1347,13 @@
         if (role == UserRole.Management || CurrentUser.IsDepartmentHead || (_contextMenuTarget != null && _contextMenuTarget.DeptHeadIdAtSubmission == CurrentUser.UserId))
             return true;
 
-        if (role == UserRole.Finance && CurrentUser.IsFinanceApprover)
+        if (role == UserRole.Finance)
             return true;
 
         if (_contextMenuTarget != null && _contextMenuTarget.RequesterId == CurrentUser.UserId)
+            return true;
+
+        if (role == UserRole.Admin)
             return true;
 
         return false;
@@ -1791,6 +1880,75 @@
         {
             UpdateRequestStatus(target.Id, RequestStatus.Draft);
             ShowToast($"Withdrew {target.Reference ?? "request"} to draft");
+        }
+    }
+
+    // ── Reconciliation Undo / Refund Undo Flow ──────────────────────────────
+    private BudgetRequestSummaryDto? _withdrawingReconciliationRequest;
+    private BudgetRequestSummaryDto? _undoingRefundRequest;
+
+    private bool CanWithdrawReconciliation(BudgetRequestSummaryDto? r) =>
+        r != null
+        && r.Type == BudgetRequestType.Advance
+        && (r.Status == RequestStatus.AwaitingRefund || (r.Status == RequestStatus.Reconciled && !r.RefundReceivedAt.HasValue))
+        && (r.RequesterId == CurrentUser.UserId || CurrentUser.Role == UserRole.Finance || CurrentUser.Role == UserRole.Admin);
+
+    private bool CanUndoRefund(BudgetRequestSummaryDto? r) =>
+        r != null
+        && r.Type == BudgetRequestType.Advance
+        && r.Status == RequestStatus.Reconciled
+        && r.RefundReceivedAt.HasValue
+        && CurrentUser.Role == UserRole.Finance;
+
+    private void PromptUndoReconciliationFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        _withdrawingReconciliationRequest = r;
+    }
+
+    private void PromptUndoRefundFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        _undoingRefundRequest = r;
+    }
+
+    private async Task DoUndoReconciliationSubmit()
+    {
+        if (_withdrawingReconciliationRequest is null) return;
+        if (_quickActionProcessing) return;
+        _quickActionProcessing = true;
+        var target = _withdrawingReconciliationRequest;
+        var result = await Mediator.Send(new UndoReconciliationSubmitCommand(target.Id, CurrentUser.UserId));
+        _quickActionProcessing = false;
+        _withdrawingReconciliationRequest = null;
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
+        else
+        {
+            UpdateRequestStatus(target.Id, RequestStatus.PendingReconciliation);
+            ShowToast($"Reconciliation for {target.Reference ?? "advance"} returned to pending");
+        }
+    }
+
+    private async Task DoUndoRefund()
+    {
+        if (_undoingRefundRequest is null) return;
+        if (_quickActionProcessing) return;
+        _quickActionProcessing = true;
+        var target = _undoingRefundRequest;
+        var result = await Mediator.Send(new UndoRefundCommand(target.Id, CurrentUser.UserId));
+        _quickActionProcessing = false;
+        _undoingRefundRequest = null;
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
+        else
+        {
+            UpdateRequestStatus(target.Id, RequestStatus.AwaitingRefund);
+            ShowToast($"Refund for {target.Reference ?? "advance"} undone");
         }
     }
 

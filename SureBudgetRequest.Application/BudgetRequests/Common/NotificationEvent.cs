@@ -69,6 +69,12 @@ public enum NotificationTrigger
     /// <summary>Finance recorded the refund; the advance is now reconciled → requester.</summary>
     RefundRecordedToRequester,
 
+    /// <summary>Reconciliation submission was withdrawn or reopened back to PendingReconciliation.</summary>
+    ReconciliationSubmissionUndone,
+
+    /// <summary>Finance undid the recorded refund; request is back in AwaitingRefund → requester.</summary>
+    RefundUndoneToRequester,
+
     /// <summary>Reconciliation landed in AwaitingReimbursement (usage &gt; advance) → requester + Finance.</summary>
     AdvanceAwaitingReimbursement,
 
