@@ -9,6 +9,8 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RejectRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SendBackRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoApproval
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoSubmit
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Tags.Models
 @using SureBudgetRequest.Domain.Common
@@ -254,6 +256,34 @@
     </div>
 }
 
+@* ── Undo Submit confirmation modal ─────────────────────────────────────── *@
+@if (_unsubmittingRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Undo Submission</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _unsubmittingRequest = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Are you sure you want to withdraw submission for <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong>?
+                    <div class="alert alert-warning text-xs mt-3">
+                        This will return the request to <strong>Draft</strong> status so you can edit details or attachments.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _unsubmittingRequest = null" disabled="@_quickActionProcessing">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_quickActionProcessing">
+                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
+                        Withdraw to Draft
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @* ── Custom Context Menu / Quick Actions ────────────────────────────────── *@
 @if (_showContextMenu && _contextMenuTarget != null)
 {
@@ -309,7 +339,22 @@
             </button>
         }
 
-        @if (_activeTab == "approve" && ShouldShowStatusActionsSection())
+        @{
+            var undoApproveState = GetUndoApproveActionState(_contextMenuTarget);
+            var undoSubmitState = GetUndoSubmitActionState(_contextMenuTarget);
+            var showApproverActions = _activeTab == "approve" && ShouldShowStatusActionsSection();
+
+            var isRequester = _contextMenuTarget.RequesterId == CurrentUser.UserId;
+            var requiresManagement = _contextMenuTarget.RequestedAmountInMmkAtSubmission > _contextMenuTarget.DepartmentLimitAtSubmission;
+            var isDeptHeadRequester = _contextMenuTarget.RequesterId == _contextMenuTarget.DeptHeadIdAtSubmission;
+            var canCancel = isRequester && (_contextMenuTarget.Status == RequestStatus.PendingDeptHead
+                || (isDeptHeadRequester && (_contextMenuTarget.Status == RequestStatus.PendingManagement || (_contextMenuTarget.Status == RequestStatus.PendingFinance && !requiresManagement))));
+            var showRequesterActions = _activeTab == "inflight" && isRequester;
+
+            var showStatusSection = showApproverActions || undoApproveState.Enabled || showRequesterActions;
+        }
+
+        @if (showStatusSection)
         {
             var approveState = GetApproveActionState(_contextMenuTarget);
             var sendBackState = GetSendBackActionState(_contextMenuTarget);
@@ -318,67 +363,98 @@
             <div class="context-menu-divider"></div>
             <div class="menu-section-title">Status Actions</div>
 
-            <button type="button"
-                    class="status-action-item action-approve"
-                    disabled="@(!approveState.Enabled || _quickActionProcessing)"
-                    @onclick="() => ExecuteQuickApproveAsync(_contextMenuTarget)">
-                <div class="action-row">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span>Approve</span>
-                </div>
-                @if (!approveState.Enabled && !string.IsNullOrEmpty(approveState.Reason))
-                {
-                    <span class="action-reason-hint">@approveState.Reason</span>
-                }
-            </button>
+            @if (showApproverActions)
+            {
+                <button type="button"
+                        class="status-action-item action-approve"
+                        disabled="@(!approveState.Enabled || _quickActionProcessing)"
+                        @onclick="() => ExecuteQuickApproveAsync(_contextMenuTarget)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Approve</span>
+                    </div>
+                    @if (!approveState.Enabled && !string.IsNullOrEmpty(approveState.Reason))
+                    {
+                        <span class="action-reason-hint">@approveState.Reason</span>
+                    }
+                </button>
 
-            <button type="button"
-                    class="status-action-item action-sendback"
-                    disabled="@(!sendBackState.Enabled || _quickActionProcessing)"
-                    @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.SendBack)">
-                <div class="action-row">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
-                    <span>Send Back</span>
-                </div>
-                @if (!sendBackState.Enabled && !string.IsNullOrEmpty(sendBackState.Reason))
-                {
-                    <span class="action-reason-hint">@sendBackState.Reason</span>
-                }
-            </button>
+                <button type="button"
+                        class="status-action-item action-sendback"
+                        disabled="@(!sendBackState.Enabled || _quickActionProcessing)"
+                        @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.SendBack)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                        <span>Send Back</span>
+                    </div>
+                    @if (!sendBackState.Enabled && !string.IsNullOrEmpty(sendBackState.Reason))
+                    {
+                        <span class="action-reason-hint">@sendBackState.Reason</span>
+                    }
+                </button>
 
-            <button type="button"
-                    class="status-action-item action-reject"
-                    disabled="@(!rejectState.Enabled || _quickActionProcessing)"
-                    @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.Reject)">
-                <div class="action-row">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    <span>Reject</span>
-                </div>
-                @if (!rejectState.Enabled && !string.IsNullOrEmpty(rejectState.Reason))
-                {
-                    <span class="action-reason-hint">@rejectState.Reason</span>
-                }
-            </button>
-        }
+                <button type="button"
+                        class="status-action-item action-reject"
+                        disabled="@(!rejectState.Enabled || _quickActionProcessing)"
+                        @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.Reject)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <span>Reject</span>
+                    </div>
+                    @if (!rejectState.Enabled && !string.IsNullOrEmpty(rejectState.Reason))
+                    {
+                        <span class="action-reason-hint">@rejectState.Reason</span>
+                    }
+                </button>
+            }
 
-        @if (_activeTab == "inflight" && _contextMenuTarget.RequesterId == CurrentUser.UserId)
-        {
-            var canCancel = _contextMenuTarget.Status == RequestStatus.PendingDeptHead;
-            <div class="context-menu-divider"></div>
-            <div class="menu-section-title">Status Actions</div>
-            <button type="button"
-                    class="context-menu-item @(canCancel ? "text-danger" : "text-muted")"
-                    disabled="@(!canCancel)"
-                    style="@(!canCancel ? "opacity: 0.5; cursor: not-allowed;" : "")"
-                    title="@(canCancel ? "Cancel this request" : GetCancelDisabledReason(_contextMenuTarget.Status))"
-                    @onclick="() => { if (canCancel) PromptCancelFromContextMenu(_contextMenuTarget); }">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <span>Cancel Request</span>
-                @if (!canCancel)
-                {
-                    <span style="margin-left: auto; font-size: 10px; color: var(--color-text-muted);">(@GetCancelDisabledReason(_contextMenuTarget.Status))</span>
-                }
-            </button>
+            @if (undoApproveState.Enabled)
+            {
+                <button type="button"
+                        class="status-action-item action-undo"
+                        disabled="@_quickActionProcessing"
+                        @onclick="() => OpenQuickActionModal(_contextMenuTarget, QuickActionType.UndoApprove)">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Undo Approve</span>
+                    </div>
+                </button>
+            }
+
+            @if (showRequesterActions)
+            {
+                <button type="button"
+                        class="status-action-item action-undo"
+                        disabled="@(!undoSubmitState.Enabled || _quickActionProcessing)"
+                        style="@(!undoSubmitState.Enabled ? "opacity: 0.5; cursor: not-allowed;" : "")"
+                        title="@(undoSubmitState.Enabled ? "Withdraw this request to draft" : GetCancelDisabledReason(_contextMenuTarget.Status))"
+                        @onclick="() => { if (undoSubmitState.Enabled) PromptUndoSubmitFromContextMenu(_contextMenuTarget); }">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Unsubmit Request</span>
+                    </div>
+                    @if (!undoSubmitState.Enabled)
+                    {
+                        <span class="action-reason-hint">@GetCancelDisabledReason(_contextMenuTarget.Status)</span>
+                    }
+                </button>
+
+                <button type="button"
+                        class="status-action-item action-reject"
+                        disabled="@(!canCancel || _quickActionProcessing)"
+                        style="@(!canCancel ? "opacity: 0.5; cursor: not-allowed;" : "")"
+                        title="@(canCancel ? "Cancel this request" : GetCancelDisabledReason(_contextMenuTarget.Status))"
+                        @onclick="() => { if (canCancel) PromptCancelFromContextMenu(_contextMenuTarget); }">
+                    <div class="action-row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span>Cancel Request</span>
+                    </div>
+                    @if (!canCancel)
+                    {
+                        <span class="action-reason-hint">@GetCancelDisabledReason(_contextMenuTarget.Status)</span>
+                    }
+                </button>
+            }
         }
     </div>
 }
@@ -426,6 +502,16 @@
                         <span style="color: var(--color-success); font-weight: 700;">✓</span>
                         <span>Finance Approval</span>
                     }
+                    else if (_quickActionType == QuickActionType.UndoApprove)
+                    {
+                        <span style="color: var(--color-warning); font-weight: 700;">↩</span>
+                        <span>Undo Approval</span>
+                    }
+                    else if (_quickActionType == QuickActionType.UndoSubmit)
+                    {
+                        <span style="color: var(--color-warning); font-weight: 700;">↩</span>
+                        <span>Undo Submission</span>
+                    }
                 </div>
                 <div class="popover-ref-subtitle">
                     @(_quickActionTarget.Reference ?? "Draft / No Ref")
@@ -464,6 +550,26 @@
                     </div>
                 }
             }
+            else if (_quickActionType == QuickActionType.UndoSubmit)
+            {
+                <p class="text-xs text-muted mb-2">
+                    Withdraw this submission and return it to <strong>Draft</strong> status so you can edit details or attachments.
+                </p>
+            }
+            else if (_quickActionType == QuickActionType.UndoApprove)
+            {
+                <p class="text-xs text-muted mb-2">
+                    Revert approval for this request. The ticket will return to your approval stage and any notified reviewers will be updated.
+                </p>
+                <label class="block text-xs font-semibold mb-1" style="font-size: 11.5px; color: var(--color-text-dark);">
+                    Reason / Comment <span class="text-muted">(optional)</span>
+                </label>
+                <textarea class="input input-sm w-full" rows="2"
+                          style="resize: none; font-size: 12px; padding: 6px 8px;"
+                          placeholder="Optional reason for undoing approval..."
+                          @bind="_quickActionComment"
+                          @bind:event="oninput"></textarea>
+            }
             else
             {
                 <label class="block text-xs font-semibold mb-1" style="font-size: 11.5px; color: var(--color-text-dark);">
@@ -490,7 +596,7 @@
                 Cancel
             </button>
             <button type="button"
-                    class="btn btn-xs @(_quickActionType == QuickActionType.Reject ? "btn-danger" : _quickActionType == QuickActionType.SendBack ? "btn-warning" : "btn-success")"
+                    class="btn btn-xs @(_quickActionType == QuickActionType.Reject ? "btn-danger" : (_quickActionType == QuickActionType.SendBack || _quickActionType == QuickActionType.UndoApprove || _quickActionType == QuickActionType.UndoSubmit) ? "btn-warning" : "btn-success")"
                     style="padding: 3px 10px; font-size: 11.5px; font-weight: 600;"
                     @onclick="ExecuteQuickModalActionAsync"
                     disabled="@_quickActionProcessing">
@@ -499,7 +605,9 @@
                     <span class="spinner spinner-xs me-1"></span>
                 }
                 @(_quickActionType == QuickActionType.Reject ? "Confirm Reject" :
-                  _quickActionType == QuickActionType.SendBack ? "Confirm Send Back" : "Confirm Approval")
+                  _quickActionType == QuickActionType.SendBack ? "Confirm Send Back" :
+                  _quickActionType == QuickActionType.UndoApprove ? "Confirm Undo" :
+                  _quickActionType == QuickActionType.UndoSubmit ? "Withdraw to Draft" : "Confirm Approval")
             </button>
         </div>
     </div>
@@ -1128,7 +1236,9 @@
         None,
         SendBack,
         Reject,
-        FinanceApprove
+        FinanceApprove,
+        UndoApprove,
+        UndoSubmit
     }
 
     private sealed record QuickActionState(bool Enabled, string? Reason);
@@ -1154,7 +1264,71 @@
         if (role == UserRole.Finance && CurrentUser.IsFinanceApprover)
             return true;
 
+        if (_contextMenuTarget != null && _contextMenuTarget.RequesterId == CurrentUser.UserId)
+            return true;
+
         return false;
+    }
+
+    private QuickActionState GetUndoApproveActionState(BudgetRequestSummaryDto? r)
+    {
+        if (r == null) return new(false, null);
+
+        var role = CurrentUser.Role;
+        var uid = CurrentUser.UserId;
+        var requiresManagement = r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission;
+        var isAutoApprovedDeptHead = r.RequesterId == r.DeptHeadIdAtSubmission;
+
+        switch (r.Status)
+        {
+            case RequestStatus.PendingManagement:
+                if (!isAutoApprovedDeptHead && (r.DeptHeadIdAtSubmission == uid || role == UserRole.Admin))
+                    return new(true, null);
+                return new(false, "Waiting for Management approval");
+
+            case RequestStatus.PendingFinance:
+                if (requiresManagement)
+                {
+                    if (role is UserRole.Management or UserRole.Admin)
+                        return new(true, null);
+                    return new(false, "Waiting for Finance approval");
+                }
+                else
+                {
+                    if (!isAutoApprovedDeptHead && (r.DeptHeadIdAtSubmission == uid || role == UserRole.Admin))
+                        return new(true, null);
+                    return new(false, "Waiting for Finance approval");
+                }
+
+            case RequestStatus.Approved:
+                if (role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover))
+                {
+                    if (r.TotalPaid == 0)
+                        return new(true, null);
+                    return new(false, "Payments already recorded");
+                }
+                return new(false, "Approved by Finance");
+
+            default:
+                return new(false, null);
+        }
+    }
+
+    private QuickActionState GetUndoSubmitActionState(BudgetRequestSummaryDto? r)
+    {
+        if (r == null) return new(false, null);
+        if (r.RequesterId != CurrentUser.UserId) return new(false, null);
+
+        var requiresManagement = r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission;
+        var isDeptHeadRequester = r.RequesterId == r.DeptHeadIdAtSubmission;
+
+        var canUndo = (!isDeptHeadRequester && r.Status == RequestStatus.PendingDeptHead)
+            || (isDeptHeadRequester && (r.Status == RequestStatus.PendingManagement || (r.Status == RequestStatus.PendingFinance && !requiresManagement)));
+
+        if (canUndo)
+            return new(true, null);
+
+        return new(false, "Review already started or finalized");
     }
 
     private QuickActionState GetApproveActionState(BudgetRequestSummaryDto? r)
@@ -1502,6 +1676,68 @@
                 _quickActionProcessing = false;
             }
         }
+        else if (_quickActionType == QuickActionType.UndoApprove)
+        {
+            _quickActionProcessing = true;
+            _quickActionError = null;
+            try
+            {
+                var res = await Mediator.Send(new UndoApprovalCommand(target.Id, CurrentUser.UserId, string.IsNullOrWhiteSpace(_quickActionComment) ? null : _quickActionComment.Trim()));
+                if (res.IsSuccess)
+                {
+                    var requiresManagement = target.RequestedAmountInMmkAtSubmission > target.DepartmentLimitAtSubmission;
+                    var prevStatus = target.Status switch
+                    {
+                        RequestStatus.PendingManagement => RequestStatus.PendingDeptHead,
+                        RequestStatus.PendingFinance => requiresManagement ? RequestStatus.PendingManagement : RequestStatus.PendingDeptHead,
+                        RequestStatus.Approved => RequestStatus.PendingFinance,
+                        _ => target.Status
+                    };
+                    UpdateRequestStatus(target.Id, prevStatus);
+                    CloseQuickActionModal();
+                    ShowToast($"Undid approval for {target.Reference ?? "request"}");
+                }
+                else
+                {
+                    _quickActionError = res.Error.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                _quickActionError = ex.Message;
+            }
+            finally
+            {
+                _quickActionProcessing = false;
+            }
+        }
+        else if (_quickActionType == QuickActionType.UndoSubmit)
+        {
+            _quickActionProcessing = true;
+            _quickActionError = null;
+            try
+            {
+                var res = await Mediator.Send(new UndoSubmitCommand(target.Id, CurrentUser.UserId));
+                if (res.IsSuccess)
+                {
+                    UpdateRequestStatus(target.Id, RequestStatus.Draft);
+                    CloseQuickActionModal();
+                    ShowToast($"Withdrew {target.Reference ?? "request"} to draft");
+                }
+                else
+                {
+                    _quickActionError = res.Error.Message;
+                }
+            }
+            catch (Exception ex)
+            {
+                _quickActionError = ex.Message;
+            }
+            finally
+            {
+                _quickActionProcessing = false;
+            }
+        }
     }
 
     // ── Requester Cancel Flow ────────────────────────────────────────────────
@@ -1526,6 +1762,35 @@
         {
             UpdateRequestStatus(target.Id, RequestStatus.Cancelled);
             ShowToast($"Cancelled {target.Reference ?? "request"}");
+        }
+    }
+
+    // ── Requester Unsubmit Flow ──────────────────────────────────────────────
+    private BudgetRequestSummaryDto? _unsubmittingRequest;
+
+    private void PromptUndoSubmitFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        _unsubmittingRequest = r;
+    }
+
+    private async Task DoUndoSubmit()
+    {
+        if (_unsubmittingRequest is null) return;
+        if (_quickActionProcessing) return;
+        _quickActionProcessing = true;
+        var target = _unsubmittingRequest;
+        var result = await Mediator.Send(new UndoSubmitCommand(target.Id, CurrentUser.UserId));
+        _quickActionProcessing = false;
+        _unsubmittingRequest = null;
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
+        else
+        {
+            UpdateRequestStatus(target.Id, RequestStatus.Draft);
+            ShowToast($"Withdrew {target.Reference ?? "request"} to draft");
         }
     }
 

@@ -9,6 +9,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Queries.SearchBudgetRequests
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoSubmit
 @using SureBudgetRequest.Application.Common
 @using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Domain.Enums
@@ -206,6 +207,34 @@
     </div>
 }
 
+@* ─── Undo Submit confirmation modal ─────────────────────────────────────── *@
+@if (_unsubmittingRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Undo Submission</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _unsubmittingRequest = null"></button>
+                </div>
+                <div class="modal-body text-sm">
+                    Are you sure you want to withdraw submission for <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong>?
+                    <div class="alert alert-warning text-xs mt-3">
+                        This will return the request to <strong>Draft</strong> status so you can edit details or attachments.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _unsubmittingRequest = null" disabled="@_saving">Cancel</button>
+                    <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_saving">
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
+                        Withdraw to Draft
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @* ─── Filter modal (same pattern as the budget-request report page) ─────── *@
 @if (_showFilters)
 {
@@ -341,21 +370,43 @@
         </button>
 
         @{
-            var canCancel = _contextMenuTarget.Status == RequestStatus.PendingDeptHead;
+            var requiresManagement = _contextMenuTarget.RequestedAmountInMmkAtSubmission > _contextMenuTarget.DepartmentLimitAtSubmission;
+            var isDeptHeadRequester = _contextMenuTarget.RequesterId == _contextMenuTarget.DeptHeadIdAtSubmission;
+            var canUndoSubmit = (!isDeptHeadRequester && _contextMenuTarget.Status == RequestStatus.PendingDeptHead)
+                || (isDeptHeadRequester && (_contextMenuTarget.Status == RequestStatus.PendingManagement || (_contextMenuTarget.Status == RequestStatus.PendingFinance && !requiresManagement)));
+            var canCancel = _contextMenuTarget.Status == RequestStatus.PendingDeptHead
+                || (isDeptHeadRequester && (_contextMenuTarget.Status == RequestStatus.PendingManagement || (_contextMenuTarget.Status == RequestStatus.PendingFinance && !requiresManagement)));
         }
         <div class="context-menu-divider"></div>
         <div class="menu-section-title">Status Actions</div>
         <button type="button"
-                class="context-menu-item @(canCancel ? "text-danger" : "text-muted")"
-                disabled="@(!canCancel)"
+                class="status-action-item action-undo"
+                disabled="@(!canUndoSubmit || _saving)"
+                style="@(!canUndoSubmit ? "opacity: 0.5; cursor: not-allowed;" : "")"
+                title="@(canUndoSubmit ? "Withdraw this request to draft" : GetCancelDisabledReason(_contextMenuTarget.Status))"
+                @onclick="() => { if (canUndoSubmit) PromptUndoSubmitFromContextMenu(_contextMenuTarget); }">
+            <div class="action-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <span>Unsubmit Request</span>
+            </div>
+            @if (!canUndoSubmit)
+            {
+                <span class="action-reason-hint">@GetCancelDisabledReason(_contextMenuTarget.Status)</span>
+            }
+        </button>
+        <button type="button"
+                class="status-action-item action-reject"
+                disabled="@(!canCancel || _saving)"
                 style="@(!canCancel ? "opacity: 0.5; cursor: not-allowed;" : "")"
                 title="@(canCancel ? "Cancel this request" : GetCancelDisabledReason(_contextMenuTarget.Status))"
                 @onclick="() => { if (canCancel) PromptCancelFromContextMenu(_contextMenuTarget); }">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-            <span>Cancel Request</span>
+            <div class="action-row">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <span>Cancel Request</span>
+            </div>
             @if (!canCancel)
             {
-                <span style="margin-left: auto; font-size: 10px; color: var(--color-text-muted);">(@GetCancelDisabledReason(_contextMenuTarget.Status))</span>
+                <span class="action-reason-hint">@GetCancelDisabledReason(_contextMenuTarget.Status)</span>
             }
         </button>
     </div>
@@ -602,6 +653,33 @@
     }
 
     private void ConfirmCancel(BudgetRequestSummaryDto r) => _cancellingRequest = r;
+
+    private BudgetRequestSummaryDto? _unsubmittingRequest;
+
+    private void PromptUndoSubmitFromContextMenu(BudgetRequestSummaryDto r)
+    {
+        CloseContextMenu();
+        _unsubmittingRequest = r;
+    }
+
+    private async Task DoUndoSubmit()
+    {
+        if (_unsubmittingRequest is null || _saving) return;
+        _saving = true;
+        var target = _unsubmittingRequest;
+        var result = await Mediator.Send(new UndoSubmitCommand(target.Id, CurrentUser.UserId));
+        _saving = false;
+        _unsubmittingRequest = null;
+        if (result.IsFailure)
+        {
+            _errorMessage = result.Error.Message;
+        }
+        else
+        {
+            UpdateRequestStatus(target.Id, RequestStatus.Draft);
+            ShowToast($"Withdrew {target.Reference ?? "request"} to draft");
+        }
+    }
 
     private async Task DoCancel()
     {

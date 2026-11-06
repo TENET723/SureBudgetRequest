@@ -1237,6 +1237,8 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .action-sendback:hover:not(:disabled) { background: #fffbeb !important; }
 .action-reject { color: var(--color-danger); }
 .action-reject:hover:not(:disabled) { background: #fef2f2 !important; }
+.action-undo { color: #d97706; }
+.action-undo:hover:not(:disabled) { background: #fffbeb !important; }
 
 
 
