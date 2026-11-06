@@ -32,6 +32,7 @@ public enum NotificationTrigger
     SubmittedToDeptHead,
     SubmittedToFinance,          // dept head submitted, under limit
     SubmittedToManagement,       // dept head submitted, over limit
+    SubmissionUndone,            // requester withdrew submission back to draft
 
     // Dept Head stage
     DeptHeadApprovedToManagement,
@@ -50,6 +51,9 @@ public enum NotificationTrigger
     // Sent back to the requester for revision — fired by any approval stage
     // (Dept Head, Management, or Finance).
     SentBackToRequester,
+
+    // Approval undone / revoked — fired by any approver undoing their approval
+    ApprovalUndoneToRequester,
 
     // === Advance withdrawal — reconciliation phase ===
 

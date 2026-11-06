@@ -1,6 +1,7 @@
 using System.Text.Json;
 using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Entities;
+using SureBudgetRequest.Domain.Enums;
 
 namespace SureBudgetRequest.Infrastructure.Notifications;
 
@@ -138,6 +139,12 @@ internal static class SlackMessageBuilder
             NotificationTrigger.SentBackToRequester
                 => $"ID: {reference} was sent back by {actor} for revision. 🔄",
 
+            NotificationTrigger.ApprovalUndoneToRequester
+                => $"ID: {reference}: approval was undone by {actor}. Request returned to {FormatStatus(request.Status)}. ⚠️",
+
+            NotificationTrigger.SubmissionUndone
+                => $"ID: {reference}: submission was withdrawn by {actor}. Returned to Draft. ⚠️",
+
             // ── Advance withdrawal — reconciliation phase ──────────────────
             NotificationTrigger.AdvanceApprovedToRequester
                 => $"ID: {reference} (advance) is approved by {actor}.\n ✅ "
@@ -195,4 +202,17 @@ internal static class SlackMessageBuilder
 
     private static string ReimbursementText(BudgetRequest request) =>
         $"{request.ReimbursementAmount:N2} {request.CurrencyCode}";
+
+    private static string FormatStatus(RequestStatus status) => status switch
+    {
+        RequestStatus.PendingDeptHead => "Pending Department Head",
+        RequestStatus.PendingManagement => "Pending Management",
+        RequestStatus.PendingFinance => "Pending Finance",
+        RequestStatus.Approved => "Approved",
+        RequestStatus.PartiallyPaid => "Partially Paid",
+        RequestStatus.Paid => "Paid",
+        RequestStatus.Rejected => "Rejected",
+        RequestStatus.SentBack => "Sent Back",
+        _ => status.ToString()
+    };
 }

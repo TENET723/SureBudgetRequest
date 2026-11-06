@@ -1,5 +1,6 @@
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Domain.Entities;
 
@@ -267,11 +268,51 @@ public partial class BudgetRequest
         if (byUserId != RequesterId)
             return Result.Failure("Only the requester can cancel their request.");
 
-        if (Status is not RequestStatus.PendingDeptHead and not RequestStatus.SentBack and not RequestStatus.Draft)
+        var requiresManagement = RequestedAmountInMmkAtSubmission > DepartmentLimitAtSubmission;
+        var isDeptHeadRequester = RequesterId == DeptHeadIdAtSubmission;
+
+        var canCancel = Status is RequestStatus.PendingDeptHead or RequestStatus.SentBack or RequestStatus.Draft
+            || (isDeptHeadRequester && (Status == RequestStatus.PendingManagement || (Status == RequestStatus.PendingFinance && !requiresManagement)));
+
+        if (!canCancel)
             return Result.Failure($"Cannot cancel a request in status '{Status}'.");
 
         Status = RequestStatus.Cancelled;
         FinalizedAt = DateTime.UtcNow;
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Reverts a submitted request back to Draft status so the requester can edit details,
+    /// attachments, or cancel it. Available only to the requester as long as no reviewer
+    /// has taken action:
+    /// - Standard request: while still in PendingDeptHead.
+    /// - Dept Head self-submitted request: while still in PendingManagement (over limit) or PendingFinance (within limit).
+    /// </summary>
+    public Result UndoSubmit(Guid byUserId)
+    {
+        if (byUserId != RequesterId)
+            return Result.Failure(BudgetRequestErrors.OnlyRequesterCanUndoSubmit);
+
+        var requiresManagement = RequestedAmountInMmkAtSubmission > DepartmentLimitAtSubmission;
+        var isDeptHeadRequester = RequesterId == DeptHeadIdAtSubmission;
+
+        var canUndo = (!isDeptHeadRequester && Status == RequestStatus.PendingDeptHead)
+            || (isDeptHeadRequester && (Status == RequestStatus.PendingManagement || (Status == RequestStatus.PendingFinance && !requiresManagement)));
+
+        if (!canUndo)
+            return Result.Failure(BudgetRequestErrors.CannotUndoSubmit);
+
+        // Remove submit-time auto-approval action if present
+        var autoApprovedAction = _approvalActions.FirstOrDefault(a => a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.AutoApproved);
+        if (autoApprovedAction is not null)
+        {
+            _approvalActions.Remove(autoApprovedAction);
+        }
+
+        Status = RequestStatus.Draft;
+        SubmittedAt = null;
+
         return Result.Success();
     }
 

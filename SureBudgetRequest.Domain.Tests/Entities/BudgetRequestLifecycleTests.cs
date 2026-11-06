@@ -500,4 +500,120 @@ public class BudgetRequestLifecycleTests
         clearedPaths.Should().BeEquivalentTo(new[] { "path/bank1.png", "path/bank2.png" });
         request.Attachments.Should().ContainSingle(a => a.Category == AttachmentCategory.General);
     }
+
+    // =========================================================================
+    // 6. UndoSubmit Tests
+    // =========================================================================
+
+    [Fact]
+    public void UndoSubmit_StandardRequester_AtPendingDeptHead_ShouldRevertToDraftAndClearSubmittedAt()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: reqId, deptHeadId: headId);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob", "Alice", false, 1);
+        request.Status.Should().Be(RequestStatus.PendingDeptHead);
+        request.SubmittedAt.Should().NotBeNull();
+
+        // Act
+        var undoResult = request.UndoSubmit(reqId);
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Draft);
+        request.SubmittedAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void UndoSubmit_DeptHeadRequester_AtPendingManagement_ShouldRevertToDraftAndClearAutoApprovedAction()
+    {
+        // Arrange: DeptHead requester submitting over limit -> AutoApproved -> PendingManagement
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: headId, deptHeadId: headId, amount: 800_000m);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob Head", "Bob Head", false, 1);
+        request.Status.Should().Be(RequestStatus.PendingManagement);
+        request.ApprovalActions.Should().ContainSingle(a => a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.AutoApproved);
+
+        // Act
+        var undoResult = request.UndoSubmit(headId);
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Draft);
+        request.SubmittedAt.Should().BeNull();
+        request.ApprovalActions.Should().BeEmpty(); // AutoApproved action cleaned up!
+    }
+
+    [Fact]
+    public void UndoSubmit_DeptHeadRequester_AtPendingFinance_UnderLimit_ShouldRevertToDraftAndClearAutoApprovedAction()
+    {
+        // Arrange: DeptHead requester submitting under limit -> AutoApproved -> PendingFinance
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: headId, deptHeadId: headId, amount: 100_000m);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob Head", "Bob Head", false, 1);
+        request.Status.Should().Be(RequestStatus.PendingFinance);
+
+        // Act
+        var undoResult = request.UndoSubmit(headId);
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Draft);
+        request.SubmittedAt.Should().BeNull();
+        request.ApprovalActions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UndoSubmit_ByNonRequester_ShouldFail()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var strangerId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: reqId, deptHeadId: headId);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob", "Alice", false, 1);
+
+        // Act
+        var undoResult = request.UndoSubmit(strangerId);
+
+        // Assert
+        undoResult.IsFailure.Should().BeTrue();
+        undoResult.Error.Code.Should().Be("BudgetRequest.OnlyRequesterCanUndoSubmit");
+    }
+
+    [Fact]
+    public void UndoSubmit_AfterReviewerActed_ShouldFail()
+    {
+        // Arrange: DeptHead already approved standard request
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: reqId, deptHeadId: headId);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob", "Alice", false, 1);
+        request.ApproveBy(headId); // now in PendingFinance
+
+        // Act: Requester attempts to undo submit after DH approved
+        var undoResult = request.UndoSubmit(reqId);
+
+        // Assert
+        undoResult.IsFailure.Should().BeTrue();
+        undoResult.Error.Code.Should().Be("BudgetRequest.CannotUndoSubmit");
+    }
+
+    [Fact]
+    public void Cancel_DeptHeadRequester_AtPendingManagement_ShouldSucceed()
+    {
+        // Arrange
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: headId, deptHeadId: headId, amount: 800_000m);
+        request.Submit(Guid.NewGuid(), 500_000m, 10_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Bob Head", "Bob Head", false, 1);
+        request.Status.Should().Be(RequestStatus.PendingManagement);
+
+        // Act
+        var cancelResult = request.Cancel(headId);
+
+        // Assert
+        cancelResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.Cancelled);
+    }
 }

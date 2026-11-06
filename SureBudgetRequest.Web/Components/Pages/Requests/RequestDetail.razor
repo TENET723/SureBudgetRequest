@@ -13,6 +13,8 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.CancelRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RecordPayment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.VoidPayment
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoApproval
+@using SureBudgetRequest.Application.BudgetRequests.Commands.UndoSubmit
 @using SureBudgetRequest.Application.BudgetRequests.Commands.SubmitRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.AddAdvanceUsage
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UpdateAdvanceUsage
@@ -543,13 +545,37 @@ else
                             <button class="btn btn-warning btn-sm" @onclick="() => _showSendBackModal = true">Send Back to Requester</button>
                         }
 
+                        @* Undo Approval *@
+                        @if (actions.Contains("undoapproval"))
+                        {
+                            <button class="btn btn-outline-warning btn-sm" @onclick="OpenUndoApprovalModal" disabled="@_actioning">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1 inline-block align-middle">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                                Undo Approval
+                            </button>
+                        }
+
                         @* Record Payment (Finance) *@
                         @if (actions.Contains("recordpayment"))
                         {
                             <button class="btn btn-success btn-sm" @onclick="OpenPaymentModal">Record Payment</button>
                         }
 
-                        @* Cancel (Requester, PendingDeptHead) *@
+                        @* Undo Submit (Requester) *@
+                        @if (actions.Contains("undosubmit"))
+                        {
+                            <button class="btn btn-outline-warning btn-sm" @onclick="OpenUndoSubmitModal" disabled="@_actioning">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1 inline-block align-middle">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                                Undo Submission
+                            </button>
+                        }
+
+                        @* Cancel (Requester) *@
                         @if (actions.Contains("cancel"))
                         {
                             <button class="btn btn-danger btn-sm" @onclick="() => _showCancelModal = true">Cancel Request</button>
@@ -1191,6 +1217,74 @@ else
                 <button class="btn btn-danger btn-sm" @onclick="DoVoidPayment" disabled="@_actioning">
                     @if (_actioning && _actionTarget == "voidpayment") { <span class="spinner spinner-sm mr-1"></span> }
                     Confirm Void
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Undo Approval Modal ───────────────────────────────────────────────────── *@
+@if (_showUndoApprovalModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h6 class="modal-title">Undo Approval</h6>
+                <button class="btn btn-icon modal-close" @onclick="() => _showUndoApprovalModal = false" aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm">
+                    Are you sure you want to undo your approval for this request?
+                </p>
+                <div class="alert alert-warning text-xs mt-3">
+                    @GetUndoStageExplanation()
+                </div>
+                <div class="form-field mt-3">
+                    <label class="form-label text-xs">Reason / Comment <span class="text-muted">(optional)</span></label>
+                    <textarea class="input text-sm" rows="2" @bind="_undoApprovalComment" placeholder="Explain why approval is being undone..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="() => _showUndoApprovalModal = false" disabled="@_actioning">Cancel</button>
+                <button class="btn btn-warning btn-sm" @onclick="DoUndoApproval" disabled="@_actioning">
+                    @if (_actioning && _actionTarget == "undoapproval") { <span class="spinner spinner-sm mr-1"></span> }
+                    Confirm Undo
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Undo Submit Modal ─────────────────────────────────────────────────────── *@
+@if (_showUndoSubmitModal)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h6 class="modal-title">Undo Submission</h6>
+                <button class="btn btn-icon modal-close" @onclick="() => _showUndoSubmitModal = false" aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="text-sm">
+                    Are you sure you want to withdraw this submission?
+                </p>
+                <div class="alert alert-warning text-xs mt-3">
+                    This will return the request to <strong>Draft</strong> status. You will be able to edit its details, manage attachments, or submit it again.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="() => _showUndoSubmitModal = false" disabled="@_actioning">Cancel</button>
+                <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_actioning">
+                    @if (_actioning && _actionTarget == "undosubmit") { <span class="spinner spinner-sm mr-1"></span> }
+                    Withdraw to Draft
                 </button>
             </div>
         </div>
@@ -2453,6 +2547,99 @@ else
         }
     }
 
+    private bool _showUndoSubmitModal;
+
+    private void OpenUndoSubmitModal()
+    {
+        _showUndoSubmitModal = true;
+    }
+
+    private async Task DoUndoSubmit()
+    {
+        if (_actioning) return;
+        _actioning = true;
+        _actionTarget = "undosubmit";
+        _actionError = null;
+        try
+        {
+            var result = await Mediator.Send(new UndoSubmitCommand(Id, CurrentUser.UserId));
+            if (result.IsFailure)
+            {
+                _actionError = result.Error.Message;
+            }
+            else
+            {
+                _showUndoSubmitModal = false;
+                _actionSuccess = "Submission withdrawn. Request is now in Draft.";
+                await LoadRequest();
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Failed to undo submission: {ex.Message}";
+        }
+        finally
+        {
+            _actioning = false;
+            _actionTarget = null;
+        }
+    }
+
+    private bool _showUndoApprovalModal;
+    private string? _undoApprovalComment;
+
+    private void OpenUndoApprovalModal()
+    {
+        _undoApprovalComment = null;
+        _showUndoApprovalModal = true;
+    }
+
+    private string GetUndoStageExplanation()
+    {
+        if (_request is null) return string.Empty;
+        var requiresManagement = _request.RequestedAmountInMmkAtSubmission > _request.DepartmentLimitAtSubmission;
+        return _request.Status switch
+        {
+            RequestStatus.PendingManagement => "This will undo the Department Head approval and return the request to Pending Department Head.",
+            RequestStatus.PendingFinance when requiresManagement => "This will undo the Management approval and return the request to Pending Management.",
+            RequestStatus.PendingFinance => "This will undo the Department Head approval and return the request to Pending Department Head.",
+            RequestStatus.Approved => "This will undo the Finance approval and return the request to Pending Finance. Approved amount and deadline will be cleared.",
+            _ => "This will revert the request to the previous approval stage."
+        };
+    }
+
+    private async Task DoUndoApproval()
+    {
+        if (_actioning) return;
+        _actioning = true;
+        _actionTarget = "undoapproval";
+        _actionError = null;
+        try
+        {
+            var result = await Mediator.Send(new UndoApprovalCommand(Id, CurrentUser.UserId, _undoApprovalComment));
+            if (result.IsFailure)
+            {
+                _actionError = result.Error.Message;
+            }
+            else
+            {
+                _showUndoApprovalModal = false;
+                _undoApprovalComment = null;
+                _actionSuccess = "Approval undone successfully.";
+                await LoadRequest();
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = $"Failed to undo approval: {ex.Message}";
+        }
+        finally
+        {
+            _actioning = false;
+            _actionTarget = null;
+        }
+    }
+
     private bool CanEditUsage => _request is not null
         && _request.Status == RequestStatus.PendingReconciliation
         && IsRequester;
@@ -2558,15 +2745,56 @@ else
         // Finance Approvers and Admins can also send back an Approved request before any payment has been recorded.
         if (r.Status == RequestStatus.Approved 
             && (role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover)) 
-            && r.Payments.Count == 0)
+            && r.Payments.All(p => p.IsVoided))
         { list.Add("sendback"); }
+
+        // Undo Approval (when next stage hasn't taken action yet)
+        var requiresManagement = r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission;
+        var isAutoApprovedDeptHead = r.ApprovalActions.Any(a => a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.AutoApproved);
+
+        if (!isAutoApprovedDeptHead && (r.DeptHeadIdAtSubmission == uid || role == UserRole.Admin))
+        {
+            if (r.Status == RequestStatus.PendingManagement)
+                list.Add("undoapproval");
+            else if (r.Status == RequestStatus.PendingFinance && !requiresManagement)
+                list.Add("undoapproval");
+        }
+
+        if ((role == UserRole.Management || role == UserRole.Admin)
+            && r.Status == RequestStatus.PendingFinance
+            && requiresManagement)
+        {
+            list.Add("undoapproval");
+        }
+
+        if ((role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover))
+            && r.Status == RequestStatus.Approved
+            && r.Payments.All(p => p.IsVoided))
+        {
+            list.Add("undoapproval");
+        }
 
         // Recording payments is allowed for BOTH Finance sub-types.
         if (r.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid && role == UserRole.Finance)
             list.Add("recordpayment");
 
-        if (r.Status == RequestStatus.PendingDeptHead && r.RequesterId == uid)
-            list.Add("cancel");
+        // Requester Undo Submit & Cancel (available before any reviewer has taken action)
+        if (r.RequesterId == uid)
+        {
+            var isDeptHeadRequester = r.RequesterId == r.DeptHeadIdAtSubmission;
+            var canUndoSubmitOrCancel = (!isDeptHeadRequester && r.Status == RequestStatus.PendingDeptHead)
+                || (isDeptHeadRequester && (r.Status == RequestStatus.PendingManagement || (r.Status == RequestStatus.PendingFinance && !requiresManagement)));
+
+            if (canUndoSubmitOrCancel)
+            {
+                list.Add("undosubmit");
+                list.Add("cancel");
+            }
+            else if (r.Status is RequestStatus.Draft or RequestStatus.SentBack)
+            {
+                list.Add("cancel");
+            }
+        }
 
         return list;
     }
@@ -3179,6 +3407,7 @@ else
     {
         ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "tl-node-approved",
         ApprovalDecision.Rejected => "tl-node-rejected",
+        ApprovalDecision.Revoked => "tl-node-sentback",
         _ => "tl-node-sentback"
     };
 
@@ -3186,6 +3415,7 @@ else
     {
         ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "✓",
         ApprovalDecision.Rejected => "✕",
+        ApprovalDecision.Revoked => "↺",
         _ => "↩"
     };
 
@@ -3193,6 +3423,7 @@ else
     {
         ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "badge-active",
         ApprovalDecision.Rejected => "badge-rejected",
+        ApprovalDecision.Revoked => "badge-warning",
         _ => "badge-warning"
     };
 
@@ -3201,6 +3432,7 @@ else
         ApprovalDecision.Approved     => "APPROVED",
         ApprovalDecision.AutoApproved => "AUTO-APPROVED",
         ApprovalDecision.Rejected     => "REJECTED",
+        ApprovalDecision.Revoked      => "REVOKED",
         _ => "SENT BACK"
     };
 

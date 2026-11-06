@@ -401,4 +401,149 @@ public class BudgetRequestApprovalsTests
         result.IsFailure.Should().BeTrue();
         result.Error.Message.Should().Be("Only sent-back requests can be resubmitted.");
     }
+
+    // =========================================================================
+    // 5. UndoApproval Tests
+    // =========================================================================
+
+    [Fact]
+    public void UndoApproval_FromPendingManagement_ByAssignedDeptHead_ShouldRevertToPendingDeptHead()
+    {
+        // Arrange: Over limit (800k > 500k) moves to PendingManagement when DeptHead approves
+        var headId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 800_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.Status.Should().Be(RequestStatus.PendingManagement);
+
+        // Act: DeptHead realizes mistake and undoes approval
+        var undoResult = request.UndoApproval(headId, "Mistakenly approved");
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingDeptHead);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.Revoked && a.Comment == "Mistakenly approved");
+    }
+
+    [Fact]
+    public void UndoApproval_FromPendingFinance_UnderLimit_ByAssignedDeptHead_ShouldRevertToPendingDeptHead()
+    {
+        // Arrange: Under limit (100k <= 500k) moves to PendingFinance when DeptHead approves
+        var headId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 100_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.Status.Should().Be(RequestStatus.PendingFinance);
+
+        // Act: DeptHead undoes
+        var undoResult = request.UndoApproval(headId, "Needs further check");
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingDeptHead);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.Revoked);
+    }
+
+    [Fact]
+    public void UndoApproval_FromPendingFinance_OverLimit_ByManagement_ShouldRevertToPendingManagement()
+    {
+        // Arrange: Over limit -> DeptHead approved -> Management approved -> PendingFinance
+        var headId = Guid.NewGuid();
+        var mgmtId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 800_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.ApproveBy(mgmtId);
+        request.Status.Should().Be(RequestStatus.PendingFinance);
+
+        // Act: Management undoes
+        var undoResult = request.UndoApproval(mgmtId, "Rechecking budget cap");
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingManagement);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.Management && a.Decision == ApprovalDecision.Revoked);
+    }
+
+    [Fact]
+    public void UndoApproval_FromApproved_WithNoActivePayments_ShouldRevertToPendingFinance()
+    {
+        // Arrange: Fully approved by Finance
+        var headId = Guid.NewGuid();
+        var financeId = Guid.NewGuid();
+        var coaId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 100_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.ApproveBy(financeId, coaId: coaId);
+        request.Status.Should().Be(RequestStatus.Approved);
+        request.ApprovedAmount.Should().Be(100_000m);
+
+        // Act: Finance undoes approval
+        var undoResult = request.UndoApproval(financeId, "Wrong COA selected");
+
+        // Assert
+        undoResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingFinance);
+        request.ApprovedAmount.Should().Be(0m);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Revoked && a.Comment == "Wrong COA selected");
+    }
+
+    [Fact]
+    public void UndoApproval_FromApproved_WithActivePayments_ShouldFail()
+    {
+        // Arrange: Approved with active payment
+        var headId = Guid.NewGuid();
+        var financeId = Guid.NewGuid();
+        var coaId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 100_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.ApproveBy(financeId, coaId: coaId);
+        request.RecordPayment(50_000m, DateTime.UtcNow, financeId, "REF-1", null, null);
+        request.Status.Should().Be(RequestStatus.PartiallyPaid);
+
+        // Act
+        var undoResult = request.UndoApproval(financeId);
+
+        // Assert
+        undoResult.IsFailure.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UndoApproval_WhenAutoApproved_ShouldFail()
+    {
+        // Arrange: Requester == DeptHead -> AutoApproved at DeptHead stage
+        var sameUserId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(
+            amount: 100_000m,
+            deptLimit: 500_000m,
+            requesterId: sameUserId,
+            deptHeadId: sameUserId);
+        request.Status.Should().Be(RequestStatus.PendingFinance);
+
+        // Act: Attempt to undo auto-approval
+        var undoResult = request.UndoApproval(sameUserId);
+
+        // Assert
+        undoResult.IsFailure.Should().BeTrue();
+        undoResult.Error.Code.Should().Be("BudgetRequest.AutoApprovedCannotBeUndone");
+    }
+
+    [Fact]
+    public void UndoApproval_ByUnassignedApprover_AtDeptHeadStage_ShouldFail()
+    {
+        // Arrange
+        var headId = Guid.NewGuid();
+        var wrongHeadId = Guid.NewGuid();
+        var request = CreateSubmittedRequest(amount: 800_000m, deptLimit: 500_000m, deptHeadId: headId);
+        request.ApproveBy(headId);
+        request.Status.Should().Be(RequestStatus.PendingManagement);
+
+        // Act: Wrong approver attempts to undo DeptHead approval
+        var result = request.UndoApproval(wrongHeadId);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("not the assigned approver");
+    }
 }

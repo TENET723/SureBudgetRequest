@@ -5,5 +5,6 @@ public enum ApprovalDecision
     Approved = 0,
     Rejected = 1,
     AutoApproved = 2,
-    SentBack = 3
+    SentBack = 3,
+    Revoked = 4
 }

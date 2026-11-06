@@ -63,4 +63,22 @@ public static class BudgetRequestErrors
 
     public static readonly Error AdvanceBlockedByOverdueReconciliation =
         Error.Validation("BudgetRequest.AdvanceBlockedByOverdueReconciliation", "You have an advance past its reconciliation deadline. Reconcile it before requesting a new advance.");
+
+    public static readonly Error CannotUndoWithActivePayments = 
+        Error.Validation("BudgetRequest.CannotUndoWithActivePayments", "Cannot undo Finance approval while active payments exist. Void all payments first.");
+
+    public static readonly Error AutoApprovedCannotBeUndone = 
+        Error.Validation("BudgetRequest.AutoApprovedCannotBeUndone", "Auto-approved requests cannot be manually undone.");
+
+    public static readonly Error NextStageAlreadyActed = 
+        Error.Validation("BudgetRequest.NextStageAlreadyActed", "Cannot undo approval because the next stage has already taken action.");
+
+    public static readonly Error CannotUndoInCurrentStatus = 
+        Error.Validation("BudgetRequest.CannotUndoInCurrentStatus", "Cannot undo approval for a request in this status.");
+
+    public static readonly Error OnlyRequesterCanUndoSubmit = 
+        Error.Forbidden("BudgetRequest.OnlyRequesterCanUndoSubmit", "Only the requester can undo their submission.");
+
+    public static readonly Error CannotUndoSubmit = 
+        Error.Validation("BudgetRequest.CannotUndoSubmit", "Cannot undo submission because a reviewer has already taken action or the request is not in an undoable state.");
 }

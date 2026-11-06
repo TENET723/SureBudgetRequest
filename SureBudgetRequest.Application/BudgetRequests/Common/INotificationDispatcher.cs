@@ -62,4 +62,25 @@ public interface INotificationDispatcher
         string currencyCode,
         string? actorName,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies the requester that an approval was undone.
+    /// Call AFTER <c>BudgetRequest.UndoApproval</c>.
+    /// </summary>
+    Task DispatchApprovalUndoneAsync(
+        BudgetRequest request,
+        string stageName,
+        string? actorName,
+        string? comment,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies reviewers that a submitted request was withdrawn back to Draft by the requester.
+    /// Call AFTER <c>BudgetRequest.UndoSubmit</c>.
+    /// </summary>
+    Task DispatchSubmissionUndoneAsync(
+        BudgetRequest request,
+        RequestStatus previousStatus,
+        string? actorName,
+        CancellationToken cancellationToken);
 }

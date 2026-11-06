@@ -1,5 +1,6 @@
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Domain.Entities;
 
@@ -144,7 +145,7 @@ public partial class BudgetRequest
         if (stage is null)
             return Result.Failure($"Cannot send back a request in status '{Status}'.");
 
-        if (Status == RequestStatus.Approved && _payments.Any())
+        if (Status == RequestStatus.Approved && _payments.Any(p => !p.IsVoided))
             return Result.Failure("Cannot send back an approved request that has recorded payments.");
 
         if (string.IsNullOrWhiteSpace(comment))
@@ -165,6 +166,85 @@ public partial class BudgetRequest
         ReconciliationDeadline = null;
         // CoaId intentionally preserved — used as a pre-fill hint for the next
         // Finance approval after the requester fixes and resubmits.
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Undoes / revokes the approval for the current stage if the next stage has not taken action yet:
+    /// - From PendingManagement -> reverts to PendingDeptHead (undone by DeptHead).
+    /// - From PendingFinance:
+    ///     * If Management was required -> reverts to PendingManagement (undone by Management).
+    ///     * If Management was skipped -> reverts to PendingDeptHead (undone by DeptHead).
+    /// - From Approved:
+    ///     * Reverts to PendingFinance (undone by Finance), only if no active payments exist.
+    /// </summary>
+    public Result UndoApproval(Guid approverId, string? comment = null, Guid? fallbackUserId = null)
+    {
+        var requiresManagement = RequestedAmountInMmkAtSubmission > DepartmentLimitAtSubmission;
+
+        ApprovalStage stageToUndo;
+        RequestStatus targetStatus;
+
+        switch (Status)
+        {
+            case RequestStatus.PendingManagement:
+                stageToUndo = ApprovalStage.DeptHead;
+                targetStatus = RequestStatus.PendingDeptHead;
+                break;
+
+            case RequestStatus.PendingFinance:
+                if (requiresManagement)
+                {
+                    stageToUndo = ApprovalStage.Management;
+                    targetStatus = RequestStatus.PendingManagement;
+                }
+                else
+                {
+                    stageToUndo = ApprovalStage.DeptHead;
+                    targetStatus = RequestStatus.PendingDeptHead;
+                }
+                break;
+
+            case RequestStatus.Approved:
+                if (_payments.Any(p => !p.IsVoided))
+                    return Result.Failure(BudgetRequestErrors.CannotUndoWithActivePayments);
+
+                stageToUndo = ApprovalStage.Finance;
+                targetStatus = RequestStatus.PendingFinance;
+                break;
+
+            default:
+                return Result.Failure(BudgetRequestErrors.CannotUndoInCurrentStatus);
+        }
+
+        // Strict: only the assigned dept head may undo at the DeptHead stage
+        if (stageToUndo == ApprovalStage.DeptHead && approverId != DeptHeadIdAtSubmission)
+            return Result.Failure("This user is not the assigned approver for this stage.");
+
+        // Guard against auto-approved DeptHead approvals
+        var lastApproval = _approvalActions
+            .Where(a => a.Stage == stageToUndo && a.Decision is ApprovalDecision.Approved or ApprovalDecision.AutoApproved)
+            .OrderByDescending(a => a.ActionedAt)
+            .FirstOrDefault();
+
+        if (lastApproval is null)
+            return Result.Failure("No approval found to undo for this stage.");
+
+        if (lastApproval.Decision == ApprovalDecision.AutoApproved)
+            return Result.Failure(BudgetRequestErrors.AutoApprovedCannotBeUndone);
+
+        var now = DateTime.UtcNow;
+        _approvalActions.Add(new ApprovalAction(
+            Id, stageToUndo, ApprovalDecision.Revoked, approverId, comment, actionedAt: now, fallbackUserId: fallbackUserId));
+
+        Status = targetStatus;
+
+        if (stageToUndo == ApprovalStage.Finance)
+        {
+            ApprovedAmount = 0;
+            ReconciliationDeadline = null;
+        }
+
         return Result.Success();
     }
 

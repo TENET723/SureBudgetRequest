@@ -249,6 +249,50 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             cancellationToken);
     }
 
+    public async Task DispatchApprovalUndoneAsync(
+        BudgetRequest request,
+        string stageName,
+        string? actorName,
+        string? comment,
+        CancellationToken cancellationToken)
+    {
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.ApprovalUndoneToRequester,
+                request.Id,
+                new[] { request.RequesterId },
+                request.RequesterNameAtSubmission,
+                actorName,
+                comment),
+            cancellationToken);
+    }
+
+    public async Task DispatchSubmissionUndoneAsync(
+        BudgetRequest request,
+        RequestStatus previousStatus,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Guid> recipients = previousStatus switch
+        {
+            RequestStatus.PendingDeptHead => new[] { request.DeptHeadIdAtSubmission },
+            RequestStatus.PendingManagement => await GetUserIdsByRoleAsync(UserRole.Management, cancellationToken),
+            RequestStatus.PendingFinance => await GetFinanceApproverIdsAsync(cancellationToken),
+            _ => Array.Empty<Guid>()
+        };
+
+        if (recipients.Count == 0) return;
+
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.SubmissionUndone,
+                request.Id,
+                recipients,
+                request.RequesterNameAtSubmission,
+                actorName),
+            cancellationToken);
+    }
+
     private async Task<IReadOnlyList<Guid>> GetUserIdsByRoleAsync(
         UserRole role, CancellationToken ct)
     {
