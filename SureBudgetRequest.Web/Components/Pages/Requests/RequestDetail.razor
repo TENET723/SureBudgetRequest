@@ -819,7 +819,10 @@ else
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Description</th>
                                         <th>Receipt</th>
-                                        @if (CanEditUsage) { <th class="col-actions"></th> }
+                                        @if (CanEditUsage)
+                                        {
+                                            <th class="sticky-action-col"></th>
+                                        }
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -827,12 +830,12 @@ else
                                     @foreach (var u in _request.AdvanceUsages.OrderBy(x => x.SpentOn))
                                     {
                                         usageNo++;
-                                        <tr>
+                                        <tr class="@(CanEditUsage ? "clickable-row" : "")" @onclick="() => { if (CanEditUsage) OpenEditUsageModal(u); }">
                                             <td class="col-no">@usageNo</td>
                                             <td class="nowrap">@u.SpentOn.ToMyanmarDateTime().ToString("d/M/yyyy h:mm tt")</td>
                                             <td class="text-end font-semibold tabular">@u.Amount.ToString("N2")</td>
                                             <td>@u.Description</td>
-                                            <td>
+                                            <td @onclick:stopPropagation="true">
                                                 @{
                                                     var rowAtts = u.AttachmentIds
                                                         .Select(id => FindAttachment(id))
@@ -851,9 +854,19 @@ else
                                             </td>
                                             @if (CanEditUsage)
                                             {
-                                                <td class="col-actions nowrap">
-                                                    <button class="btn btn-ghost btn-xs" @onclick="() => OpenEditUsageModal(u)">Edit</button>
-                                                    <button class="btn btn-ghost btn-xs text-danger" @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">Delete</button>
+                                                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                                    <div class="row-hover-btn-wrapper">
+                                                        <div class="row-hover-backdrop"></div>
+                                                        <button type="button" class="btn-three-dots btn-delete-row" title="Delete Usage"
+                                                                @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             }
                                         </tr>

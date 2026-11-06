@@ -847,7 +847,8 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   transform: scale(1.06);
 }
 
-.btn-void-row:hover {
+.btn-void-row:hover,
+.btn-delete-row:hover {
   background: #EF4444 !important;
   color: white !important;
   border-color: #EF4444 !important;
