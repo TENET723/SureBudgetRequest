@@ -40,8 +40,7 @@ public sealed class GetDashboardQueryHandler
         // Advance requests, which skip Paid entirely. The money is out but
         // the request is not closed until reconciled, so they are in-flight.
         RequestStatus.PendingReconciliation,
-        RequestStatus.AwaitingRefund,
-        RequestStatus.AwaitingReimbursement
+        RequestStatus.AwaitingRefund
     };
 
     private static readonly RequestStatus[] CompletedStatuses =
@@ -65,13 +64,10 @@ public sealed class GetDashboardQueryHandler
         RequestStatus.PartiallyPaid
     };
 
-    // Reconciled advances awaiting their closing money movement. One combined
-    // bucket — refund (money in) and reimbursement (money out) are both Finance's
-    // to settle before the advance can reach Reconciled.
+    // Advances awaiting refund from requester before the advance can reach Reconciled.
     private static readonly RequestStatus[] SettlementStatuses =
     {
-        RequestStatus.AwaitingRefund,
-        RequestStatus.AwaitingReimbursement
+        RequestStatus.AwaitingRefund
     };
 
     private readonly IBudgetRequestRepository _budgetRequestRepository;

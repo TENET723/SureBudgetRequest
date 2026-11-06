@@ -55,6 +55,22 @@ public class BudgetRequestReconciliationTests
         request.TotalUsageRecorded.Should().Be(150_000m);
     }
 
+    [Fact]
+    public void AddAdvanceUsage_WhenExceedingApprovedAmount_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+
+        // Act: Attempting to record 600k against 500k approved
+        var result = request.AddAdvanceUsage(
+            now, 600_000m, "Too expensive", null, request.RequesterId, now);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Total usage cannot exceed the approved advance amount");
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-0.01)]
@@ -136,6 +152,23 @@ public class BudgetRequestReconciliationTests
     }
 
     [Fact]
+    public void UpdateAdvanceUsage_WhenExceedingApprovedAmount_ShouldFail()
+    {
+        // Arrange
+        var request = CreatePendingReconciliationAdvance(500_000m);
+        var now = DateTime.UtcNow;
+        var usageId = request.AddAdvanceUsage(now, 400_000m, "Original desc", null, request.RequesterId, now).Value;
+
+        // Act: Attempt to increase to 600k (exceeding 500k approved)
+        var updateResult = request.UpdateAdvanceUsage(
+            usageId, now, 600_000m, "Updated desc", null);
+
+        // Assert
+        updateResult.IsFailure.Should().BeTrue();
+        updateResult.Error.Message.Should().Contain("Total usage cannot exceed the approved advance amount");
+    }
+
+    [Fact]
     public void RemoveAdvanceUsage_ShouldRemoveItemAndRecalculateTotal()
     {
         // Arrange
@@ -195,24 +228,6 @@ public class BudgetRequestReconciliationTests
     }
 
     [Fact]
-    public void SubmitReconciliation_OverSpent_ShouldMoveToAwaitingReimbursement()
-    {
-        // Arrange: Advance 500k, usage 650k (overspent 150k)
-        var request = CreatePendingReconciliationAdvance(500_000m);
-        var now = DateTime.UtcNow;
-        request.AddAdvanceUsage(now, 650_000m, "Flight fare increase", null, request.RequesterId, now);
-
-        // Act
-        var result = request.SubmitReconciliation(request.RequesterId, now);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        request.Status.Should().Be(RequestStatus.AwaitingReimbursement);
-        request.ReimbursementAmount.Should().Be(150_000m);
-        request.FinalizedAt.Should().BeNull(); // Not finalized until reimbursement paid
-    }
-
-    [Fact]
     public void SubmitReconciliation_WithNoUsagesRecorded_ShouldFail()
     {
         // Arrange: Advance with 0 usages
@@ -227,7 +242,7 @@ public class BudgetRequestReconciliationTests
     }
 
     // =========================================================================
-    // 4. RecordRefund & RecordReimbursement
+    // 4. RecordRefund
     // =========================================================================
 
     [Fact]
@@ -274,49 +289,6 @@ public class BudgetRequestReconciliationTests
         result.Error.Message.Should().Contain("must exactly match the outstanding refund of 100000");
     }
 
-    [Fact]
-    public void RecordReimbursement_ExactAmount_ShouldReconcileAndFinalize()
-    {
-        // Arrange: Awaiting reimbursement of 150k
-        var request = CreatePendingReconciliationAdvance(500_000m);
-        var now = DateTime.UtcNow;
-        var addResult = request.AddAdvanceUsage(now, 650_000m, "Overspent Trip", null, request.RequesterId, now);
-        addResult.IsSuccess.Should().BeTrue();
-
-        var submitResult = request.SubmitReconciliation(request.RequesterId, now);
-        submitResult.IsSuccess.Should().BeTrue();
-        request.Status.Should().Be(RequestStatus.AwaitingReimbursement);
-
-        var financeUser = Guid.NewGuid();
-        var paidTime = now; // Valid: >= submittedAt and <= UtcNow + 5min
-
-        // Act
-        var result = request.RecordReimbursement(150_000m, financeUser, paidTime);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        request.Status.Should().Be(RequestStatus.Reconciled);
-        request.ReimbursementPaidByUserId.Should().Be(financeUser);
-        request.ReimbursementPaidAt.Should().Be(paidTime);
-        request.FinalizedAt.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void RecordReimbursement_MismatchedAmount_ShouldFail()
-    {
-        // Arrange: Awaiting reimbursement of 150k
-        var request = CreatePendingReconciliationAdvance(500_000m);
-        var now = DateTime.UtcNow;
-        request.AddAdvanceUsage(now, 650_000m, "Trip", null, request.RequesterId, now);
-        request.SubmitReconciliation(request.RequesterId, now);
-
-        // Act: Attempting to reimburse 100k
-        var result = request.RecordReimbursement(100_000m, Guid.NewGuid(), now);
-
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("must exactly match the outstanding reimbursement of 150000");
-    }
 
     // =========================================================================
     // 5. ExtendReconciliationDeadline

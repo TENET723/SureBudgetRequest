@@ -693,13 +693,10 @@
     private bool _loading = true;
     private string _view = "inbox";   // "inbox" | "overdue" | "settle"
 
-    // Reconciled advances awaiting their closing money movement — one combined
-    // bucket (refund in / reimbursement out), the same set surfaced on the
-    // dashboard's "To Settle" queue.
+    // Advances awaiting refund from requester before the advance can reach Reconciled.
     private static readonly RequestStatus[] SettlementStatuses =
     {
-        RequestStatus.AwaitingRefund,
-        RequestStatus.AwaitingReimbursement
+        RequestStatus.AwaitingRefund
     }; 
 
     // ── Sorting ── default: submission time, newest first (inbox view).

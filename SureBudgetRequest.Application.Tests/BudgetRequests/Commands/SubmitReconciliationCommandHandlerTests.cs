@@ -176,36 +176,6 @@ public class SubmitReconciliationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUsageGreaterThanAdvance_MovesToAwaitingReimbursementDispatchesNotificationAndSaves()
-    {
-        // Arrange
-        var requesterId = Guid.NewGuid();
-        var request = CreatePendingReconciliationAdvance(requesterId, 500_000m);
-        request.AddAdvanceUsage(DateTime.UtcNow, 750_000m, "Over-spent", null, requesterId, DateTime.UtcNow);
-
-        var user = new User("alice", "Alice Requester", "alice@sure.com", Guid.NewGuid(), UserRole.Employee);
-        _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>()).Returns(request);
-        _userRepository.GetByIdAsync(requesterId, Arg.Any<CancellationToken>()).Returns(user);
-
-        var command = new SubmitReconciliationCommand(request.Id, requesterId);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        request.Status.Should().Be(RequestStatus.AwaitingReimbursement);
-        request.ReimbursementAmount.Should().Be(250_000m);
-
-        await _dispatcher.Received(1).DispatchReconciliationSubmittedAsync(
-            request,
-            "Alice Requester",
-            Arg.Any<CancellationToken>());
-
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task Handle_PassesCancellationTokenToDependencies()
     {
         // Arrange

@@ -182,23 +182,6 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
                     actorName),
                 cancellationToken);
         }
-        // If a reimbursement is now owed, also ping the requester + Finance.
-        else if (request.Status == RequestStatus.AwaitingReimbursement)
-        {
-            var recipients = financeIds
-                .Append(request.RequesterId)
-                .Distinct()
-                .ToArray();
-
-            await _notificationService.SendAsync(
-                new NotificationEvent(
-                    NotificationTrigger.AdvanceAwaitingReimbursement,
-                    request.Id,
-                    recipients,
-                    request.RequesterNameAtSubmission,
-                    actorName),
-                cancellationToken);
-        }
     }
 
     public async Task DispatchRefundRecordedAsync(
@@ -209,21 +192,6 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
         await _notificationService.SendAsync(
             new NotificationEvent(
                 NotificationTrigger.RefundRecordedToRequester,
-                request.Id,
-                new[] { request.RequesterId },
-                request.RequesterNameAtSubmission,
-                actorName),
-            cancellationToken);
-    }
-
-    public async Task DispatchReimbursementRecordedAsync(
-        BudgetRequest request,
-        string? actorName,
-        CancellationToken cancellationToken)
-    {
-        await _notificationService.SendAsync(
-            new NotificationEvent(
-                NotificationTrigger.ReimbursementRecordedToRequester,
                 request.Id,
                 new[] { request.RequesterId },
                 request.RequesterNameAtSubmission,

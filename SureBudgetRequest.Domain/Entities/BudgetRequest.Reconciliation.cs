@@ -7,15 +7,12 @@ namespace SureBudgetRequest.Domain.Entities;
 /// Advance-withdrawal reconciliation phase. Once an advance is fully paid it
 /// enters <see cref="RequestStatus.PendingReconciliation"/>; the requester then
 /// self-reports usage as line items (<see cref="AdvanceUsage"/>) and submits.
-/// Usage is fully self-reported, with no cap — it may be less than, equal to, or
-/// greater than <see cref="ApprovedAmount"/>. On submission there are three
-/// outcomes: usage equal to the advance reaches the terminal
-/// <see cref="RequestStatus.Reconciled"/> state directly; usage less than the
-/// advance moves to <see cref="RequestStatus.AwaitingRefund"/> (the requester
-/// owes the unspent balance back); usage greater than the advance moves to
-/// <see cref="RequestStatus.AwaitingReimbursement"/> (the company owes the
-/// requester the over-spent difference). Refund / reimbursement are settled by
-/// Finance before the request reaches <see cref="RequestStatus.Reconciled"/>.
+/// Total usage cannot exceed the approved advance amount.
+/// On submission there are two outcomes: usage equal to the advance reaches the
+/// terminal <see cref="RequestStatus.Reconciled"/> state directly; usage less than
+/// the advance moves to <see cref="RequestStatus.AwaitingRefund"/> (the requester
+/// owes the unspent balance back). Refund is settled by Finance before the request
+/// reaches <see cref="RequestStatus.Reconciled"/>.
 /// </summary>
 public partial class BudgetRequest
 {
@@ -43,6 +40,14 @@ public partial class BudgetRequest
 
         if (amount <= 0)
             return Result<Guid>.Failure("Usage amount must be greater than zero.");
+
+        if (TotalUsageRecorded + amount > ApprovedAmount)
+        {
+            var remaining = Math.Max(0m, ApprovedAmount - TotalUsageRecorded);
+            return Result<Guid>.Failure(
+                $"Total usage cannot exceed the approved advance amount of {ApprovedAmount:N2} {CurrencyCode}. " +
+                $"Remaining allowable spend is {remaining:N2} {CurrencyCode}.");
+        }
 
         if (string.IsNullOrWhiteSpace(description))
             return Result<Guid>.Failure("A description is required for each usage line item.");
@@ -105,6 +110,15 @@ public partial class BudgetRequest
 
         if (amount <= 0)
             return Result.Failure("Usage amount must be greater than zero.");
+
+        var otherUsagesTotal = _advanceUsages.Where(u => u.Id != usageId).Sum(u => u.Amount);
+        if (otherUsagesTotal + amount > ApprovedAmount)
+        {
+            var remaining = Math.Max(0m, ApprovedAmount - otherUsagesTotal);
+            return Result.Failure(
+                $"Total usage cannot exceed the approved advance amount of {ApprovedAmount:N2} {CurrencyCode}. " +
+                $"Remaining allowable spend is {remaining:N2} {CurrencyCode}.");
+        }
 
         if (string.IsNullOrWhiteSpace(description))
             return Result.Failure("A description is required for each usage line item.");
@@ -209,9 +223,8 @@ public partial class BudgetRequest
         }
         else
         {
-            // Over-spent: the company owes the requester the difference.
-            Status = RequestStatus.AwaitingReimbursement;
-            ReimbursementAmount = TotalUsageRecorded - ApprovedAmount;
+            return Result.Failure(
+                $"Total usage ({TotalUsageRecorded:N2} {CurrencyCode}) exceeds the approved advance amount ({ApprovedAmount:N2} {CurrencyCode}). Overspending is not permitted.");
         }
 
         return Result.Success();
@@ -252,41 +265,6 @@ public partial class BudgetRequest
         return Result.Success();
     }
 
-    /// <summary>
-    /// Records payment of the outstanding reimbursement on an advance that
-    /// reconciled for more than it disbursed. The amount must match
-    /// <see cref="ReimbursementAmount"/> exactly — partial reimbursements are not
-    /// supported. On success the advance reaches the terminal
-    /// <see cref="RequestStatus.Reconciled"/> state.
-    /// </summary>
-    public Result RecordReimbursement(decimal amount, Guid paidByUserId, DateTime paidAt)
-    {
-        if (Status != RequestStatus.AwaitingReimbursement)
-            return Result.Failure(
-                $"A reimbursement can only be recorded while the request is awaiting one (current status: '{Status}').");
-
-        if (amount != ReimbursementAmount)
-            return Result.Failure(
-                $"The reimbursement amount must exactly match the outstanding reimbursement of {ReimbursementAmount}. " +
-                "Partial reimbursements are not supported.");
-
-        if (ReconciliationSubmittedAt.HasValue && paidAt < ReconciliationSubmittedAt.Value)
-        {
-            return Result.Failure("Reimbursement date cannot be before the reconciliation was submitted.");
-        }
-
-        if (paidAt > DateTime.UtcNow.AddMinutes(5))
-        {
-            return Result.Failure("Reimbursement date cannot be in the future.");
-        }
-
-        ReimbursementPaidAt = paidAt;
-        ReimbursementPaidByUserId = paidByUserId;
-        Status = RequestStatus.Reconciled;
-        FinalizedAt = DateTime.UtcNow;
-
-        return Result.Success();
-    }
 
     /// <summary>
     /// Pushes the reconciliation deadline out. Finance-only at the Application
