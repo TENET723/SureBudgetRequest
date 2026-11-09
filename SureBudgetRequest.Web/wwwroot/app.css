@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    aSure Budget — Custom Design System
    No Bootstrap. All styles owned here.
    ============================================================ */
@@ -268,6 +268,19 @@ input, select, textarea { font-family: var(--font-sans); }
    (modal Active toggles, filter checkboxes). Without this they fall back to the
    browser/OS accent color. */
 input[type="checkbox"] { accent-color: var(--color-primary); }
+
+/* Remove stepper arrows from all numeric inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  margin: 0 !important;
+  display: none !important;
+}
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
 .input::placeholder, .select option[value=""], .textarea::placeholder, .form-control::placeholder { color: var(--color-text-light); }
 .input:focus, .select:focus, .textarea:focus, .form-control:focus {
   border-color: var(--color-primary); outline: none;

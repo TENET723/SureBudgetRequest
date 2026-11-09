@@ -1,0 +1,113 @@
+@typeparam TValue
+
+<input type="number"
+       class="@ComputedClass"
+       value="@CurrentValueAsString"
+       @onchange="HandleChange"
+       @oninput="HandleInput"
+       @onwheel="HandleWheel"
+       @onwheel:preventDefault
+       min="@Min"
+       max="@Max"
+       step="@EffectiveStep"
+       placeholder="@Placeholder"
+       disabled="@Disabled"
+       readonly="@ReadOnly"
+       @attributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? Min { get; set; }
+    [Parameter] public string? Max { get; set; }
+    [Parameter] public string? Step { get; set; }
+    [Parameter] public bool HasError { get; set; }
+    [Parameter] public bool UpdateOnInput { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? CurrentValueAsString => Value switch
+    {
+        null => null,
+        decimal d => d.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        double db => db.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        float f => f.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        long l => l.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        _ => Value.ToString()
+    };
+
+    private string EffectiveStep
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(Step)) return Step;
+            var targetType = Nullable.GetUnderlyingType(typeof(TValue)) ?? typeof(TValue);
+            if (targetType == typeof(int) || targetType == typeof(long) || targetType == typeof(short) || targetType == typeof(byte))
+            {
+                return "1";
+            }
+            return "any";
+        }
+    }
+
+    private string ComputedClass
+    {
+        get
+        {
+            var baseClass = string.IsNullOrWhiteSpace(Class) ? "input" : Class;
+            if (HasError && !baseClass.Contains("is-invalid"))
+            {
+                return $"{baseClass} is-invalid";
+            }
+            return baseClass;
+        }
+    }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        await UpdateValueAsync(e.Value?.ToString());
+    }
+
+    private async Task HandleInput(ChangeEventArgs e)
+    {
+        if (UpdateOnInput)
+        {
+            await UpdateValueAsync(e.Value?.ToString());
+        }
+    }
+
+    private Task HandleWheel(WheelEventArgs _)
+    {
+        // Event default is prevented via @onwheel:preventDefault
+        return Task.CompletedTask;
+    }
+
+    private async Task UpdateValueAsync(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            Value = default;
+            await ValueChanged.InvokeAsync(Value);
+            return;
+        }
+
+        if (BindConverter.TryConvertTo<TValue>(raw, System.Globalization.CultureInfo.InvariantCulture, out var invResult))
+        {
+            Value = invResult;
+            await ValueChanged.InvokeAsync(Value);
+            return;
+        }
+
+        if (BindConverter.TryConvertTo<TValue>(raw, System.Globalization.CultureInfo.CurrentCulture, out var curResult))
+        {
+            Value = curResult;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+}

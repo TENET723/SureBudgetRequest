@@ -1,4 +1,4 @@
-@page "/admin/currencies"
+﻿@page "/admin/currencies"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -135,12 +135,7 @@
 
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Rate to MMK</label>
-                        <input class="input"
-                               type="number"
-                               step="0.01"
-                               min="0"
-                               @bind="_formRate"
-                               disabled="@(_editingCode == "MMK")" />
+                        <NumericInput @bind-Value="_formRate" Step="0.01" Min="0" Disabled="@(_editingCode == "MMK")" />
                         <div class="form-hint">
                             1 @(_formCode?.ToUpperInvariant() ?? "unit") = @(_formRate.ToString("N2")) MMK.
                             @if (_editingCode is not null && _originalRate.HasValue && _originalRate.Value != _formRate)

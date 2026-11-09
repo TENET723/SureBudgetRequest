@@ -1,4 +1,4 @@
-@page "/finance/budget-plan"
+﻿@page "/finance/budget-plan"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -93,12 +93,7 @@
                             <td style="min-width:180px">
                                 @if (m.IsEditable)
                                 {
-                                    <input type="number" min="0" step="1000"
-                                           class="input"
-                                           
-                                           placeholder="e.g. 5000000"
-                                           value="@(_formAmounts.TryGetValue(m.Month, out var v) ? v : "")"
-                                           @oninput="e => OnAmountInput(m.Month, e.Value?.ToString())" />
+                                    <NumericInput TValue="decimal?" Value="@GetAmount(m.Month)" ValueChanged="@(val => SetAmount(m.Month, val))" Min="0" Step="1000" Placeholder="e.g. 5000000" />
                                     <div class="text-muted text-sm mt-1">fallback: @_plan.FallbackMonthlyLimit.ToString("N0") MMK</div>
                                 }
                                 else
@@ -266,6 +261,15 @@
         }
 
         _saving = false;
+    }
+
+    private decimal? GetAmount(int month) =>
+        _formAmounts.TryGetValue(month, out var raw) && decimal.TryParse(raw, out var d) ? d : null;
+
+    private void SetAmount(int month, decimal? val)
+    {
+        if (val.HasValue) _formAmounts[month] = val.Value.ToString("F0");
+        else _formAmounts.Remove(month);
     }
 
     private void OnAmountInput(int month, string? value)

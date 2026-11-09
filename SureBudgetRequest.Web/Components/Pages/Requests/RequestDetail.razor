@@ -1,4 +1,4 @@
-@page "/requests/{Id:guid}"
+﻿@page "/requests/{Id:guid}"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -1136,9 +1136,7 @@ else
                     }
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
-                        <input class="input" type="number" min="1"
-                               @bind="_paymentAmount"
-                               readonly="@(_request is not null && !_request.AllowsPartialPayment)" />
+                        <NumericInput Min="1" @bind-Value="_paymentAmount" ReadOnly="@(_request is not null && !_request.AllowsPartialPayment)" />
                         @if (_request is not null)
                         {
                             @if (_request.AllowsPartialPayment)
@@ -1348,7 +1346,7 @@ else
                     </div>
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
-                        <input class="input" type="number" min="1" step="0.01" @bind="_usageAmount" />
+                        <NumericInput Min="1" Step="0.01" @bind-Value="_usageAmount" />
                         @if (_request is not null)
                         {
                             <div class="form-hint">
@@ -1434,7 +1432,7 @@ else
                     }
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Refund amount (@_request.CurrencyCode)</label>
-                        <input class="input" type="number" min="0" step="0.01" @bind="_refundAmount" />
+                        <NumericInput Min="0" Step="0.01" @bind-Value="_refundAmount" />
                         <div class="form-hint">
                             Must match the outstanding refund of
                             @_request.RefundAmount.ToString("N2") @_request.CurrencyCode exactly.

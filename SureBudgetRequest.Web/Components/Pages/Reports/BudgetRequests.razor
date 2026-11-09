@@ -1,4 +1,4 @@
-@page "/reports/budget-requests"
+﻿@page "/reports/budget-requests"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -378,15 +378,13 @@
                     @* Amount from *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Amount from (MMK)</label>
-                        <input type="number" step="any" min="0" class="input"
-                               placeholder="No minimum" @bind="_amountMmkFrom" />
+                        <NumericInput Min="0" Step="any" Placeholder="No minimum" @bind-Value="_amountMmkFrom" />
                     </div>
 
                     @* Amount to *@
                     <div>
                         <label class="form-label text-sm text-muted mb-1">Amount to (MMK)</label>
-                        <input type="number" step="any" min="0" class="input"
-                               placeholder="No maximum" @bind="_amountMmkTo" />
+                        <NumericInput Min="0" Step="any" Placeholder="No maximum" @bind-Value="_amountMmkTo" />
                     </div>
 
                     @* Tag *@

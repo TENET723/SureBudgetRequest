@@ -24,6 +24,12 @@
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script>
+        // Prevent wheel scrolling from accidentally changing numeric inputs
+        document.addEventListener('wheel', function (e) {
+            if (document.activeElement && document.activeElement.type === 'number') {
+                document.activeElement.blur();
+            }
+        }, { passive: true });
         // Native drag-cursor support for in-app list reordering (e.g. the export
         // column picker). Blazor's C# drag handlers can't touch the drag's
         // dataTransfer, so without setting an allowed "move" effect (and a tiny
