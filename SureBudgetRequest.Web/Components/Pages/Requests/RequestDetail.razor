@@ -554,7 +554,7 @@ else
                                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                                     <path d="M3 3v5h5"/>
                                 </svg>
-                                Undo Approval
+                                Undo Approval @(!string.IsNullOrEmpty(GetUndoApprovalShortTarget()) ? $"({GetUndoApprovalShortTarget()})" : "")
                             </button>
                         }
 
@@ -1232,7 +1232,7 @@ else
     <div class="modal-backdrop">
         <div class="modal modal-sm">
             <div class="modal-header">
-                <h6 class="modal-title">Undo Approval</h6>
+                <h6 class="modal-title">Undo Approval @(!string.IsNullOrEmpty(GetUndoApprovalShortTarget()) ? $"({GetUndoApprovalShortTarget()})" : "")</h6>
                 <button class="btn btn-icon modal-close" @onclick="() => _showUndoApprovalModal = false" aria-label="Close">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                         <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -2612,6 +2612,20 @@ else
         _showUndoApprovalModal = true;
     }
 
+    private string GetUndoApprovalShortTarget()
+    {
+        if (_request is null) return string.Empty;
+        var requiresManagement = _request.RequestedAmountInMmkAtSubmission > _request.DepartmentLimitAtSubmission;
+        return _request.Status switch
+        {
+            RequestStatus.PendingManagement => "→ Pending Dept Head",
+            RequestStatus.PendingFinance when requiresManagement => "→ Pending Management",
+            RequestStatus.PendingFinance => "→ Pending Dept Head",
+            RequestStatus.Approved => "→ Pending Finance",
+            _ => string.Empty
+        };
+    }
+
     private string GetUndoStageExplanation()
     {
         if (_request is null) return string.Empty;
@@ -2760,9 +2774,9 @@ else
         if (r.Status == RequestStatus.PendingFinance && role == UserRole.Finance && CurrentUser.IsFinanceApprover)
         { list.Add("approve"); list.Add("reject"); list.Add("sendback"); }
 
-        // Finance Approvers and Admins can also send back an Approved request before any payment has been recorded.
+        // Finance Approvers can also send back an Approved request before any payment has been recorded.
         if (r.Status == RequestStatus.Approved 
-            && (role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover)) 
+            && role == UserRole.Finance && CurrentUser.IsFinanceApprover 
             && r.Payments.All(p => p.IsVoided))
         { list.Add("sendback"); }
 
@@ -2770,7 +2784,7 @@ else
         var requiresManagement = r.RequestedAmountInMmkAtSubmission > r.DepartmentLimitAtSubmission;
         var isAutoApprovedDeptHead = r.ApprovalActions.Any(a => a.Stage == ApprovalStage.DeptHead && a.Decision == ApprovalDecision.AutoApproved);
 
-        if (!isAutoApprovedDeptHead && (r.DeptHeadIdAtSubmission == uid || role == UserRole.Admin))
+        if (role == UserRole.Admin && !isAutoApprovedDeptHead)
         {
             if (r.Status == RequestStatus.PendingManagement)
                 list.Add("undoapproval");
@@ -2778,14 +2792,14 @@ else
                 list.Add("undoapproval");
         }
 
-        if ((role == UserRole.Management || role == UserRole.Admin)
+        if (role == UserRole.Admin
             && r.Status == RequestStatus.PendingFinance
             && requiresManagement)
         {
             list.Add("undoapproval");
         }
 
-        if ((role == UserRole.Admin || (role == UserRole.Finance && CurrentUser.IsFinanceApprover))
+        if (role == UserRole.Admin
             && r.Status == RequestStatus.Approved
             && r.Payments.All(p => p.IsVoided))
         {

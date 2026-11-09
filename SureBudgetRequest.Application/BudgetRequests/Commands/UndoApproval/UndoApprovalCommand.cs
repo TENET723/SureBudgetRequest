@@ -49,26 +49,10 @@ public sealed class UndoApprovalCommandHandler
         if (approver is null)
             return Result.Failure(UserErrors.NotFound(command.ApproverId));
 
-        var requiresManagement = budgetRequest.RequestedAmountInMmkAtSubmission > budgetRequest.DepartmentLimitAtSubmission;
-
-        var isAuthorized = budgetRequest.Status switch
-        {
-            RequestStatus.PendingManagement =>
-                command.ApproverId == budgetRequest.DeptHeadIdAtSubmission || approver.Role == UserRole.Admin,
-
-            RequestStatus.PendingFinance =>
-                requiresManagement
-                    ? approver.Role is UserRole.Management or UserRole.Admin
-                    : command.ApproverId == budgetRequest.DeptHeadIdAtSubmission || approver.Role == UserRole.Admin,
-
-            RequestStatus.Approved =>
-                approver.Role == UserRole.Admin || (approver.Role == UserRole.Finance && approver.IsFinanceApprover),
-
-            _ => false
-        };
-
-        if (!isAuthorized)
+        if (approver.Role != UserRole.Admin)
             return Result.Failure(UserErrors.RoleUnauthorized(approver.Role.ToString(), budgetRequest.Status.ToString()));
+
+        var requiresManagement = budgetRequest.RequestedAmountInMmkAtSubmission > budgetRequest.DepartmentLimitAtSubmission;
 
         var stageName = budgetRequest.Status switch
         {

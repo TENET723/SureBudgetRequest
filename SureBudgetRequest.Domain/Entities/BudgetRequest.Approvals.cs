@@ -217,9 +217,9 @@ public partial class BudgetRequest
                 return Result.Failure(BudgetRequestErrors.CannotUndoInCurrentStatus);
         }
 
-        // Strict: only the assigned dept head may undo at the DeptHead stage
-        if (stageToUndo == ApprovalStage.DeptHead && approverId != DeptHeadIdAtSubmission)
-            return Result.Failure("This user is not the assigned approver for this stage.");
+
+
+
 
         // Guard against auto-approved DeptHead approvals
         var lastApproval = _approvalActions

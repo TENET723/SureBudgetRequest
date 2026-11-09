@@ -530,20 +530,20 @@ public class BudgetRequestApprovalsTests
     }
 
     [Fact]
-    public void UndoApproval_ByUnassignedApprover_AtDeptHeadStage_ShouldFail()
+    public void UndoApproval_ByCallerDifferentFromDeptHead_AtDeptHeadStage_ShouldSucceedInDomain()
     {
         // Arrange
         var headId = Guid.NewGuid();
-        var wrongHeadId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
         var request = CreateSubmittedRequest(amount: 800_000m, deptLimit: 500_000m, deptHeadId: headId);
         request.ApproveBy(headId);
         request.Status.Should().Be(RequestStatus.PendingManagement);
 
         // Act: Wrong approver attempts to undo DeptHead approval
-        var result = request.UndoApproval(wrongHeadId);
+        var result = request.UndoApproval(adminId);
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("not the assigned approver");
+        result.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingDeptHead);
     }
 }
