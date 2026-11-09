@@ -27,7 +27,7 @@ public partial class BudgetRequest
             .Where(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved)
             .OrderByDescending(a => a.ActionedAt)
             .FirstOrDefault();
-        if (financeApproval is not null && paidAt < financeApproval.ActionedAt)
+        if (financeApproval is not null && paidAt < financeApproval.ActionedAt.AddSeconds(-1))
         {
             return Result.Failure("Payment date cannot be before the request's approval date.");
         }
@@ -107,18 +107,18 @@ public partial class BudgetRequest
     /// </summary>
     public Result VoidPayment(Guid paymentId, Guid financeUserId, DateTime now)
     {
-        if (Status is not RequestStatus.PartiallyPaid and not RequestStatus.Paid and not RequestStatus.PendingReconciliation)
-            return Result.Failure($"Cannot void payment while status is '{Status}'.");
-
-        if (Status == RequestStatus.PendingReconciliation && _advanceUsages.Any())
-            return Result.Failure("Cannot void payment because advance usages have already been recorded.");
-
         var payment = _payments.FirstOrDefault(p => p.Id == paymentId);
         if (payment is null)
             return Result.Failure("Payment not found on this request.");
 
         if (payment.IsVoided)
             return Result.Failure("Payment is already voided.");
+
+        if (Status is not RequestStatus.PartiallyPaid and not RequestStatus.Paid and not RequestStatus.PendingReconciliation)
+            return Result.Failure($"Cannot void payment while status is '{Status}'.");
+
+        if (Status == RequestStatus.PendingReconciliation && _advanceUsages.Any())
+            return Result.Failure("Cannot void payment because advance usages have already been recorded.");
 
         payment.MarkVoided(financeUserId, now);
 

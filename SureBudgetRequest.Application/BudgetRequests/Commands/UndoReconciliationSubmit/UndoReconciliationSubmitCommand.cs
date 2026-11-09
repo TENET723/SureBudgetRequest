@@ -11,7 +11,7 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.UndoReconciliati
 /// <summary>
 /// Reverts a submitted reconciliation back to PendingReconciliation so the
 /// requester can adjust, add, or remove usage line items.
-/// Permitted for the Requester (their own advance), Finance, or an Admin.
+/// Permitted for Finance or an Admin only.
 /// </summary>
 public sealed record UndoReconciliationSubmitCommand(
     Guid BudgetRequestId,
@@ -53,12 +53,11 @@ public sealed class UndoReconciliationSubmitCommandHandler
         if (actor is null)
             return Result.Failure(UserErrors.NotFound(command.UserId));
 
-        var isRequester = budgetRequest.RequesterId == command.UserId;
         var isFinance = actor.Role == UserRole.Finance;
         var isAdmin = actor.Role == UserRole.Admin;
 
-        if (!isRequester && !isFinance && !isAdmin)
-            return Result.Failure(BudgetRequestErrors.OnlyRequesterOrFinanceCanUndoReconciliation);
+        if (!isFinance && !isAdmin)
+            return Result.Failure(BudgetRequestErrors.OnlyFinanceCanUndoReconciliation);
 
         var result = budgetRequest.UndoReconciliationSubmit(command.UserId);
         if (result.IsFailure) return result;

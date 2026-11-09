@@ -319,6 +319,8 @@ public class BudgetRequestPaymentsTests
         request.RecordPayment(40_000m, now, financeUser, "REF-1", "Part 1");
         request.RecordPayment(60_000m, now, financeUser, "REF-2", "Part 2");
         request.Status.Should().Be(RequestStatus.Paid);
+        typeof(Payment).GetProperty(nameof(Payment.Id))!.SetValue(request.Payments.First(), Guid.NewGuid());
+        typeof(Payment).GetProperty(nameof(Payment.Id))!.SetValue(request.Payments.Last(), Guid.NewGuid());
         var secondPaymentId = request.Payments.Last().Id;
 
         // Act

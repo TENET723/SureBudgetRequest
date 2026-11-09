@@ -2266,6 +2266,7 @@
     private bool CanWithdrawReconciliation(BudgetRequestSummaryDto? r) =>
         r != null
         && r.Type == BudgetRequestType.Advance
+        && (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
         && (r.Status == RequestStatus.AwaitingRefund || (r.Status == RequestStatus.Reconciled && !r.RefundReceivedAt.HasValue));
 
     private bool CanUndoRefund(BudgetRequestSummaryDto? r) =>

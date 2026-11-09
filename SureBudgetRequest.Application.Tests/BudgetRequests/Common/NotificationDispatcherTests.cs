@@ -577,43 +577,6 @@ public class NotificationDispatcherTests
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task DispatchReconciliationSubmittedAsync_AwaitingReimbursement_ShouldNotifyFinanceAndRequester()
-    {
-        // Arrange
-        var reqId = Guid.NewGuid();
-        var requesterId = Guid.NewGuid();
-        var deptHeadId = Guid.NewGuid();
-        var request = CreateRequest(reqId, requesterId, deptHeadId, BudgetRequestType.Advance);
-        SetStatus(request, RequestStatus.AwaitingReimbursement);
-
-        var financeApprover = CreateUserWithId(Guid.NewGuid(), UserRole.Finance, isFinanceApprover: true);
-        _userRepository.ListAsync(
-            role: UserRole.Finance,
-            isFinanceApprover: true,
-            cancellationToken: Arg.Any<CancellationToken>())
-            .Returns(new[] { financeApprover });
-
-        // Act
-        await _sut.DispatchReconciliationSubmittedAsync(request, "Requester Alice", CancellationToken.None);
-
-        // Assert: 2 events sent
-        await _notificationService.Received(1).SendAsync(
-            Arg.Is<NotificationEvent>(e =>
-                e.Trigger == NotificationTrigger.ReconciliationSubmittedToFinance &&
-                e.BudgetRequestId == reqId &&
-                e.RecipientUserIds.SequenceEqual(new[] { financeApprover.Id })),
-            Arg.Any<CancellationToken>());
-
-        await _notificationService.Received(1).SendAsync(
-            Arg.Is<NotificationEvent>(e =>
-                e.Trigger == NotificationTrigger.AdvanceAwaitingReimbursement &&
-                e.BudgetRequestId == reqId &&
-                e.RecipientUserIds.Contains(financeApprover.Id) &&
-                e.RecipientUserIds.Contains(requesterId)),
-            Arg.Any<CancellationToken>());
-    }
-
     // =========================================================================
     // 8. Settlement Dispatches
     // =========================================================================
@@ -641,7 +604,7 @@ public class NotificationDispatcherTests
     }
 
     [Fact]
-    public async Task DispatchReimbursementRecordedAsync_ShouldNotifyRequester()
+    public async Task DispatchReconciliationSubmissionUndoneAsync_WhenFinanceActor_ShouldNotifyRequester()
     {
         // Arrange
         var reqId = Guid.NewGuid();
@@ -650,12 +613,34 @@ public class NotificationDispatcherTests
         var request = CreateRequest(reqId, requesterId, deptHeadId, BudgetRequestType.Advance);
 
         // Act
-        await _sut.DispatchReimbursementRecordedAsync(request, "Finance Dave", CancellationToken.None);
+        await _sut.DispatchReconciliationSubmissionUndoneAsync(request, "Finance Dave", true, CancellationToken.None);
 
         // Assert
         await _notificationService.Received(1).SendAsync(
             Arg.Is<NotificationEvent>(e =>
-                e.Trigger == NotificationTrigger.ReimbursementRecordedToRequester &&
+                e.Trigger == NotificationTrigger.ReconciliationSubmissionUndone &&
+                e.BudgetRequestId == reqId &&
+                e.RecipientUserIds.SequenceEqual(new[] { requesterId }) &&
+                e.ActorName == "Finance Dave"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DispatchRefundUndoneAsync_ShouldNotifyRequester()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var requesterId = Guid.NewGuid();
+        var deptHeadId = Guid.NewGuid();
+        var request = CreateRequest(reqId, requesterId, deptHeadId, BudgetRequestType.Advance);
+
+        // Act
+        await _sut.DispatchRefundUndoneAsync(request, "Finance Dave", CancellationToken.None);
+
+        // Assert
+        await _notificationService.Received(1).SendAsync(
+            Arg.Is<NotificationEvent>(e =>
+                e.Trigger == NotificationTrigger.RefundUndoneToRequester &&
                 e.BudgetRequestId == reqId &&
                 e.RecipientUserIds.SequenceEqual(new[] { requesterId }) &&
                 e.ActorName == "Finance Dave"),

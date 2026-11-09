@@ -398,7 +398,7 @@ public class BudgetRequestReconciliationTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("Cannot withdraw reconciliation after the refund has been processed");
+        result.Error.Message.Should().Contain("Cannot withdraw reconciliation after a refund has been recorded");
     }
 
     [Fact]
@@ -413,7 +413,7 @@ public class BudgetRequestReconciliationTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("Reconciliation can only be withdrawn from AwaitingRefund or Reconciled");
+        result.Error.Message.Should().Contain("Reconciliation submission can only be undone");
     }
 
     [Fact]
@@ -457,7 +457,7 @@ public class BudgetRequestReconciliationTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("Can only undo refund on a Reconciled request");
+        result.Error.Message.Should().Contain("Refund can only be undone on a reconciled advance");
     }
 
     [Fact]
@@ -476,6 +476,6 @@ public class BudgetRequestReconciliationTests
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("There is no recorded refund to undo");
+        result.Error.Message.Should().Contain("does not have a recorded refund to undo");
     }
 }

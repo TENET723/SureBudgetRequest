@@ -1890,8 +1890,8 @@
     private bool CanWithdrawReconciliation(BudgetRequestSummaryDto? r) =>
         r != null
         && r.Type == BudgetRequestType.Advance
-        && (r.Status == RequestStatus.AwaitingRefund || (r.Status == RequestStatus.Reconciled && !r.RefundReceivedAt.HasValue))
-        && (r.RequesterId == CurrentUser.UserId || CurrentUser.Role == UserRole.Finance || CurrentUser.Role == UserRole.Admin);
+        && (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
+        && (r.Status == RequestStatus.AwaitingRefund || (r.Status == RequestStatus.Reconciled && !r.RefundReceivedAt.HasValue));
 
     private bool CanUndoRefund(BudgetRequestSummaryDto? r) =>
         r != null

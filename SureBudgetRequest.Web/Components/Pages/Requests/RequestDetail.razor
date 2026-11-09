@@ -2481,7 +2481,7 @@ else
         _request is not null
         && _request.Type == BudgetRequestType.Advance
         && (_request.Status == RequestStatus.AwaitingRefund || (_request.Status == RequestStatus.Reconciled && !_request.RefundReceivedAt.HasValue))
-        && (IsRequester || IsFinance || CurrentUser.Role == UserRole.Admin);
+        && (IsFinance || CurrentUser.Role == UserRole.Admin);
 
     private bool CanUndoRefund =>
         _request is not null

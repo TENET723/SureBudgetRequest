@@ -28,8 +28,8 @@ public static class BudgetRequestErrors
     public static readonly Error OnlyFinanceCanRecordRefund =
         Error.Forbidden("BudgetRequest.OnlyFinanceCanRecordRefund", "Only a Finance user can record a refund.");
 
-    public static readonly Error OnlyRequesterOrFinanceCanUndoReconciliation =
-        Error.Forbidden("BudgetRequest.OnlyRequesterOrFinanceCanUndoReconciliation", "Only the requester, Finance, or an administrator can withdraw or reopen reconciliation.");
+    public static readonly Error OnlyFinanceCanUndoReconciliation =
+        Error.Forbidden("BudgetRequest.OnlyFinanceCanUndoReconciliation", "Only Finance or an administrator can withdraw or reopen reconciliation.");
 
     public static readonly Error OnlyFinanceCanUndoRefund =
         Error.Forbidden("BudgetRequest.OnlyFinanceCanUndoRefund", "Only a Finance user can undo a recorded refund.");

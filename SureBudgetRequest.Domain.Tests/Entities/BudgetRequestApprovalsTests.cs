@@ -499,8 +499,8 @@ public class BudgetRequestApprovalsTests
         var request = CreateSubmittedRequest(amount: 100_000m, deptLimit: 500_000m, deptHeadId: headId);
         request.ApproveBy(headId);
         request.ApproveBy(financeId, coaId: coaId);
-        request.RecordPayment(50_000m, DateTime.UtcNow, financeId, "REF-1", null, null);
-        request.Status.Should().Be(RequestStatus.PartiallyPaid);
+        request.RecordPayment(100_000m, DateTime.UtcNow, financeId, "REF-1", null, null);
+        request.Status.Should().Be(RequestStatus.Paid);
 
         // Act
         var undoResult = request.UndoApproval(financeId);
