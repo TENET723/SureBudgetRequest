@@ -1,4 +1,4 @@
-@page "/tags"
+﻿@page "/tags"
 @page "/admin/tags"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
@@ -237,29 +237,17 @@
     </div>
 }
 
-@* ── Deactivate Modal ──────────────────────────────────────────────────── *@
+@* ── Deactivate Modal ────────────────────────────────────────────────────── *@
 @if (_deactivatingTag is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Deactivate Tag</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingTag = null"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="text-sm">
-                        Deactivate <strong>#@_deactivatingTag.Name</strong>?
-                        Existing tickets keep the tag, but it won't appear in autocomplete for new tickets.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingTag = null">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Deactivate Tag"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Deactivate"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingTag = null">
+        Deactivate <strong>#@_deactivatingTag.Name</strong>?
+        Existing tickets keep the tag, but it won't appear in autocomplete for new tickets.
+    </ConfirmDialog>
 }
 
 @* ── Visibility Settings Modal ─────────────────────────────────────────── *@

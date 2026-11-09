@@ -1,4 +1,4 @@
-@page "/admin/users"
+﻿@page "/admin/users"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -298,23 +298,13 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingUser is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Deactivate User</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingUser = null"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    Deactivate <strong>@_deactivatingUser.FullName</strong>? They won't be able to submit new requests.
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingUser = null">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Deactivate User"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Deactivate"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingUser = null">
+        Deactivate <strong>@_deactivatingUser.FullName</strong>? They won't be able to submit new requests.
+    </ConfirmDialog>
 }
 
 @* ── Reactivate Confirm ──────────────────────────────────────────────────────── *@

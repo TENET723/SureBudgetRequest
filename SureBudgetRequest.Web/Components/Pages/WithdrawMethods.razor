@@ -1,4 +1,4 @@
-@page "/withdraw-methods"
+﻿@page "/withdraw-methods"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -163,26 +163,14 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingMethod is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Deactivate Withdraw Method</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingMethod = null"></button>
-                </div>
-                <div class="modal-body">
-                    <p class=" text-sm">
-                        Deactivate <strong>@_deactivatingMethod.Name</strong>?
-                        It won't appear in the draft picker. Existing requests keep their link.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingMethod = null">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Deactivate Withdraw Method"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Deactivate"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingMethod = null">
+        Deactivate <strong>@_deactivatingMethod.Name</strong>?
+        It won't appear in the draft picker. Existing requests keep their link.
+    </ConfirmDialog>
 }
 
 @code {

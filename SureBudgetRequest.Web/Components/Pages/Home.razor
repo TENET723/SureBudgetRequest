@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -239,107 +239,57 @@
 @* ── Cancel confirmation modal ────────────────────────────────────────────── *@
 @if (_cancellingRequest is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">Cancel Request</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _cancellingRequest = null"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _cancellingRequest = null">No</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoCancel" disabled="@_quickActionProcessing">Yes, Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Cancel Request"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Yes, Cancel"
+                   OnConfirm="DoCancel"
+                   OnCancel="() => _cancellingRequest = null">
+        Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
+    </ConfirmDialog>
 }
-
 
 @if (_unsubmittingRequest is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">Undo Submission</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _unsubmittingRequest = null"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    Are you sure you want to withdraw submission for <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong>?
-                    <div class="alert alert-warning text-xs mt-3">
-                        This will return the request to <strong>Draft</strong> status so you can edit details or attachments.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _unsubmittingRequest = null" disabled="@_quickActionProcessing">Cancel</button>
-                    <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_quickActionProcessing">
-                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
-                        Withdraw to Draft
-                    </button>
-                </div>
-            </div>
+    <ConfirmDialog Title="Undo Submission"
+                   Type="ConfirmType.Warning"
+                   ConfirmText="Withdraw to Draft"
+                   OnConfirm="DoUndoSubmit"
+                   OnCancel="() => _unsubmittingRequest = null">
+        Are you sure you want to withdraw submission for <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong>?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the request to <strong>Draft</strong> status so you can edit details or attachments.
         </div>
-    </div>
+    </ConfirmDialog>
 }
 
 @* ── Withdraw / Reopen Reconciliation confirmation modal ── *@
 @if (_withdrawingReconciliationRequest is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _withdrawingReconciliationRequest = null"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    Are you sure you want to @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "reopen" : "withdraw") reconciliation for <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
-                    <div class="alert alert-warning text-xs mt-3">
-                        This will return the advance to <strong>Pending Reconciliation</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _withdrawingReconciliationRequest = null" disabled="@_quickActionProcessing">Cancel</button>
-                    <button class="btn btn-warning btn-sm" @onclick="DoUndoReconciliationSubmit" disabled="@_quickActionProcessing">
-                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
-                        @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen to Pending" : "Withdraw to Pending")
-                    </button>
-                </div>
-            </div>
+    <ConfirmDialog Title="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")"
+                   Type="ConfirmType.Warning"
+                   ConfirmText="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen to Pending" : "Withdraw to Pending")"
+                   OnConfirm="DoUndoReconciliationSubmit"
+                   OnCancel="() => _withdrawingReconciliationRequest = null">
+        Are you sure you want to @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "reopen" : "withdraw") reconciliation for <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the advance to <strong>Pending Reconciliation</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
         </div>
-    </div>
+    </ConfirmDialog>
 }
 
 @* ── Undo Refund confirmation modal ── *@
 @if (_undoingRefundRequest is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">Undo Recorded Refund</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _undoingRefundRequest = null"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    Are you sure you want to undo the recorded refund for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
-                    <div class="alert alert-warning text-xs mt-3">
-                        This will return the request to <strong>Awaiting Refund</strong>.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _undoingRefundRequest = null" disabled="@_quickActionProcessing">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoUndoRefund" disabled="@_quickActionProcessing">
-                        @if (_quickActionProcessing) { <span class="spinner spinner-sm mr-1"></span> }
-                        Undo Refund
-                    </button>
-                </div>
-            </div>
+    <ConfirmDialog Title="Undo Recorded Refund"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Undo Refund"
+                   OnConfirm="DoUndoRefund"
+                   OnCancel="() => _undoingRefundRequest = null">
+        Are you sure you want to undo the recorded refund for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the request to <strong>Awaiting Refund</strong>.
         </div>
-    </div>
+    </ConfirmDialog>
 }
 
 @* ── Custom Context Menu / Quick Actions ────────────────────────────────── *@

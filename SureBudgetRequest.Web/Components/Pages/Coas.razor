@@ -1,4 +1,4 @@
-@page "/coas"
+﻿@page "/coas"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -160,26 +160,14 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingCoa is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Deactivate Account</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingCoa = null"></button>
-                </div>
-                <div class="modal-body">
-                    <p class=" text-sm">
-                        Deactivate <strong>@_deactivatingCoa.Code — @_deactivatingCoa.Name</strong>?
-                        It won't appear in the approval picker. Existing approved requests keep their link.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingCoa = null">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">Deactivate</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Deactivate Account"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Deactivate"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingCoa = null">
+        Deactivate <strong>@_deactivatingCoa.Code — @_deactivatingCoa.Name</strong>?
+        It won't appear in the approval picker. Existing approved requests keep their link.
+    </ConfirmDialog>
 }
 
 @code {

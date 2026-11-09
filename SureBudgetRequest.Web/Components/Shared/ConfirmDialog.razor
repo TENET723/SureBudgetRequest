@@ -1,0 +1,64 @@
+@namespace SureBudgetRequest.Web.Components.Shared
+
+<div class="modal-backdrop" @onclick="HandleCancel">
+    <div class="confirm-modal" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+        <div class="confirm-header">
+            <h3 id="confirm-dialog-title" class="confirm-title">@Title</h3>
+            <button type="button" class="confirm-close-btn" @onclick="HandleCancel" title="Close" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="confirm-body">
+            @if (ChildContent is not null)
+            {
+                @ChildContent
+            }
+            else if (!string.IsNullOrEmpty(Message))
+            {
+                <p>@Message</p>
+            }
+        </div>
+
+        <div class="confirm-footer">
+            <button type="button" class="btn btn-outline btn-sm" @onclick="HandleCancel">
+                @CancelText
+            </button>
+            <AsyncButton Class="@ConfirmButtonClass" OnClick="HandleConfirm">
+                @ConfirmText
+            </AsyncButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public ConfirmType Type { get; set; } = ConfirmType.Danger;
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string ConfirmButtonClass => Type switch
+    {
+        ConfirmType.Danger => "btn btn-danger btn-sm",
+        ConfirmType.Warning => "btn btn-warning btn-sm",
+        ConfirmType.Info => "btn btn-primary btn-sm",
+        _ => "btn btn-primary btn-sm"
+    };
+
+    private async Task HandleConfirm()
+    {
+        await OnConfirm.InvokeAsync();
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

@@ -1275,53 +1275,28 @@ else
 @* ── Undo Submit Modal ─────────────────────────────────────────────────────── *@
 @if (_showUndoSubmitModal)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div class="modal-header">
-                <h6 class="modal-title">Undo Submission</h6>
-                <button class="btn btn-icon modal-close" @onclick="() => _showUndoSubmitModal = false" aria-label="Close">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p class="text-sm">
-                    Are you sure you want to withdraw this submission?
-                </p>
-                <div class="alert alert-warning text-xs mt-3">
-                    This will return the request to <strong>Draft</strong> status. You will be able to edit its details, manage attachments, or submit it again.
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-outline btn-sm" @onclick="() => _showUndoSubmitModal = false" disabled="@_actioning">Cancel</button>
-                <button class="btn btn-warning btn-sm" @onclick="DoUndoSubmit" disabled="@_actioning">
-                    @if (_actioning && _actionTarget == "undosubmit") { <span class="spinner spinner-sm mr-1"></span> }
-                    Withdraw to Draft
-                </button>
-            </div>
+    <ConfirmDialog Title="Undo Submission"
+                   Type="ConfirmType.Warning"
+                   ConfirmText="Withdraw to Draft"
+                   OnConfirm="DoUndoSubmit"
+                   OnCancel="() => _showUndoSubmitModal = false">
+        Are you sure you want to withdraw this submission?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the request to <strong>Draft</strong> status. You will be able to edit its details, manage attachments, or submit it again.
         </div>
-    </div>
+    </ConfirmDialog>
 }
 
 @* ── Cancel Confirm ───────────────────────────────────────────────────────────── *@
 @if (_showCancelModal)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Cancel Request</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _showCancelModal = false"></button>
-                </div>
-                <div class="modal-body text-sm">Are you sure you want to cancel this request? This cannot be undone.</div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showCancelModal = false">No</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoCancel" disabled="@_actioning">Yes, Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Cancel Request"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Yes, Cancel"
+                   OnConfirm="DoCancel"
+                   OnCancel="() => _showCancelModal = false">
+        Are you sure you want to cancel this request? This cannot be undone.
+    </ConfirmDialog>
 }
 
 @* ── Add / Edit Usage Modal ───────────────────────────────────────────────────── *@
@@ -1387,32 +1362,22 @@ else
 @* ── Submit Reconciliation Confirm ────────────────────────────────────────────── *@
 @if (_showSubmitReconModal && _request is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title">Submit Reconciliation</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _showSubmitReconModal = false"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    After submitting, you can't change the rows. Continue?
-                    @if (_request.RemainingAdvance > 0)
-                    {
-                        <div class="alert alert-warning">
-                            Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
-                            @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
-                            You will need to refund the unspent
-                            <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showSubmitReconModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-success btn-sm" @onclick="DoSubmitReconciliation" disabled="@_actioning">Continue</button>
-                </div>
+    <ConfirmDialog Title="Submit Reconciliation"
+                   Type="ConfirmType.Primary"
+                   ConfirmText="Continue"
+                   OnConfirm="DoSubmitReconciliation"
+                   OnCancel="() => _showSubmitReconModal = false">
+        After submitting, you can't change the rows. Continue?
+        @if (_request.RemainingAdvance > 0)
+        {
+            <div class="alert alert-warning text-xs mt-3">
+                Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
+                @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
+                You will need to refund the unspent
+                <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
             </div>
-        </div>
-    </div>
+        }
+    </ConfirmDialog>
 }
 
 @* ── Record Refund Modal ──────────────────────────────────────────────────────── *@
@@ -1453,54 +1418,28 @@ else
     </div>
 }
 
-@* ── Withdraw / Reopen Reconciliation Modal ─────────────────────────────────── *@
+@* ── Withdraw / Reopen Reconciliation Modal ── *@
 @if (_showWithdrawReconModal && _request is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _showWithdrawReconModal = false"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    This will return the advance back to <strong>Pending Reconciliation</strong> so expense line items can be added, updated, or deleted. All current usage items and receipts are preserved. Continue?
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showWithdrawReconModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-warning btn-sm" @onclick="DoUndoReconciliationSubmit" disabled="@_actioning">
-                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
-                        @(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw to Pending")
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")"
+                   Type="ConfirmType.Warning"
+                   ConfirmText="@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw to Pending")"
+                   OnConfirm="DoUndoReconciliationSubmit"
+                   OnCancel="() => _showWithdrawReconModal = false">
+        This will return the advance back to <strong>Pending Reconciliation</strong> so expense line items can be added, updated, or deleted. All current usage items and receipts are preserved. Continue?
+    </ConfirmDialog>
 }
 
-@* ── Undo Refund Modal ───────────────────────────────────────────────────────── *@
+@* ── Undo Refund Modal ── *@
 @if (_showUndoRefundModal && _request is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal">
-            <div>
-                <div class="modal-header">
-                    <h6 class="modal-title">Undo Recorded Refund</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _showUndoRefundModal = false"></button>
-                </div>
-                <div class="modal-body text-sm">
-                    This will undo the recorded receipt of <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong> and return the request to <strong>Awaiting Refund</strong>. Continue?
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _showUndoRefundModal = false" disabled="@_actioning">Cancel</button>
-                    <button class="btn btn-danger btn-sm" @onclick="DoUndoRefund" disabled="@_actioning">
-                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
-                        Undo Refund
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Undo Recorded Refund"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Undo Refund"
+                   OnConfirm="DoUndoRefund"
+                   OnCancel="() => _showUndoRefundModal = false">
+        This will undo the recorded receipt of <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong> and return the request to <strong>Awaiting Refund</strong>. Continue?
+    </ConfirmDialog>
 }
 
 

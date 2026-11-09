@@ -1,4 +1,4 @@
-@page "/bank-accounts"
+﻿@page "/bank-accounts"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -151,27 +151,15 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingAccount is not null)
 {
-    <div class="modal-backdrop">
-        <div class="modal modal-sm">
-            <div >
-                <div class="modal-header">
-                    <h6 class="modal-title text-danger">Deactivate Bank Account</h6>
-                    <button class="btn btn-icon modal-close" @onclick="() => _deactivatingAccount = null"></button>
-                </div>
-                <div class="modal-body">
-                    <p class=" text-sm">
-                        Deactivate <strong>@_deactivatingAccount.BankName</strong>
-                        (@_deactivatingAccount.AccountNumber)?
-                        It won't appear when recording a payment. Existing payments keep their snapshot.
-                    </p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-outline btn-sm" @onclick="() => _deactivatingAccount = null">Cancel</button>
-                    <AsyncButton Class="btn btn-danger btn-sm" OnClick="DoDeactivate">Deactivate</AsyncButton>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ConfirmDialog Title="Deactivate Bank Account"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Deactivate"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingAccount = null">
+        Deactivate <strong>@_deactivatingAccount.BankName</strong>
+        (@_deactivatingAccount.AccountNumber)?
+        It won't appear when recording a payment. Existing payments keep their snapshot.
+    </ConfirmDialog>
 }
 
 @code {
