@@ -192,24 +192,24 @@
 {
     <ConfirmDialog Title="Cancel Request"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Yes, Cancel"
+                   ConfirmText="Yes"
                    OnConfirm="DoCancel"
                    OnCancel="() => _cancellingRequest = null">
-        Cancel this request for <strong>@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode</strong>? This cannot be undone.
+        Are you sure you want to cancel request <strong>@(_cancellingRequest.Reference ?? "Draft")</strong> (@_cancellingRequest.RequestedAmount.ToString("N2") @_cancellingRequest.CurrencyCode)? This action cannot be undone.
     </ConfirmDialog>
 }
 
 @* ─── Undo Submit confirmation modal ─────────────────────────────────────── *@
 @if (_unsubmittingRequest is not null)
 {
-    <ConfirmDialog Title="Undo Submission"
+    <ConfirmDialog Title="Withdraw to Draft"
                    Type="ConfirmType.Warning"
-                   ConfirmText="Withdraw to Draft"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoSubmit"
                    OnCancel="() => _unsubmittingRequest = null">
-        Are you sure you want to withdraw submission for <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong>?
+        Withdraw request <strong>@(_unsubmittingRequest.Reference ?? "this request")</strong> back to draft?
         <div class="alert alert-warning text-xs mt-3">
-            This will return the request to <strong>Draft</strong> status so you can edit details or attachments.
+            The request will return to <strong>Draft</strong> so you can edit details or attachments before resubmitting.
         </div>
     </ConfirmDialog>
 }
@@ -217,14 +217,14 @@
 @* ── Withdraw / Reopen Reconciliation confirmation modal ── *@
 @if (_withdrawingReconciliationRequest is not null)
 {
-    <ConfirmDialog Title="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")"
+    <ConfirmDialog Title="Reopen Reconciliation"
                    Type="ConfirmType.Warning"
-                   ConfirmText="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen to Pending" : "Withdraw to Pending")"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoReconciliationSubmit"
                    OnCancel="() => _withdrawingReconciliationRequest = null">
-        Are you sure you want to @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "reopen" : "withdraw") reconciliation for <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
+        Reopen reconciliation for advance <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
         <div class="alert alert-warning text-xs mt-3">
-            This will return the advance to <strong>Pending Reconciliation</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
+            This will return the advance to <strong>Reconciliation in Progress</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
         </div>
     </ConfirmDialog>
 }
@@ -232,14 +232,14 @@
 @* ── Undo Refund confirmation modal ── *@
 @if (_undoingRefundRequest is not null)
 {
-    <ConfirmDialog Title="Undo Recorded Refund"
+    <ConfirmDialog Title="Undo Refund Receipt"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Undo Refund"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoRefund"
                    OnCancel="() => _undoingRefundRequest = null">
-        Are you sure you want to undo the recorded refund for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
+        Undo recorded refund receipt for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
         <div class="alert alert-warning text-xs mt-3">
-            This will return the request to <strong>Awaiting Refund</strong>.
+            This will return the request to <strong>Awaiting Refund</strong> until the refund payment is confirmed again.
         </div>
     </ConfirmDialog>
 }

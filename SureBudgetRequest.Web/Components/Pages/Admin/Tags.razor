@@ -242,11 +242,10 @@
 {
     <ConfirmDialog Title="Deactivate Tag"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingTag = null">
-        Deactivate <strong>#@_deactivatingTag.Name</strong>?
-        Existing tickets keep the tag, but it won't appear in autocomplete for new tickets.
+        Deactivate tag <strong>#@_deactivatingTag.Name</strong>? It will no longer appear in tag suggestions. Existing requests keep this tag.
     </ConfirmDialog>
 }
 

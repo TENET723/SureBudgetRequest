@@ -1273,29 +1273,29 @@ else
 }
 
 @* ── Undo Submit Modal ─────────────────────────────────────────────────────── *@
-@if (_showUndoSubmitModal)
+@if (_showUndoSubmitModal && _request is not null)
 {
-    <ConfirmDialog Title="Undo Submission"
+    <ConfirmDialog Title="Withdraw to Draft"
                    Type="ConfirmType.Warning"
-                   ConfirmText="Withdraw to Draft"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoSubmit"
                    OnCancel="() => _showUndoSubmitModal = false">
-        Are you sure you want to withdraw this submission?
+        Withdraw request <strong>@(_request.Reference ?? "this request")</strong> back to draft?
         <div class="alert alert-warning text-xs mt-3">
-            This will return the request to <strong>Draft</strong> status. You will be able to edit its details, manage attachments, or submit it again.
+            The request will return to <strong>Draft</strong> so you can edit details or attachments before resubmitting.
         </div>
     </ConfirmDialog>
 }
 
 @* ── Cancel Confirm ───────────────────────────────────────────────────────────── *@
-@if (_showCancelModal)
+@if (_showCancelModal && _request is not null)
 {
     <ConfirmDialog Title="Cancel Request"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Yes, Cancel"
+                   ConfirmText="Yes"
                    OnConfirm="DoCancel"
                    OnCancel="() => _showCancelModal = false">
-        Are you sure you want to cancel this request? This cannot be undone.
+        Are you sure you want to cancel request <strong>@(_request.Reference ?? "Draft")</strong> (@_request.RequestedAmount.ToString("N2") @_request.CurrencyCode)? This action cannot be undone.
     </ConfirmDialog>
 }
 
@@ -1364,17 +1364,21 @@ else
 {
     <ConfirmDialog Title="Submit Reconciliation"
                    Type="ConfirmType.Primary"
-                   ConfirmText="Continue"
+                   ConfirmText="Yes"
                    OnConfirm="DoSubmitReconciliation"
                    OnCancel="() => _showSubmitReconModal = false">
-        After submitting, you can't change the rows. Continue?
+        Submit final expense reconciliation for advance <strong>@(_request.Reference ?? "this advance")</strong>?
         @if (_request.RemainingAdvance > 0)
         {
             <div class="alert alert-warning text-xs mt-3">
-                Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of
-                @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
-                You will need to refund the unspent
-                <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
+                Recorded usage is @_request.TotalUsageRecorded.ToString("N2") of @_request.ApprovedAmount.ToString("N2") @_request.CurrencyCode.
+                You will need to refund the unspent <strong>@_request.RemainingAdvance.ToString("N2") @_request.CurrencyCode</strong>.
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info text-xs mt-3">
+                All advance funds have been accounted for. Once submitted, line items cannot be modified.
             </div>
         }
     </ConfirmDialog>
@@ -1421,27 +1425,32 @@ else
 @* ── Withdraw / Reopen Reconciliation Modal ── *@
 @if (_showWithdrawReconModal && _request is not null)
 {
-    <ConfirmDialog Title="@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")"
+    <ConfirmDialog Title="Reopen Reconciliation"
                    Type="ConfirmType.Warning"
-                   ConfirmText="@(_request.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw to Pending")"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoReconciliationSubmit"
                    OnCancel="() => _showWithdrawReconModal = false">
-        This will return the advance back to <strong>Pending Reconciliation</strong> so expense line items can be added, updated, or deleted. All current usage items and receipts are preserved. Continue?
+        Reopen reconciliation for advance <strong>@(_request.Reference ?? "this advance")</strong>?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the advance to <strong>Reconciliation in Progress</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
+        </div>
     </ConfirmDialog>
 }
 
 @* ── Undo Refund Modal ── *@
 @if (_showUndoRefundModal && _request is not null)
 {
-    <ConfirmDialog Title="Undo Recorded Refund"
+    <ConfirmDialog Title="Undo Refund Receipt"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Undo Refund"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoRefund"
                    OnCancel="() => _showUndoRefundModal = false">
-        This will undo the recorded receipt of <strong>@_request.RefundAmount.ToString("N2") @_request.CurrencyCode</strong> and return the request to <strong>Awaiting Refund</strong>. Continue?
+        Undo recorded refund receipt for <strong>@(_request.Reference ?? "this advance")</strong>?
+        <div class="alert alert-warning text-xs mt-3">
+            This will return the request to <strong>Awaiting Refund</strong> until the refund payment is confirmed again.
+        </div>
     </ConfirmDialog>
 }
-
 
 @* ── Extend Deadline Modal ────────────────────────────────────────────────────── *@
 @if (_showExtendModal && _request is not null)

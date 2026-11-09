@@ -165,11 +165,10 @@
 {
     <ConfirmDialog Title="Deactivate Withdraw Method"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingMethod = null">
-        Deactivate <strong>@_deactivatingMethod.Name</strong>?
-        It won't appear in the draft picker. Existing requests keep their link.
+        Deactivate withdraw method <strong>@_deactivatingMethod.Name</strong>? It will no longer appear in the draft picker.
     </ConfirmDialog>
 }
 

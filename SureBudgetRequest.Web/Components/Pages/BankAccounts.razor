@@ -153,12 +153,10 @@
 {
     <ConfirmDialog Title="Deactivate Bank Account"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingAccount = null">
-        Deactivate <strong>@_deactivatingAccount.BankName</strong>
-        (@_deactivatingAccount.AccountNumber)?
-        It won't appear when recording a payment. Existing payments keep their snapshot.
+        Deactivate <strong>@_deactivatingAccount.BankName (@_deactivatingAccount.AccountNumber)</strong>? It will no longer appear when recording new payments. Historical records remain unchanged.
     </ConfirmDialog>
 }
 

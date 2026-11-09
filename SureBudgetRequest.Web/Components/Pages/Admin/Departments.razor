@@ -200,10 +200,10 @@
 {
     <ConfirmDialog Title="Deactivate Department"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingDept = null">
-        Deactivate <strong>@_deactivatingDept.Name</strong>? This won't affect in-flight requests.
+        Deactivate the <strong>@_deactivatingDept.Name</strong> department? New requests cannot be created under this department. Existing pending requests will continue processing.
     </ConfirmDialog>
 }
 

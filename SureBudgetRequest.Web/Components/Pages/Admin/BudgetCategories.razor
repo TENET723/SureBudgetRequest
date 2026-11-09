@@ -144,11 +144,10 @@
 {
     <ConfirmDialog Title="Deactivate Budget Category"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingCategory = null">
-        Deactivate <strong>@_deactivatingCategory.Name</strong>?
-        It won't appear in the request picker. Existing requests keep their link.
+        Deactivate budget category <strong>@_deactivatingCategory.Name</strong>? It will no longer appear when creating new requests.
     </ConfirmDialog>
 }
 

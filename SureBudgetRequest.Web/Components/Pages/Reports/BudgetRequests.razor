@@ -854,14 +854,14 @@
 @* ── Withdraw / Reopen Reconciliation confirmation modal ────────────────────── *@
 @if (_withdrawingReconciliationRequest is not null)
 {
-    <ConfirmDialog Title="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen Reconciliation" : "Withdraw Reconciliation")"
+    <ConfirmDialog Title="Reopen Reconciliation"
                    Type="ConfirmType.Warning"
-                   ConfirmText="@(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "Reopen to Pending" : "Withdraw to Pending")"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoReconciliationSubmit"
                    OnCancel="() => _withdrawingReconciliationRequest = null">
-        Are you sure you want to @(_withdrawingReconciliationRequest.Status == RequestStatus.Reconciled ? "reopen" : "withdraw") reconciliation for <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
+        Reopen reconciliation for advance <strong>@(_withdrawingReconciliationRequest.Reference ?? "this advance")</strong>?
         <div class="alert alert-warning text-xs mt-3">
-            This will return the advance to <strong>Pending Reconciliation</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
+            This will return the advance to <strong>Reconciliation in Progress</strong> so expense line items can be adjusted. All recorded entries and receipts will be kept.
         </div>
     </ConfirmDialog>
 }
@@ -869,14 +869,14 @@
 @* ── Undo Refund confirmation modal ─────────────────────────────────────────── *@
 @if (_undoingRefundRequest is not null)
 {
-    <ConfirmDialog Title="Undo Recorded Refund"
+    <ConfirmDialog Title="Undo Refund Receipt"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Undo Refund"
+                   ConfirmText="Yes"
                    OnConfirm="DoUndoRefund"
                    OnCancel="() => _undoingRefundRequest = null">
-        Are you sure you want to undo the recorded refund for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
+        Undo recorded refund receipt for <strong>@(_undoingRefundRequest.Reference ?? "this advance")</strong>?
         <div class="alert alert-warning text-xs mt-3">
-            This will clear the refund payment receipt timestamp and move the advance back to <strong>Awaiting Refund</strong>.
+            This will return the request to <strong>Awaiting Refund</strong> until the refund payment is confirmed again.
         </div>
     </ConfirmDialog>
 }

@@ -300,10 +300,10 @@
 {
     <ConfirmDialog Title="Deactivate User"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingUser = null">
-        Deactivate <strong>@_deactivatingUser.FullName</strong>? They won't be able to submit new requests.
+        Deactivate account for <strong>@_deactivatingUser.FullName</strong>? This user will no longer be able to log in or take actions.
     </ConfirmDialog>
 }
 

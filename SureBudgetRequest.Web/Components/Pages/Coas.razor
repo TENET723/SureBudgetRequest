@@ -160,13 +160,12 @@
 @* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
 @if (_deactivatingCoa is not null)
 {
-    <ConfirmDialog Title="Deactivate Account"
+    <ConfirmDialog Title="Deactivate Chart of Account"
                    Type="ConfirmType.Danger"
-                   ConfirmText="Deactivate"
+                   ConfirmText="Yes"
                    OnConfirm="DoDeactivate"
                    OnCancel="() => _deactivatingCoa = null">
-        Deactivate <strong>@_deactivatingCoa.Code — @_deactivatingCoa.Name</strong>?
-        It won't appear in the approval picker. Existing approved requests keep their link.
+        Deactivate account <strong>@_deactivatingCoa.Code — @_deactivatingCoa.Name</strong>? It will no longer appear in the approval picker. Past records are unaffected.
     </ConfirmDialog>
 }
 

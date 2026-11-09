@@ -1,4 +1,4 @@
-@namespace SureBudgetRequest.Web.Components.Shared
+﻿@namespace SureBudgetRequest.Web.Components.Shared
 
 <div class="modal-backdrop" @onclick="HandleCancel">
     <div class="confirm-modal" @onclick:stopPropagation="true" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
@@ -38,7 +38,7 @@
     [Parameter] public string Title { get; set; } = "Confirm Action";
     [Parameter] public string? Message { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
-    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string ConfirmText { get; set; } = "Yes";
     [Parameter] public string CancelText { get; set; } = "Cancel";
     [Parameter] public ConfirmType Type { get; set; } = ConfirmType.Danger;
     [Parameter] public EventCallback OnConfirm { get; set; }
