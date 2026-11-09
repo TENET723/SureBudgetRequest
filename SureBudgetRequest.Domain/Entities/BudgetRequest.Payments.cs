@@ -1,5 +1,6 @@
 using SureBudgetRequest.Domain.Common;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Domain.Entities;
 
@@ -105,8 +106,11 @@ public partial class BudgetRequest
     /// Reverts status to <see cref="RequestStatus.Approved"/> if no non-voided payments remain,
     /// or to <see cref="RequestStatus.PartiallyPaid"/> if partial balance has still been paid.
     /// </summary>
-    public Result VoidPayment(Guid paymentId, Guid financeUserId, DateTime now)
+    public Result VoidPayment(Guid paymentId, Guid financeUserId, DateTime now, string voidReason)
     {
+        if (string.IsNullOrWhiteSpace(voidReason))
+            return Result.Failure(BudgetRequestErrors.VoidReasonRequired);
+
         var payment = _payments.FirstOrDefault(p => p.Id == paymentId);
         if (payment is null)
             return Result.Failure("Payment not found on this request.");
@@ -120,7 +124,7 @@ public partial class BudgetRequest
         if (Status == RequestStatus.PendingReconciliation && _advanceUsages.Any())
             return Result.Failure("Cannot void payment because advance usages have already been recorded.");
 
-        payment.MarkVoided(financeUserId, now);
+        payment.MarkVoided(financeUserId, now, voidReason.Trim());
 
         var remainingPaid = TotalPaid;
         if (remainingPaid == 0)

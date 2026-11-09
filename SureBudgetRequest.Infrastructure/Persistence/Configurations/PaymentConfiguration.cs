@@ -32,6 +32,7 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.IsVoided).IsRequired().HasDefaultValue(false);
         builder.Property(p => p.VoidedAt);
         builder.Property(p => p.VoidedByUserId);
+        builder.Property(p => p.VoidReason).HasMaxLength(1000);
 
         builder.HasIndex(p => p.BudgetRequestId);
         builder.HasIndex(p => p.SourceBankAccountId);

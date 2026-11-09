@@ -11,7 +11,8 @@ namespace SureBudgetRequest.Application.BudgetRequests.Commands.VoidPayment;
 public sealed record VoidPaymentCommand(
     Guid BudgetRequestId,
     Guid PaymentId,
-    Guid FinanceUserId) : IRequest<Result>;
+    Guid FinanceUserId,
+    string Reason) : IRequest<Result>;
 
 public sealed class VoidPaymentCommandHandler
     : IRequestHandler<VoidPaymentCommand, Result>
@@ -40,6 +41,9 @@ public sealed class VoidPaymentCommandHandler
         VoidPaymentCommand command,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(command.Reason))
+            return Result.Failure(BudgetRequestErrors.VoidReasonRequired);
+
         var budgetRequest = await _budgetRequestRepository.GetByIdAsync(
             command.BudgetRequestId, cancellationToken);
         if (budgetRequest is null)
@@ -56,7 +60,7 @@ public sealed class VoidPaymentCommandHandler
         var paymentAmount = payment.Amount;
         var currencyCode = budgetRequest.CurrencyCode;
 
-        var voidResult = budgetRequest.VoidPayment(command.PaymentId, command.FinanceUserId, DateTime.UtcNow);
+        var voidResult = budgetRequest.VoidPayment(command.PaymentId, command.FinanceUserId, DateTime.UtcNow, command.Reason.Trim());
         if (voidResult.IsFailure)
             return voidResult;
 

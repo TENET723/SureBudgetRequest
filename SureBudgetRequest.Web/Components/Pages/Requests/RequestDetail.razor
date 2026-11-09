@@ -664,6 +664,7 @@ else
                                         <th>Reference</th>
                                         <th>Receipt</th>
                                         <th>Recorded By</th>
+                                        <th>Void Reason</th>
                                         @if (CanVoidPayment)
                                         {
                                             <th class="sticky-action-col"></th>
@@ -724,24 +725,31 @@ else
                                                     </div>
                                                 }
                                             </td>
-                                            @if (CanVoidPayment)
-                                            {
-                                                <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                                    @if (!p.IsVoided)
-                                                    {
-                                                        <div class="row-hover-btn-wrapper">
-                                                            <div class="row-hover-backdrop"></div>
-                                                            <button type="button" class="btn-three-dots btn-void-row" title="Void Payment"
-                                                                    @onclick="() => OpenVoidPaymentModal(p)" disabled="@_actioning">
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                                    <circle cx="12" cy="12" r="10"></circle>
-                                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                                                                </svg>
-                                                            </button>
-                                                        </div>
-                                                    }
-                                                </td>
-                                            }
+                                            <td class="text-muted-cell">
+                                                @if (p.IsVoided && !string.IsNullOrWhiteSpace(p.VoidReason))
+                                                {
+                                                    <span style="color: var(--color-danger);">@p.VoidReason</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>—</span>
+                                                }
+                                            </td>
+                                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                                @if (!p.IsVoided)
+                                                {
+                                                    <div class="row-hover-btn-wrapper">
+                                                        <div class="row-hover-backdrop"></div>
+                                                        <button type="button" class="btn-three-dots btn-void-row" title="Void Payment"
+                                                                @onclick="() => OpenVoidPaymentModal(p)" disabled="@_actioning">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <circle cx="12" cy="12" r="10"></circle>
+                                                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -1214,10 +1222,14 @@ else
                 <div class="alert alert-warning text-xs mt-3">
                     This will mark this payment as voided and adjust the request status and remaining balance accordingly.
                 </div>
+                <div class="form-field mt-3">
+                    <label class="form-label text-xs">Void Reason <span class="text-danger">*</span></label>
+                    <textarea class="input text-sm" rows="2" @bind="_voidPaymentReason" placeholder="Explain why this payment is being voided..."></textarea>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline btn-sm" @onclick="() => _showVoidPaymentModal = false" disabled="@_actioning">Cancel</button>
-                <button class="btn btn-danger btn-sm" @onclick="DoVoidPayment" disabled="@_actioning">
+                <button class="btn btn-danger btn-sm" @onclick="DoVoidPayment" disabled="@(_actioning || string.IsNullOrWhiteSpace(_voidPaymentReason))">
                     @if (_actioning && _actionTarget == "voidpayment") { <span class="spinner spinner-sm mr-1"></span> }
                     Confirm Void
                 </button>
@@ -2526,22 +2538,33 @@ else
 
     private bool _showVoidPaymentModal;
     private PaymentDto? _targetPaymentToVoid;
+    private string? _voidPaymentReason;
 
     private void OpenVoidPaymentModal(PaymentDto payment)
     {
         _targetPaymentToVoid = payment;
+        _voidPaymentReason = null;
         _showVoidPaymentModal = true;
     }
 
     private async Task DoVoidPayment()
     {
         if (_targetPaymentToVoid is null || _actioning) return;
+        if (string.IsNullOrWhiteSpace(_voidPaymentReason))
+        {
+            _actionError = "A void reason is required.";
+            return;
+        }
         _actioning = true;
         _actionTarget = "voidpayment";
         _actionError = null;
         try
         {
-            var result = await Mediator.Send(new VoidPaymentCommand(Id, _targetPaymentToVoid.Id, CurrentUser.UserId));
+            var result = await Mediator.Send(new VoidPaymentCommand(
+                Id,
+                _targetPaymentToVoid.Id,
+                CurrentUser.UserId,
+                _voidPaymentReason.Trim()));
             if (result.IsFailure)
             {
                 _actionError = result.Error.Message;
@@ -2550,6 +2573,7 @@ else
             {
                 _showVoidPaymentModal = false;
                 _targetPaymentToVoid = null;
+                _voidPaymentReason = null;
                 _actionSuccess = "Payment voided successfully. Request status has been reverted.";
                 await LoadRequest();
             }

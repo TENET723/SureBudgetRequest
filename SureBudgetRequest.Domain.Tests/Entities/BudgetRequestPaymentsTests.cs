@@ -1,6 +1,7 @@
 using FluentAssertions;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
+using SureBudgetRequest.Domain.Errors;
 using Xunit;
 
 namespace SureBudgetRequest.Domain.Tests.Entities;
@@ -247,6 +248,28 @@ public class BudgetRequestPaymentsTests
     // 6. Void / Soft-Void Payment Invariants
     // =========================================================================
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void VoidPayment_WithoutReason_ShouldFail(string? reason)
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m);
+        var financeUser = Guid.NewGuid();
+        request.RecordPayment(100_000m, DateTime.UtcNow, financeUser, "REF", "Full payment");
+        var paymentId = request.Payments.Single().Id;
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, DateTime.UtcNow, reason!);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().Be(BudgetRequestErrors.VoidReasonRequired);
+        request.Status.Should().Be(RequestStatus.Paid);
+        request.Payments.Single().IsVoided.Should().BeFalse();
+    }
+
     [Fact]
     public void VoidPayment_NonExistentPayment_ShouldFail()
     {
@@ -256,7 +279,7 @@ public class BudgetRequestPaymentsTests
         request.RecordPayment(100_000m, DateTime.UtcNow, financeUser, "REF", "Full payment");
 
         // Act
-        var result = request.VoidPayment(Guid.NewGuid(), financeUser, DateTime.UtcNow);
+        var result = request.VoidPayment(Guid.NewGuid(), financeUser, DateTime.UtcNow, "Payment cancelled");
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -272,10 +295,10 @@ public class BudgetRequestPaymentsTests
         var financeUser = Guid.NewGuid();
         request.RecordPayment(100_000m, DateTime.UtcNow, financeUser, "REF", "Full payment");
         var paymentId = request.Payments.Single().Id;
-        request.VoidPayment(paymentId, financeUser, DateTime.UtcNow).IsSuccess.Should().BeTrue();
+        request.VoidPayment(paymentId, financeUser, DateTime.UtcNow, "First void").IsSuccess.Should().BeTrue();
 
         // Act
-        var result = request.VoidPayment(paymentId, financeUser, DateTime.UtcNow);
+        var result = request.VoidPayment(paymentId, financeUser, DateTime.UtcNow, "Second void");
 
         // Assert
         result.IsFailure.Should().BeTrue();
@@ -295,7 +318,7 @@ public class BudgetRequestPaymentsTests
         var paymentId = request.Payments.Single().Id;
 
         // Act
-        var result = request.VoidPayment(paymentId, financeUser, now);
+        var result = request.VoidPayment(paymentId, financeUser, now, "Incorrect transfer");
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -307,6 +330,26 @@ public class BudgetRequestPaymentsTests
         payment.IsVoided.Should().BeTrue();
         payment.VoidedByUserId.Should().Be(financeUser);
         payment.VoidedAt.Should().Be(now);
+    }
+
+    [Fact]
+    public void VoidPayment_WithReason_ShouldRecordVoidReason()
+    {
+        // Arrange
+        var request = CreateApprovedRequest(100_000m);
+        var financeUser = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+        request.RecordPayment(100_000m, now, financeUser, "REF", "Full payment");
+        var paymentId = request.Payments.Single().Id;
+
+        // Act
+        var result = request.VoidPayment(paymentId, financeUser, now, "Duplicate transfer reversed");
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        var payment = request.Payments.Single();
+        payment.IsVoided.Should().BeTrue();
+        payment.VoidReason.Should().Be("Duplicate transfer reversed");
     }
 
     [Fact]
@@ -324,7 +367,7 @@ public class BudgetRequestPaymentsTests
         var secondPaymentId = request.Payments.Last().Id;
 
         // Act
-        var result = request.VoidPayment(secondPaymentId, financeUser, now);
+        var result = request.VoidPayment(secondPaymentId, financeUser, now, "Cancelled part 2");
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -348,7 +391,7 @@ public class BudgetRequestPaymentsTests
         var paymentId = request.Payments.Single().Id;
 
         // Act
-        var result = request.VoidPayment(paymentId, financeUser, now);
+        var result = request.VoidPayment(paymentId, financeUser, now, "Advance payment error");
 
         // Assert
         result.IsSuccess.Should().BeTrue();
@@ -370,7 +413,7 @@ public class BudgetRequestPaymentsTests
         var paymentId = request.Payments.Single().Id;
 
         // Act
-        var result = request.VoidPayment(paymentId, financeUser, now);
+        var result = request.VoidPayment(paymentId, financeUser, now, "Should fail due to usage");
 
         // Assert
         result.IsFailure.Should().BeTrue();

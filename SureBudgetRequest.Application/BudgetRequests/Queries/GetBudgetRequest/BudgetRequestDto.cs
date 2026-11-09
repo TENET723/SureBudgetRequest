@@ -194,12 +194,13 @@ public sealed record PaymentDto(
     string? SourceAccountHolderName,
     bool IsVoided = false,
     DateTime? VoidedAt = null,
-    Guid? VoidedByUserId = null)
+    Guid? VoidedByUserId = null,
+    string? VoidReason = null)
 {
     public static PaymentDto FromEntity(Payment e, IReadOnlyList<Guid>? attachmentIds = null) => new(
         e.Id, e.Amount, e.PaidAt, e.RecordedAt, e.RecordedByUserId, e.Reference, e.Note, attachmentIds ?? Array.Empty<Guid>(),
         e.SourceBankAccountId, e.SourceBankName, e.SourceAccountNumber, e.SourceAccountHolderName,
-        e.IsVoided, e.VoidedAt, e.VoidedByUserId);
+        e.IsVoided, e.VoidedAt, e.VoidedByUserId, e.VoidReason);
 }
 
 public sealed record AttachmentDto(
