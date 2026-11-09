@@ -1109,7 +1109,7 @@
             _toDate = nowMm.Date;
         }
 
-        if (CurrentUser.IsDepartmentHead)
+        if (CurrentUser.IsDepartmentHead  && CurrentUser.Role == UserRole.Employee)
         {
             _selectedDepartmentId = CurrentUser.DepartmentId.ToString();
             _departmentLocked = true;
