@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -982,8 +982,8 @@
     {
         var url = (_activeTab == "actions" &&
                    r.Status is RequestStatus.Draft or RequestStatus.SentBack)
-            ? $"requests/{r.Id}/edit"
-            : $"requests/{r.Id}";
+            ? $"requests/{r.Id}/edit?from=home"
+            : $"requests/{r.Id}?from=home";
         Nav.NavigateTo(url);
     }
 
@@ -1200,14 +1200,14 @@
     private void NavigateToEdit(Guid id)
     {
         CloseContextMenu();
-        Nav.NavigateTo($"requests/{id}/edit");
+        Nav.NavigateTo($"requests/{id}/edit?from=home");
     }
 
     private async Task OpenInNewTab(BudgetRequestSummaryDto r)
     {
         CloseContextMenu();
         var url = (_activeTab == "actions" && r.Status is RequestStatus.Draft or RequestStatus.SentBack)
-            ? $"requests/{r.Id}/edit"
+            ? $"requests/{r.Id}/edit?from=home"
             : $"requests/{r.Id}?from=home";
         await JS.InvokeVoidAsync("open", url, "_blank");
     }

@@ -1,4 +1,4 @@
-﻿@page "/requests/inbox"
+@page "/requests/inbox"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -1321,7 +1321,7 @@
     private void NavigateToEdit(Guid id)
     {
         CloseContextMenu();
-        Nav.NavigateTo($"requests/{id}/edit");
+        Nav.NavigateTo($"requests/{id}/edit?from=inbox");
     }
 
     private async Task OpenInNewTab(BudgetRequestSummaryDto r)

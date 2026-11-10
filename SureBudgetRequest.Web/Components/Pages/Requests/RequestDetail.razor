@@ -1,4 +1,4 @@
-﻿@page "/requests/{Id:guid}"
+@page "/requests/{Id:guid}"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -511,7 +511,7 @@ else
                         @* Edit (Draft / SentBack, requester only) *@
                         @if (actions.Contains("edit"))
                         {
-                            <a href="requests/@Id/edit" class="btn btn-outline btn-sm">Edit</a>
+                            <a href="requests/@Id/edit@(string.IsNullOrEmpty(From) ? "" : $"?from={From}")" class="btn btn-outline btn-sm">Edit</a>
                         }
 
                         @* Approve *@

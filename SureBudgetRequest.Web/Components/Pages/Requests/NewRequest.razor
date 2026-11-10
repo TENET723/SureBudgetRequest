@@ -1,4 +1,4 @@
-﻿@page "/requests/new"
+@page "/requests/new"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -745,7 +745,7 @@
             if (failedUploads.Any())
             {
                 _error = $"The request draft was saved, but some attachments failed to upload: {string.Join(", ", failedUploads)}. Please try uploading them again on the edit page.";
-                Nav.NavigateTo($"requests/{budgetRequestId}/edit");
+                Nav.NavigateTo($"requests/{budgetRequestId}/edit?from=mine");
                 return;
             }
 
@@ -756,7 +756,7 @@
 
                 // Submitted → go to read-only Detail page.
             }
-            Nav.NavigateTo($"requests/{budgetRequestId}");
+            Nav.NavigateTo($"requests/{budgetRequestId}?from=mine");
             // else
             // {
             //     // Draft saved → land on the Edit page so the user can attach files and review before submitting.

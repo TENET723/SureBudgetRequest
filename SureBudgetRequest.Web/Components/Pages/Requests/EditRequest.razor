@@ -1,4 +1,4 @@
-﻿@page "/requests/{Id:guid}/edit"
+@page "/requests/{Id:guid}/edit"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -37,19 +37,19 @@
               (_request.Status == RequestStatus.PendingDeptHead && _request.DeptHeadIdAtSubmission == CurrentUser.UserId)))
     {
         <div class="alert alert-error">You are not authorized to edit this request.</div>
-        <a href="requests/@Id" class="btn btn-ghost btn-sm">← Back to request</a>
+        <a href="@DetailUrl" class="btn btn-ghost btn-sm">← Back to request</a>
     }
     else if (_request.Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
     {
         <div class="alert alert-warning">
             This request is no longer editable (status: <strong>@_request.Status</strong>).
         </div>
-        <a href="requests/@Id" class="btn btn-ghost btn-sm">← Back to request</a>
+        <a href="@DetailUrl" class="btn btn-ghost btn-sm">← Back to request</a>
     }
     else
     {
         <div class="flex items-center justify-between mb-4">
-            <a href="requests/@Id" class="text-muted text-sm">← Back to detail</a>
+            <a href="@DetailUrl" class="text-muted text-sm">← Back to detail</a>
             <h5>
                 @(_request.Status == RequestStatus.PendingDeptHead ? "Modify Budget Request" : "Edit Budget Request")
             </h5>
@@ -301,7 +301,7 @@
                 </div>
             }
             <div class="card-footer">
-                <a href="requests/@Id" class="btn btn-ghost btn-sm">Cancel</a>
+                <a href="@DetailUrl" class="btn btn-ghost btn-sm">Cancel</a>
 
                 @if (IsDhModifying)
                 {
@@ -392,6 +392,9 @@
 
 @code {
     [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
+
+    private string DetailUrl => string.IsNullOrEmpty(From) ? $"requests/{Id}" : $"requests/{Id}?from={From}";
 
     private BudgetRequestDto? _request;
     private bool _loading = true;
@@ -805,7 +808,7 @@
                 }
             }
 
-            Nav.NavigateTo($"requests/{Id}");
+            Nav.NavigateTo(DetailUrl);
         }
         finally { _saving = false; _submitting = false; }
     }
