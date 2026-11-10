@@ -19,14 +19,7 @@
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
-    }
-    @if (!string.IsNullOrEmpty(_successMessage))
-    {
-        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
-    }
+    
 
     <div class="mb-4">
         <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
@@ -48,17 +41,20 @@
                         <th class="text-end">Budget Limit (MMK)</th>
                         <th>Current Head</th>
                         <th>Status</th>
-                        <th></th>
+                        <th class="sticky-action-col"></th>
                     </tr>
                 </thead>
                 <tbody>
                     @for (var i = 0; i < _filtered.Count; i++)
                     {
                         var d = _filtered[i];
-                        <tr class="@(!d.IsActive ? "text-muted" : "")">
-                            <td class="text-muted text-sm">@(i + 1)</td>
-                            <td>@d.Name</td>
-                            <td class="text-end">@d.BudgetLimit.ToString("N2")</td>
+                        <tr class="clickable-row @(!d.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == d.Id ? "menu-open" : "")"
+                            @onclick="() => { if (d.IsActive) OpenAssign(d); }"
+                            @oncontextmenu="e => OpenContextMenu(e, d)"
+                            @oncontextmenu:preventDefault="true">
+                            <td class="text-muted text-sm col-no">@(i + 1)</td>
+                            <td><strong>@d.Name</strong></td>
+                            <td class="text-end font-mono">@d.BudgetLimit.ToString("N2")</td>
                             <td>
                                 @if (d.HeadUserId.HasValue && _userNames.TryGetValue(d.HeadUserId.Value, out var name))
                                 {
@@ -79,13 +75,18 @@
                                 else
                                 { <span class="badge badge-role">Inactive</span> }
                             </td>
-                            <td class="text-end">
-                                @if (d.IsActive)
-                                {
-                                    <button class="btn btn-outline btn-sm" @onclick="() => OpenAssign(d)">
-                                        @(d.HeadUserId.HasValue ? "Change Head" : "Assign Head")
+                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                <div class="row-hover-btn-wrapper">
+                                    <div class="row-hover-backdrop"></div>
+                                    <button type="button" class="btn-three-dots" title="Quick actions"
+                                            @onclick="e => OpenContextMenuFromButton(e, d)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                            <circle cx="12" cy="19" r="2"/>
+                                        </svg>
                                     </button>
-                                }
+                                </div>
                             </td>
                         </tr>
                     }
@@ -110,7 +111,7 @@
 @if (_assigningDept is not null)
 {
     <div class="modal-backdrop">
-        <div class="modal">
+        <div class="modal" style="overflow:visible;">
             <div >
                 <div class="modal-header">
                     <h6 class="modal-title">
@@ -153,18 +154,99 @@
     </div>
 }
 
+
+@* ── Context Menu ── *@
+@if (_showContextMenu && _contextMenuTarget is not null)
+{
+    <div class="context-menu-backdrop"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@_contextMenuTarget.Name</span>
+        </div>
+
+        @if (_contextMenuTarget.IsActive)
+        {
+            <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); OpenAssign(target); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>@(_contextMenuTarget.HeadUserId.HasValue ? "Change Department Head" : "Assign Department Head")</span>
+            </button>
+        }
+    </div>
+}
+
 @code {
+    private string? _errorMessage;
+    private string? _successMessage;
     private List<DepartmentDto> _departments = new();
     private List<DepartmentDto> _filtered = new();
     private List<UserDto> _activeHeadUsers = new();
     private Dictionary<Guid, string> _userNames = new();
     private bool _loading = true;
     private string _search = "";
-    private string? _errorMessage;
-    private string? _successMessage;
 
     // Assign form
     private DepartmentDto? _assigningDept;
+
+    // Context menu state
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+    private bool _menuPendingPosition;
+    private ElementReference _contextMenuRef;
+    private DepartmentDto? _contextMenuTarget;
+
+    private void OpenContextMenu(MouseEventArgs e, DepartmentDto dept)
+    {
+        _contextMenuTarget = dept;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = false;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, DepartmentDto dept)
+    {
+        _contextMenuTarget = dept;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = true;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+    }
+
     private string _formHeadUserId = "";
     private string? _formError;
     private bool _saving;
@@ -249,7 +331,7 @@
                 _formError = result.Error.Message;
                 return;
             }
-            _successMessage = $"Head of {_assigningDept.Name} updated.";
+            Toast.Success("Department Head Updated", $"Head of {_assigningDept.Name} updated.");
             _assigningDept = null;
             await LoadData();
         }

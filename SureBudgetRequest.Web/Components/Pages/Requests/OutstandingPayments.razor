@@ -1,6 +1,7 @@
 @page "/requests/outstanding"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
 @inject FilterStateService FilterState
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.ListBudgetRequests
@@ -162,7 +163,7 @@
                             @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
                             Status @SortIndicator(BudgetRequestSortBy.Status)
                         </th>
-                        <th></th>
+                        <th class="sticky-action-col"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -170,22 +171,35 @@
                     {
                         var r = Items[i];
                         var rowNo = ((_result?.Page ?? 1) - 1) * (_result?.PageSize ?? 0) + i + 1;
-                        <tr>
-                            <td class="text-muted text-sm">@rowNo</td>
+                        <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
+                            @onclick='() => Nav.NavigateTo($"requests/{r.Id}?from=outstanding")'
+                            @oncontextmenu="e => OpenContextMenu(e, r)"
+                            @oncontextmenu:preventDefault="true">
+                            <td class="text-muted text-sm col-no">@rowNo</td>
                             <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
-                            <td class="text-sm">@r.RequesterName</td>
+                            <td class="text-sm font-semibold">@r.RequesterName</td>
                             <td>@Truncate(r.Reasons, 40)</td>
                             <td class="text-sm text-muted">@r.CurrencyCode</td>
-                            <td class="text-end">@r.ApprovedAmount.ToString("N2")</td>
-                            <td class="text-end">@r.TotalPaid.ToString("N2")</td>
-                            <td class="text-end font-semibold">@r.RemainingBalance.ToString("N2")</td>
+                            <td class="text-end font-mono">@r.ApprovedAmount.ToString("N2")</td>
+                            <td class="text-end font-mono">@r.TotalPaid.ToString("N2")</td>
+                            <td class="text-end font-mono font-semibold">@r.RemainingBalance.ToString("N2")</td>
                             <td><span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
                                 <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
                                     MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
                                     RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
                             </td>
-                            <td class="text-end">
-                                <a href="requests/@r.Id?from=outstanding" class="btn btn-icon " title="View"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 32 32"><path d="M0 0h32v32H0z" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/><path fill="currentColor" d="M30.94 15.66A16.69 16.69 0 0 0 16 5A16.69 16.69 0 0 0 1.06 15.66a1 1 0 0 0 0 .68A16.69 16.69 0 0 0 16 27a16.69 16.69 0 0 0 14.94-10.66a1 1 0 0 0 0-.68M16 22.5a6.5 6.5 0 1 1 6.5-6.5a6.51 6.51 0 0 1-6.5 6.5"/></svg></a>
+                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                <div class="row-hover-btn-wrapper">
+                                    <div class="row-hover-backdrop"></div>
+                                    <button type="button" class="btn-three-dots" title="Quick actions"
+                                            @onclick="e => OpenContextMenuFromButton(e, r)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                            <circle cx="12" cy="19" r="2"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -241,6 +255,47 @@
     }
 </div>
 
+
+@* ── Context Menu ── *@
+@if (_showContextMenu && _contextMenuTarget is not null)
+{
+    <div class="context-menu-backdrop"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@(_contextMenuTarget.Reference ?? "Outstanding Request")</span>
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick='() => { var target = _contextMenuTarget; CloseContextMenu(); Nav.NavigateTo($"requests/{target.Id}?from=outstanding"); }'>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            <span>Open Details</span>
+        </button>
+
+        <button type="button" class="context-menu-item" @onclick='() => { var target = _contextMenuTarget; CloseContextMenu(); _ = OpenInNewTab(target); }'>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            <span>Open in New Tab</span>
+        </button>
+
+        @if (!string.IsNullOrEmpty(_contextMenuTarget.Reference))
+        {
+            <div class="context-menu-divider"></div>
+            <button type="button" class="context-menu-item" @onclick='() => { var target = _contextMenuTarget; CloseContextMenu(); _ = CopyReferenceAsync(target.Reference); }'>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                <span>Copy Reference</span>
+            </button>
+        }
+    </div>
+}
+
 @code {
     private static readonly RequestStatus[] OutstandingStatuses =
         { RequestStatus.Approved, RequestStatus.PartiallyPaid };
@@ -285,6 +340,71 @@
         _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
     private bool _loading = true;
     private string? _errorMessage;
+
+    // Context menu state
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+    private bool _menuPendingPosition;
+    private ElementReference _contextMenuRef;
+    private BudgetRequestSummaryDto? _contextMenuTarget;
+
+    private void OpenContextMenu(MouseEventArgs e, BudgetRequestSummaryDto req)
+    {
+        _contextMenuTarget = req;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = false;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, BudgetRequestSummaryDto req)
+    {
+        _contextMenuTarget = req;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = true;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+    }
+
+    private async Task OpenInNewTab(BudgetRequestSummaryDto r)
+    {
+        await JS.InvokeVoidAsync("open", $"requests/{r.Id}?from=outstanding", "_blank");
+    }
+
+    private async Task CopyReferenceAsync(string? reference)
+    {
+        if (!string.IsNullOrEmpty(reference))
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", reference);
+            Toast.Success("Copied", $"Reference '{reference}' copied to clipboard.");
+        }
+    }
+
 
     private IReadOnlyList<BudgetRequestSummaryDto> Items =>
         _result?.Items ?? Array.Empty<BudgetRequestSummaryDto>();

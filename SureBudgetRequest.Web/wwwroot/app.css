@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    aSure Budget — Custom Design System
    No Bootstrap. All styles owned here.
    ============================================================ */
@@ -967,6 +967,14 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .tag-tooltip-container:hover .tag-tooltip-popup {
   display: flex;
+}
+
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1045;
+  cursor: default;
+  background: transparent;
 }
 
 .custom-context-menu {

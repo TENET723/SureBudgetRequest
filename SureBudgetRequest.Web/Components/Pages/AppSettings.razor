@@ -16,14 +16,7 @@
         <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Setting</button>
     </div>
 
-    @if (!string.IsNullOrEmpty(_errorMessage))
-    {
-        <div class="alert alert-error">@_errorMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _errorMessage = null"></button></div>
-    }
-    @if (!string.IsNullOrEmpty(_successMessage))
-    {
-        <div class="alert alert-success">@_successMessage <button type="button" class="btn btn-icon modal-close" @onclick="() => _successMessage = null"></button></div>
-    }
+    
 
     @if (_loading)
     {
@@ -38,20 +31,33 @@
                         <th>Key</th>
                         <th>Value</th>
                         <th>Description</th>
-                        <th></th>
+                        <th class="sticky-action-col"></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var s in _settings)
                     {
-                        <tr>
-                            <td><strong>@s.Key</strong></td>
-                            <td class="text-break">@s.Value</td>
+                        <tr class="clickable-row @(_contextMenuTarget?.Key == s.Key ? "menu-open" : "")"
+                            @onclick="() => OpenEdit(s)"
+                            @oncontextmenu="e => OpenContextMenu(e, s)"
+                            @oncontextmenu:preventDefault="true">
+                            <td><strong class="font-mono text-sm">@s.Key</strong></td>
+                            <td class="text-break font-mono text-sm">@s.Value</td>
                             <td class="text-sm text-muted">
                                 @(string.IsNullOrWhiteSpace(s.Description) ? "—" : s.Description)
                             </td>
-                            <td class="text-end text-nowrap">
-                                <button class="btn btn-outline btn-sm" @onclick="() => OpenEdit(s)">Edit</button>
+                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                <div class="row-hover-btn-wrapper">
+                                    <div class="row-hover-backdrop"></div>
+                                    <button type="button" class="btn-three-dots" title="Quick actions"
+                                            @onclick="e => OpenContextMenuFromButton(e, s)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                            <circle cx="12" cy="19" r="2"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -115,15 +121,93 @@
     </div>
 }
 
+
+@* ── Context Menu ── *@
+@if (_showContextMenu && _contextMenuTarget is not null)
+{
+    <div class="context-menu-backdrop"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@_contextMenuTarget.Key</span>
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); OpenEdit(target); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Edit Setting</span>
+        </button>
+    </div>
+}
+
 @code {
-    private List<AppSettingDto> _settings = new();
-    private bool _loading = true;
     private string? _errorMessage;
     private string? _successMessage;
+    private List<AppSettingDto> _settings = new();
+    private bool _loading = true;
 
     // Form state
     private bool _showForm;
     private bool _saving;
+
+    // Context menu state
+    private bool _showContextMenu;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+    private bool _menuPendingPosition;
+    private ElementReference _contextMenuRef;
+    private AppSettingDto? _contextMenuTarget;
+
+    private void OpenContextMenu(MouseEventArgs e, AppSettingDto setting)
+    {
+        _contextMenuTarget = setting;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = false;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, AppSettingDto setting)
+    {
+        _contextMenuTarget = setting;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = true;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+    }
+
     private string? _formError;
     private bool _isEditing;
     private string _formKey = "";
@@ -147,7 +231,7 @@
         if (result.IsSuccess && result.Value is not null)
             _settings = result.Value.OrderBy(s => s.Key).ToList();
         else if (result.IsFailure)
-            _errorMessage = result.Error.Message;
+            Toast.Error("Load Failed", result.Error.Message);
         _loading = false;
     }
 
@@ -195,13 +279,13 @@
                 var result = await Mediator.Send(new UpdateAppSettingCommand(
                     _formKey, _formValue, desc));
                 if (result.IsFailure) { _formError = result.Error.Message; return; }
-                _successMessage = "Setting updated.";
+                Toast.Success("Setting Updated", $"'{_formKey}' updated successfully.");
             }
             else
             {
                 var result = await Mediator.Send(new CreateAppSettingCommand(_formKey, _formValue, desc));
                 if (result.IsFailure) { _formError = result.Error.Message; return; }
-                _successMessage = "Setting created.";
+                Toast.Success("Setting Created", $"'{_formKey}' created successfully.");
             }
 
             _showForm = false;
