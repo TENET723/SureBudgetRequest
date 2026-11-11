@@ -42,6 +42,34 @@ public static class AttachmentEndpoints
             .RequireAuthorization()
             .WithName("DownloadAttachment");
 
+        // GET /api/vendors/{vendorId}/accounts/{accountId}/attachment
+        app.MapGet("/api/vendors/{vendorId:guid}/accounts/{accountId:guid}/attachment",
+            async (
+                Guid vendorId,
+                Guid accountId,
+                IMediator mediator,
+                HttpContext httpContext,
+                CancellationToken ct) =>
+            {
+                var result = await mediator.Send(
+                    new SureBudgetRequest.Application.Vendors.Queries.DownloadVendorAccountAttachmentQuery(vendorId, accountId), ct);
+                if (result.IsFailure || result.Value is null)
+                {
+                    return Results.NotFound(new { error = result.Error.Message ?? "Attachment not found." });
+                }
+
+                var content = result.Value;
+                var disposition = IsInlineFriendly(content.ContentType) ? "inline" : "attachment";
+                var encodedName = WebUtility.UrlEncode(content.FileName);
+
+                httpContext.Response.Headers["Content-Disposition"] =
+                    $"{disposition}; filename*=UTF-8''{encodedName}";
+
+                return Results.Stream(content.Stream, contentType: content.ContentType);
+            })
+            .RequireAuthorization()
+            .WithName("DownloadVendorAccountAttachment");
+
         return app;
     }
 

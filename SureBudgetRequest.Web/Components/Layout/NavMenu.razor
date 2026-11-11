@@ -58,6 +58,13 @@
                 </NavLink>
             </div>
 
+            <div class="nav-item">
+                <NavLink class="nav-link" href="vendors" title="Vendors">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    @if (!Collapsed) { <span>Vendors</span> }
+                </NavLink>
+            </div>
+
             @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting)
             {
                 <div class="nav-item">
@@ -207,6 +214,13 @@
                 <NavLink class="nav-link" href="tags" title="Tags">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
                     @if (!Collapsed) { <span>Tags</span> }
+                </NavLink>
+            </div>
+
+            <div class="nav-item">
+                <NavLink class="nav-link" href="vendors" title="Vendors">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    @if (!Collapsed) { <span>Vendors</span> }
                 </NavLink>
             </div>
         </div>

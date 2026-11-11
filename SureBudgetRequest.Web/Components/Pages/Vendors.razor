@@ -1,0 +1,1308 @@
+@page "/vendors"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+@inject FilterStateService FilterState
+@inject ToastService Toast
+@inject IFileStorage FileStorage
+@inject IJSRuntime JS
+
+@using SureBudgetRequest.Application.Abstractions.Services
+@using SureBudgetRequest.Application.Vendors.Queries
+@using SureBudgetRequest.Application.Vendors.Commands.CreateVendor
+@using SureBudgetRequest.Application.Vendors.Commands.UpdateVendor
+@using SureBudgetRequest.Application.Vendors.Commands.DeactivateVendor
+@using SureBudgetRequest.Application.Vendors.Commands.ReactivateVendor
+@using SureBudgetRequest.Application.Vendors.Commands.AddVendorPaymentAccount
+@using SureBudgetRequest.Application.Vendors.Commands.UpdateVendorPaymentAccount
+@using SureBudgetRequest.Application.Vendors.Commands.SetDefaultVendorPaymentAccount
+@using SureBudgetRequest.Application.Vendors.Commands.DeactivateVendorPaymentAccount
+@using SureBudgetRequest.Application.Vendors.Commands.ReactivateVendorPaymentAccount
+@using SureBudgetRequest.Application.Vendors.Commands.UploadVendorAccountAttachment
+@using SureBudgetRequest.Application.Vendors.Commands.RemoveVendorAccountAttachment
+@using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
+@using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
+@using Microsoft.AspNetCore.Components.Forms
+
+<PageTitle>Vendors</PageTitle>
+
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Vendors</h5>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Vendor</button>
+        }
+    </div>
+
+    <div class="flex items-center gap-2 mb-2">
+        <label class="toggle" title="Show inactive">
+            <input type="checkbox" @bind="_showInactive" @bind:after="LoadData" />
+            <span class="toggle-track"></span>
+            <span class="toggle-thumb"></span>
+        </label>
+        <span class="text-sm text-muted">Show inactive</span>
+    </div>
+
+    <div class="mb-4">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search name, phone, or account..." Width="260px" />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-5"><div class="spinner spinner-sm"></div></div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="col-no">#</th>
+                        <th>Name</th>
+                        <th>Payment Provider</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                        <th class="sticky-action-col"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < _filtered.Count; i++)
+                    {
+                        var v = _filtered[i];
+                        <tr class="clickable-row @(!v.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == v.Id ? "menu-open" : "")"
+                            @onclick="() => OpenEdit(v)"
+                            @oncontextmenu="e => OpenContextMenu(e, v)"
+                            @oncontextmenu:preventDefault="true">
+                            <td class="text-muted text-sm col-no">@(i + 1)</td>
+                            <td>
+                                <strong>@v.Name</strong>
+                                @if (!string.IsNullOrEmpty(v.Address))
+                                {
+                                    <div class="text-xs text-muted">@v.Address</div>
+                                }
+                            </td>
+                            <td>
+                                @{
+                                    var activeAccounts = v.PaymentAccounts.Where(a => _showInactive || a.IsActive).ToList();
+                                    var providers = activeAccounts.Select(a => a.ProviderName).Distinct().ToList();
+                                }
+                                @if (providers.Any())
+                                {
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        @foreach (var p in providers)
+                                        {
+                                            <span class="badge badge-secondary text-xs">@p</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span class="text-muted text-sm">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(v.ContactPerson))
+                                {
+                                    <div>@v.ContactPerson</div>
+                                }
+                                @if (!string.IsNullOrEmpty(v.Phone))
+                                {
+                                    <div class="text-xs text-muted font-mono">@v.Phone</div>
+                                }
+                                @if (string.IsNullOrEmpty(v.ContactPerson) && string.IsNullOrEmpty(v.Phone))
+                                {
+                                    <span class="text-muted text-sm">—</span>
+                                }
+                            </td>
+                            <td @onclick:stopPropagation="true">
+                                @if (v.IsActive)
+                                {
+                                    @if (CanManage)
+                                    {
+                                        <button class="badge badge-active" @onclick="() => ConfirmDeactivate(v)" title="Click to deactivate">Active</button>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-active">Active</span>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (CanManage)
+                                    {
+                                        <AsyncButton Class="badge badge-inactive" OnClick="@(() => DoReactivate(v))" title="Click to activate">Inactive</AsyncButton>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-inactive">Inactive</span>
+                                    }
+                                }
+                            </td>
+                            <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                <div class="row-hover-btn-wrapper">
+                                    <div class="row-hover-backdrop"></div>
+                                    <button type="button" class="btn-three-dots" title="Quick actions"
+                                            @onclick="e => OpenContextMenuFromButton(e, v)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <circle cx="12" cy="5" r="2"/>
+                                            <circle cx="12" cy="12" r="2"/>
+                                            <circle cx="12" cy="19" r="2"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!_filtered.Any())
+                    {
+                        <tr><td colspan="6" class="text-center text-muted">No vendors found.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal-backdrop">
+        <div class="modal" style="max-width: 720px;">
+            <div class="modal-header">
+                <h6 class="modal-title">@(_editingVendor is not null ? (CanManage ? "Edit Vendor" : "Vendor Details") : "New Vendor")</h6>
+                <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="alert alert-error mb-3">@_formError</div>
+                }
+
+                @* 1. Basic Vendor Information *@
+                <div class="mb-3">
+                    <label class="form-label text-sm font-semibold">Vendor Name <span class="text-danger">*</span></label>
+                    <input class="input" @bind="_formName" placeholder="e.g. Apex Office Supplies" disabled="@(!CanManage)" />
+                </div>
+
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label text-sm font-semibold">Contact Person <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" @bind="_formContactPerson" placeholder="e.g. U Thura" disabled="@(!CanManage)" />
+                    </div>
+                    <div>
+                        <label class="form-label text-sm font-semibold">Phone <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input font-mono" @bind="_formPhone" placeholder="e.g. 09123456789" disabled="@(!CanManage)" />
+                    </div>
+                </div>
+
+                <div class="form-grid-2 mb-4">
+                    <div>
+                        <label class="form-label text-sm font-semibold">Email <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" type="email" @bind="_formEmail" placeholder="e.g. billing@apex.com" disabled="@(!CanManage)" />
+                    </div>
+                    <div>
+                        <label class="form-label text-sm font-semibold">Address / Notes <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" @bind="_formAddress" placeholder="e.g. Yangon, Myanmar" disabled="@(!CanManage)" />
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+
+                @* 2. Payment Accounts Section *@
+                <div class="mb-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <label class="form-label text-sm font-semibold mb-0">Payment Accounts</label>
+                            <div class="text-xs text-muted">Bank accounts or mobile wallets used for disbursements.</div>
+                        </div>
+                        @if (CanManage)
+                        {
+                            <button type="button" class="btn btn-outline-primary btn-sm text-xs py-1" @onclick="OpenAddAccountModal">
+                                + Add Account
+                            </button>
+                        }
+                    </div>
+
+                    @* Table of Registered Accounts (Styled like Payments Table) *@
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-no">No</th>
+                                    <th>Account Details</th>
+                                    <th>Account Holder</th>
+                                    <th>Attachment</th>
+                                    <th class="text-center w-20">Status</th>
+                                    @if (CanManage)
+                                    {
+                                        <th class="sticky-action-col"></th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (_editingVendor is not null && _editingVendor.PaymentAccounts.Any())
+                                {
+                                    var accNo = 0;
+                                    @foreach (var acc in _editingVendor.PaymentAccounts)
+                                    {
+                                        accNo++;
+                                        <tr class="clickable-row @(!acc.IsActive ? "text-muted opacity-60" : "") @(_accountContextMenuTarget?.Id == acc.Id ? "menu-open" : "")"
+                                            @onclick="() => { if (CanManage) OpenEditAccountModal(acc); }"
+                                            @oncontextmenu="e => OpenAccountContextMenu(e, acc)"
+                                            @oncontextmenu:preventDefault="true">
+                                            <td class="col-no">@accNo</td>
+                                            <td>
+                                                <div class="flex items-center gap-1.5">
+                                                    <strong>@acc.ProviderName</strong>
+                                                    @if (acc.IsDefault)
+                                                    {
+                                                        <span class="badge badge-role badge-xs" style="height: 18px; font-size: 10px; padding: 0 6px; font-weight: 600; line-height: 16px;">Default</span>
+                                                    }
+                                                </div>
+                                                <div class="text-muted-cell font-mono">@acc.AccountNumber</div>
+                                                @if (!string.IsNullOrEmpty(acc.BranchName))
+                                                {
+                                                    <div class="text-xs text-muted">@acc.BranchName</div>
+                                                }
+                                            </td>
+                                            <td>@acc.AccountHolderName</td>
+                                            <td @onclick:stopPropagation="true">
+                                                @if (acc.HasAttachment)
+                                                {
+                                                    var attDto = new AttachmentDto(
+                                                        acc.Id,
+                                                        acc.AttachmentFileName ?? "proof.jpg",
+                                                        acc.AttachmentContentType ?? "image/jpeg",
+                                                        acc.AttachmentSizeBytes ?? 0,
+                                                        Guid.Empty,
+                                                        acc.CreatedAt,
+                                                        AttachmentCategory.WithdrawMethod);
+
+                                                    var previewMap = new Dictionary<Guid, string>
+                                                    {
+                                                        [acc.Id] = $"/api/vendors/{_editingVendor.Id}/accounts/{acc.Id}/attachment"
+                                                    };
+
+                                                    <AttachmentStackGallery Attachments="@([attDto])"
+                                                                            PreviewUrls="previewMap"
+                                                                            CardWidth="40px"
+                                                                            CardHeight="30px" />
+                                                }
+                                                else
+                                                {
+                                                    @if (CanManage)
+                                                    {
+                                                        <label class="btn btn-outline btn-sm py-0 px-1 text-xs cursor-pointer mb-0">
+                                                            <span>Upload</span>
+                                                            <InputFile OnChange="@(e => HandleUploadAttachmentDirect(e, acc.Id))" style="display:none;" />
+                                                        </label>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">—</span>
+                                                    }
+                                                }
+                                            </td>
+                                            <td class="text-center" @onclick:stopPropagation="true">
+                                                @if (acc.IsActive)
+                                                {
+                                                    <span class="badge badge-active">Active</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-inactive">Inactive</span>
+                                                }
+                                            </td>
+                                            @if (CanManage)
+                                            {
+                                                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                                    <div class="row-hover-btn-wrapper">
+                                                        <div class="row-hover-backdrop"></div>
+                                                        <button type="button" class="btn-three-dots" title="Account actions"
+                                                                @onclick="e => OpenAccountContextMenuFromButton(e, acc)">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                                <circle cx="12" cy="5" r="2"/>
+                                                                <circle cx="12" cy="12" r="2"/>
+                                                                <circle cx="12" cy="19" r="2"/>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                }
+                                else if (_editingVendor is null && _stagedInitialAccount is not null)
+                                {
+                                    <tr class="clickable-row" @onclick="OpenEditStagedAccountModal">
+                                        <td class="col-no">1</td>
+                                        <td>
+                                            <div class="flex items-center gap-1.5">
+                                                <strong>@_stagedInitialAccount.ProviderName</strong>
+                                                <span class="badge badge-role badge-xs" style="height: 18px; font-size: 10px; padding: 0 6px; font-weight: 600; line-height: 16px;">Default</span>
+                                            </div>
+                                            <div class="text-muted-cell font-mono">@_stagedInitialAccount.AccountNumber</div>
+                                        </td>
+                                        <td>@_stagedInitialAccount.AccountHolderName</td>
+                                        <td @onclick:stopPropagation="true">
+                                            @if (!string.IsNullOrEmpty(_stagedInitialAccount.PreviewUrl))
+                                            {
+                                                var tempDto = new AttachmentDto(
+                                                    _stagedInitialAccount.Id,
+                                                    _stagedInitialAccount.FileName ?? "proof.jpg",
+                                                    _stagedInitialAccount.ContentType ?? "image/jpeg",
+                                                    _stagedInitialAccount.SizeBytes ?? 0,
+                                                    Guid.Empty,
+                                                    DateTime.UtcNow,
+                                                    AttachmentCategory.WithdrawMethod);
+                                                var tempMap = new Dictionary<Guid, string> { [_stagedInitialAccount.Id] = _stagedInitialAccount.PreviewUrl };
+                                                <AttachmentStackGallery Attachments="@([tempDto])" PreviewUrls="tempMap" CardWidth="40px" CardHeight="30px" />
+                                            }
+                                            else if (!string.IsNullOrEmpty(_stagedInitialAccount.FileName))
+                                            {
+                                                <span class="text-primary text-xs">📎 @_stagedInitialAccount.FileName</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
+                                        </td>
+                                        <td class="text-center" @onclick:stopPropagation="true">
+                                            <span class="badge badge-active">Active</span>
+                                        </td>
+                                        <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                            <button type="button" class="btn btn-link p-0 text-xs text-danger" @onclick="() => _stagedInitialAccount = null">Remove</button>
+                                        </td>
+                                    </tr>
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-3">No payment accounts registered yet.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" @onclick="CloseForm">Cancel</button>
+                @if (CanManage)
+                {
+                    <AsyncButton Class="btn btn-primary btn-sm" OnClick="SaveForm">Save</AsyncButton>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Payment Account Modal ─────────────────────────────────────────────────── *@
+@if (_showAccountModal && CanManage)
+{
+    <div class="modal-backdrop" style="z-index: 1060;">
+        <div class="modal" style="max-width: 520px;">
+            <div class="modal-header">
+                <h6 class="modal-title">@(_editingAccountId.HasValue ? "Edit Payment Account" : "Add Payment Account")</h6>
+                <button type="button" class="btn btn-icon modal-close" @onclick="CloseAccountModal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_accountModalError))
+                {
+                    <div class="alert alert-error mb-3">@_accountModalError</div>
+                }
+
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label text-xs font-semibold">Account Type <span class="text-danger">*</span></label>
+                        <select class="input" @bind="_accType">
+                            <option value="@PaymentAccountType.MobileWallet">Mobile Wallet (KBZPay, WavePay)</option>
+                            <option value="@PaymentAccountType.BankTransfer">Bank Account</option>
+                            <option value="@PaymentAccountType.Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label text-xs font-semibold">Provider Name <span class="text-danger">*</span></label>
+                        <input class="input" @bind="_accProvider" list="accProvidersList" placeholder="e.g. KBZPay, KBZ Bank" />
+                        <datalist id="accProvidersList">
+                            <option value="KBZPay" />
+                            <option value="WavePay" />
+                            <option value="KBZ Bank" />
+                            <option value="CB Bank" />
+                            <option value="AYA Bank" />
+                            <option value="AYA Pay" />
+                            <option value="uab bank" />
+                            <option value="Yoma Bank" />
+                        </datalist>
+                    </div>
+                </div>
+
+                <div class="form-grid-2 mb-3">
+                    <div>
+                        <label class="form-label text-xs font-semibold">
+                            @(_accType == PaymentAccountType.MobileWallet ? "Phone Number" : "Account Number") <span class="text-danger">*</span>
+                        </label>
+                        <input class="input font-mono" @bind="_accNumber" placeholder="@(_accType == PaymentAccountType.MobileWallet ? "09..." : "Account No.")" />
+                    </div>
+                    <div>
+                        <label class="form-label text-xs font-semibold">
+                            @(_accType == PaymentAccountType.MobileWallet ? "Username / Name" : "Account Holder Name") <span class="text-danger">*</span>
+                        </label>
+                        <input class="input" @bind="_accHolder" placeholder="Account name" />
+                    </div>
+                </div>
+
+                @if (_accType == PaymentAccountType.BankTransfer)
+                {
+                    <div class="mb-3">
+                        <label class="form-label text-xs font-semibold">Bank Branch <span class="text-muted fw-normal">(optional)</span></label>
+                        <input class="input" @bind="_accBranch" placeholder="e.g. Main Branch" />
+                    </div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label text-xs font-semibold">Banking Attachment / QR Code <span class="text-muted fw-normal">(optional)</span></label>
+                    <div class="d-flex align-items-center flex-wrap gap-3 mt-1">
+                        @if (!string.IsNullOrEmpty(_accFileName))
+                        {
+                            var tempAccDto = new AttachmentDto(
+                                Guid.NewGuid(),
+                                _accFileName,
+                                _accContentType ?? "image/jpeg",
+                                _accSizeBytes ?? 0,
+                                CurrentUser.UserId,
+                                DateTime.UtcNow,
+                                AttachmentCategory.WithdrawMethod);
+                            var tempAccMap = !string.IsNullOrEmpty(_accPreviewUrl)
+                                ? new Dictionary<Guid, string> { [tempAccDto.Id] = _accPreviewUrl }
+                                : new Dictionary<Guid, string>();
+
+                            <AttachmentStackGallery Attachments="@([tempAccDto])"
+                                                    PreviewUrls="tempAccMap"
+                                                    AllowDelete="true"
+                                                    OnDelete="RemoveStagedAccountFile"
+                                                    CardWidth="60px"
+                                                    CardHeight="45px" />
+                        }
+                        else if (_editingAccountId.HasValue && !_deleteExistingAttachment)
+                        {
+                            var existingAcc = _editingVendor?.PaymentAccounts.FirstOrDefault(a => a.Id == _editingAccountId.Value);
+                            if (existingAcc is not null && existingAcc.HasAttachment)
+                            {
+                                var existingDto = new AttachmentDto(
+                                    existingAcc.Id,
+                                    existingAcc.AttachmentFileName ?? "attachment.jpg",
+                                    existingAcc.AttachmentContentType ?? "image/jpeg",
+                                    existingAcc.AttachmentSizeBytes ?? 0,
+                                    Guid.Empty,
+                                    existingAcc.CreatedAt,
+                                    AttachmentCategory.WithdrawMethod);
+                                var existingMap = new Dictionary<Guid, string>
+                                {
+                                    [existingAcc.Id] = $"/api/vendors/{_editingVendor.Id}/accounts/{existingAcc.Id}/attachment"
+                                };
+
+                                <AttachmentStackGallery Attachments="@([existingDto])"
+                                                        PreviewUrls="existingMap"
+                                                        AllowDelete="true"
+                                                        OnDelete="RemoveExistingAccountAttachment"
+                                                        CardWidth="60px"
+                                                        CardHeight="45px" />
+                            }
+                        }
+
+                        <div>
+                            @{
+                                var hasAnyAttachment = !string.IsNullOrEmpty(_accFileName) ||
+                                    (_editingAccountId.HasValue && !_deleteExistingAttachment &&
+                                     (_editingVendor?.PaymentAccounts.FirstOrDefault(a => a.Id == _editingAccountId.Value)?.HasAttachment ?? false));
+                            }
+                            <label for="vendor-acc-file-input" class="btn btn-outline btn-sm d-inline-flex align-items-center gap-2 mb-0 py-1 px-2 text-xs" style="cursor: pointer;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                                </svg>
+                                <span>@(hasAnyAttachment ? "Change attachment" : "Add attachments")</span>
+                            </label>
+                            <InputFile id="vendor-acc-file-input"
+                                       OnChange="HandleAccountFileSelected"
+                                       style="display: none;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline btn-sm" @onclick="CloseAccountModal" disabled="@_savingAccount">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" @onclick="SaveAccountModal" disabled="@_savingAccount">
+                    @if (_savingAccount)
+                    {
+                        <span class="spinner spinner-sm me-1"></span>
+                    }
+                    Save Account
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Confirm ─────────────────────────────────────────────────────── *@
+@if (_deactivatingVendor is not null && CanManage)
+{
+    <ConfirmDialog Title="Deactivate Vendor"
+                   Type="ConfirmType.Danger"
+                   ConfirmText="Yes"
+                   OnConfirm="DoDeactivate"
+                   OnCancel="() => _deactivatingVendor = null">
+        Deactivate <strong>@_deactivatingVendor.Name</strong>? Historical records remain unchanged.
+    </ConfirmDialog>
+}
+
+@* ── Vendor Context Menu ────────────────────────────────────────────────────── *@
+@if (_showContextMenu && _contextMenuTarget is not null)
+{
+    <div class="context-menu-backdrop"
+         @onclick="CloseContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_contextMenuRef" class="custom-context-menu"
+         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@_contextMenuTarget.Name</span>
+        </div>
+
+        <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); OpenEdit(target); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>@(CanManage ? "Edit Vendor" : "View Vendor")</span>
+        </button>
+
+        @if (CanManage)
+        {
+            <div class="context-menu-divider"></div>
+            @if (_contextMenuTarget.IsActive)
+            {
+                <button type="button" class="context-menu-item text-danger" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); ConfirmDeactivate(_contextMenuTarget); }">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <span>Deactivate</span>
+                </button>
+            }
+            else
+            {
+                <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); DoReactivate(_contextMenuTarget); }">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    <span>Reactivate</span>
+                </button>
+            }
+        }
+    </div>
+}
+
+@* ── Account Context Menu ───────────────────────────────────────────────────── *@
+@if (_showAccountContextMenu && _accountContextMenuTarget is not null)
+{
+    <div class="context-menu-backdrop"
+         @onclick="CloseAccountContextMenu"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="CloseAccountContextMenu"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_accountContextMenuRef" class="custom-context-menu"
+         style="left: @(_accountContextMenuX)px; top: @(_accountContextMenuY)px;"
+         @onclick:stopPropagation="true">
+        <div class="context-menu-header">
+            <span>@_accountContextMenuTarget.ProviderName (@_accountContextMenuTarget.AccountNumber)</span>
+        </div>
+
+        @if (_accountContextMenuTarget.IsActive && !_accountContextMenuTarget.IsDefault)
+        {
+            <button type="button" class="context-menu-item" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); DoSetDefaultAccount(target.Id); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span>Make Default</span>
+            </button>
+        }
+
+        <button type="button" class="context-menu-item" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); OpenEditAccountModal(target); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Edit Account</span>
+        </button>
+
+        @if (_accountContextMenuTarget.HasAttachment)
+        {
+            <button type="button" class="context-menu-item text-danger" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); DoRemoveAccountAttachment(target.Id); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                <span>Remove Attachment</span>
+            </button>
+        }
+
+        <div class="context-menu-divider"></div>
+
+        @if (_accountContextMenuTarget.IsActive)
+        {
+            <button type="button" class="context-menu-item text-danger" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); DoDeactivateAccount(target.Id); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>Deactivate</span>
+            </button>
+        }
+        else
+        {
+            <button type="button" class="context-menu-item text-success" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); DoReactivateAccount(target.Id); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                <span>Reactivate</span>
+            </button>
+        }
+    </div>
+}
+
+@code {
+    private bool CanManage => CurrentUser.Role is UserRole.Finance or UserRole.Admin;
+
+    private bool _loading = true;
+    private bool _saving = false;
+    private bool _showInactive = false;
+    private string _search = "";
+
+    private List<VendorDto> _vendors = new();
+    private List<VendorDto> _filtered = new();
+
+    // Vendor Context Menu State
+    private VendorDto? _contextMenuTarget;
+    private ElementReference _contextMenuRef;
+    private double _contextMenuX;
+    private double _contextMenuY;
+    private double _menuClickX;
+    private double _menuClickY;
+    private bool _menuIsButton;
+    private bool _menuPendingPosition;
+    private bool _showContextMenu;
+
+    // Account Context Menu State
+    private VendorPaymentAccountDto? _accountContextMenuTarget;
+    private ElementReference _accountContextMenuRef;
+    private double _accountContextMenuX;
+    private double _accountContextMenuY;
+    private double _accountMenuClickX;
+    private double _accountMenuClickY;
+    private bool _accountMenuIsButton;
+    private bool _accountMenuPendingPosition;
+    private bool _showAccountContextMenu;
+
+    // Modal Form State
+    private bool _showForm = false;
+    private string? _formError;
+    private VendorDto? _editingVendor;
+    private string _formName = "";
+    private string? _formContactPerson;
+    private string? _formPhone;
+    private string? _formEmail;
+    private string? _formAddress;
+
+    // Account Modal State
+    private bool _showAccountModal = false;
+    private string? _accountModalError;
+    private bool _savingAccount = false;
+    private Guid? _editingAccountId;
+    private PaymentAccountType _accType = PaymentAccountType.MobileWallet;
+    private string _accProvider = "KBZPay";
+    private string _accNumber = "";
+    private string _accHolder = "";
+    private string? _accBranch;
+    private string? _accFileName;
+    private string? _accContentType;
+    private long? _accSizeBytes;
+    private string? _accPreUploadedPath;
+    private string? _accPreviewUrl;
+    private bool _deleteExistingAttachment = false;
+
+    private StagedAccount? _stagedInitialAccount;
+    private VendorDto? _deactivatingVendor;
+
+    private sealed record StagedAccount(
+        Guid Id,
+        PaymentAccountType AccountType,
+        string ProviderName,
+        string AccountNumber,
+        string AccountHolderName,
+        string? BranchName,
+        string? FileName,
+        string? ContentType,
+        long? SizeBytes,
+        string? PreUploadedPath,
+        string? PreviewUrl);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var result = await Mediator.Send(new ListVendorsQuery(IncludeInactive: _showInactive));
+            if (result.IsSuccess)
+            {
+                _vendors = result.Value.ToList();
+                ApplyFilter();
+            }
+            else
+            {
+                Toast.Error("Failed to load vendors", result.Error.Message);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(_search))
+        {
+            _filtered = _vendors.ToList();
+        }
+        else
+        {
+            var q = _search.Trim().ToLowerInvariant();
+            _filtered = _vendors.Where(v =>
+                v.Name.ToLowerInvariant().Contains(q) ||
+                (v.ContactPerson?.ToLowerInvariant().Contains(q) ?? false) ||
+                (v.Phone?.ToLowerInvariant().Contains(q) ?? false) ||
+                (v.Email?.ToLowerInvariant().Contains(q) ?? false) ||
+                v.PaymentAccounts.Any(a =>
+                    a.ProviderName.ToLowerInvariant().Contains(q) ||
+                    a.AccountNumber.ToLowerInvariant().Contains(q) ||
+                    a.AccountHolderName.ToLowerInvariant().Contains(q))
+            ).ToList();
+        }
+    }
+
+    // ── Vendor Context Menu Actions ──────────────────────────────────────────
+    private void OpenContextMenu(MouseEventArgs e, VendorDto vendor)
+    {
+        _contextMenuTarget = vendor;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = false;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, VendorDto vendor)
+    {
+        _contextMenuTarget = vendor;
+        _menuClickX = e.ClientX;
+        _menuClickY = e.ClientY;
+        _contextMenuX = e.ClientX;
+        _contextMenuY = e.ClientY;
+        _menuIsButton = true;
+        _menuPendingPosition = true;
+        _showContextMenu = true;
+    }
+
+    private void CloseContextMenu()
+    {
+        _showContextMenu = false;
+        _contextMenuTarget = null;
+    }
+
+    // ── Account Context Menu Actions ─────────────────────────────────────────
+    private void OpenAccountContextMenu(MouseEventArgs e, VendorPaymentAccountDto account)
+    {
+        _accountContextMenuTarget = account;
+        _accountMenuClickX = e.ClientX;
+        _accountMenuClickY = e.ClientY;
+        _accountContextMenuX = e.ClientX;
+        _accountContextMenuY = e.ClientY;
+        _accountMenuIsButton = false;
+        _accountMenuPendingPosition = true;
+        _showAccountContextMenu = true;
+    }
+
+    private void OpenAccountContextMenuFromButton(MouseEventArgs e, VendorPaymentAccountDto account)
+    {
+        _accountContextMenuTarget = account;
+        _accountMenuClickX = e.ClientX;
+        _accountMenuClickY = e.ClientY;
+        _accountContextMenuX = e.ClientX;
+        _accountContextMenuY = e.ClientY;
+        _accountMenuIsButton = true;
+        _accountMenuPendingPosition = true;
+        _showAccountContextMenu = true;
+    }
+
+    private void CloseAccountContextMenu()
+    {
+        _showAccountContextMenu = false;
+        _accountContextMenuTarget = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showContextMenu && _menuPendingPosition)
+        {
+            _menuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+        }
+        if (_showAccountContextMenu && _accountMenuPendingPosition)
+        {
+            _accountMenuPendingPosition = false;
+            await JS.InvokeVoidAsync("positionContextMenu", _accountContextMenuRef, _accountMenuClickX, _accountMenuClickY, _accountMenuIsButton);
+        }
+    }
+
+    // ── Create & Edit Modal Actions ──────────────────────────────────────────
+    private void OpenCreate()
+    {
+        _editingVendor = null;
+        _formName = "";
+        _formContactPerson = null;
+        _formPhone = null;
+        _formEmail = null;
+        _formAddress = null;
+        _formError = null;
+        _showAccountModal = false;
+        _stagedInitialAccount = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(VendorDto v)
+    {
+        _editingVendor = v;
+        _formName = v.Name;
+        _formContactPerson = v.ContactPerson;
+        _formPhone = v.Phone;
+        _formEmail = v.Email;
+        _formAddress = v.Address;
+        _formError = null;
+        _showAccountModal = false;
+        _stagedInitialAccount = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+        _editingVendor = null;
+    }
+
+    private async Task SaveForm()
+    {
+        if (!CanManage) return;
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _formError = "Vendor name is required.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            if (_editingVendor is not null)
+            {
+                var result = await Mediator.Send(new UpdateVendorCommand(
+                    _editingVendor.Id,
+                    _formName,
+                    _formContactPerson,
+                    _formPhone,
+                    _formEmail,
+                    _formAddress));
+
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                Toast.Success("Vendor Updated", $"'{_formName}' updated successfully.");
+            }
+            else
+            {
+                var cmd = new CreateVendorCommand(
+                    Name: _formName,
+                    ContactPerson: _formContactPerson,
+                    Phone: _formPhone,
+                    Email: _formEmail,
+                    Address: _formAddress,
+                    InitialAccountType: _stagedInitialAccount?.AccountType,
+                    InitialProviderName: _stagedInitialAccount?.ProviderName,
+                    InitialAccountNumber: _stagedInitialAccount?.AccountNumber,
+                    InitialAccountHolderName: _stagedInitialAccount?.AccountHolderName,
+                    InitialBranchName: _stagedInitialAccount?.BranchName,
+                    AttachmentFileName: _stagedInitialAccount?.FileName,
+                    AttachmentContentType: _stagedInitialAccount?.ContentType,
+                    AttachmentSizeBytes: _stagedInitialAccount?.SizeBytes,
+                    AttachmentPreUploadedPath: _stagedInitialAccount?.PreUploadedPath);
+
+                var result = await Mediator.Send(cmd);
+                if (result.IsFailure) { _formError = result.Error.Message; return; }
+                Toast.Success("Vendor Created", $"'{_formName}' created successfully.");
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Error saving vendor: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    // ── Payment Account Modal Actions ──────────────────────────────────────────
+    private void OpenAddAccountModal()
+    {
+        _accountModalError = null;
+        _editingAccountId = null;
+        _deleteExistingAttachment = false;
+        _accType = PaymentAccountType.MobileWallet;
+        _accProvider = "KBZPay";
+        _accNumber = "";
+        _accHolder = "";
+        _accBranch = null;
+        _accFileName = null;
+        _accContentType = null;
+        _accSizeBytes = null;
+        _accPreUploadedPath = null;
+        _accPreviewUrl = null;
+        _showAccountModal = true;
+    }
+
+    private void OpenEditAccountModal(VendorPaymentAccountDto acc)
+    {
+        _accountModalError = null;
+        _editingAccountId = acc.Id;
+        _deleteExistingAttachment = false;
+        _accType = acc.AccountType;
+        _accProvider = acc.ProviderName;
+        _accNumber = acc.AccountNumber;
+        _accHolder = acc.AccountHolderName;
+        _accBranch = acc.BranchName;
+        _accFileName = null;
+        _accContentType = null;
+        _accSizeBytes = null;
+        _accPreUploadedPath = null;
+        _accPreviewUrl = null;
+        _showAccountModal = true;
+    }
+
+    private void OpenEditStagedAccountModal()
+    {
+        if (_stagedInitialAccount is null) return;
+        _accountModalError = null;
+        _editingAccountId = null;
+        _deleteExistingAttachment = false;
+        _accType = _stagedInitialAccount.AccountType;
+        _accProvider = _stagedInitialAccount.ProviderName;
+        _accNumber = _stagedInitialAccount.AccountNumber;
+        _accHolder = _stagedInitialAccount.AccountHolderName;
+        _accBranch = _stagedInitialAccount.BranchName;
+        _accFileName = _stagedInitialAccount.FileName;
+        _accContentType = _stagedInitialAccount.ContentType;
+        _accSizeBytes = _stagedInitialAccount.SizeBytes;
+        _accPreUploadedPath = _stagedInitialAccount.PreUploadedPath;
+        _accPreviewUrl = _stagedInitialAccount.PreviewUrl;
+        _showAccountModal = true;
+    }
+
+    private void CloseAccountModal()
+    {
+        _showAccountModal = false;
+        _editingAccountId = null;
+        _accountModalError = null;
+        _deleteExistingAttachment = false;
+    }
+
+    private void RemoveStagedAccountFile(Guid _)
+    {
+        _accFileName = null;
+        _accContentType = null;
+        _accSizeBytes = null;
+        _accPreUploadedPath = null;
+        _accPreviewUrl = null;
+    }
+
+    private void RemoveExistingAccountAttachment(Guid _)
+    {
+        _deleteExistingAttachment = true;
+        _accFileName = null;
+        _accContentType = null;
+        _accSizeBytes = null;
+        _accPreUploadedPath = null;
+        _accPreviewUrl = null;
+    }
+
+    private async Task HandleAccountFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+
+        try
+        {
+            var tempPath = await FileStorage.SaveAsync($"temp/{Guid.NewGuid():N}", file.Name, file.OpenReadStream(10 * 1024 * 1024));
+            _accFileName = file.Name;
+            _accContentType = file.ContentType;
+            _accSizeBytes = file.Size;
+            _accPreUploadedPath = tempPath;
+            _deleteExistingAttachment = false;
+
+            if (!string.IsNullOrEmpty(file.ContentType) && file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var resized = await file.RequestImageFileAsync("image/png", 400, 400);
+                    using var ms = new MemoryStream();
+                    using var stream = resized.OpenReadStream(10 * 1024 * 1024);
+                    await stream.CopyToAsync(ms);
+                    _accPreviewUrl = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+                }
+                catch
+                {
+                    // If client-side resizing fails, keep file staged without thumbnail
+                    _accPreviewUrl = null;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _accountModalError = $"Failed to stage file: {ex.Message}";
+        }
+    }
+
+    private async Task SaveAccountModal()
+    {
+        _accountModalError = null;
+        if (string.IsNullOrWhiteSpace(_accProvider)) { _accountModalError = "Provider name is required."; return; }
+        if (string.IsNullOrWhiteSpace(_accNumber)) { _accountModalError = "Account number / phone is required."; return; }
+        if (string.IsNullOrWhiteSpace(_accHolder)) { _accountModalError = "Account holder / username is required."; return; }
+
+        if (_editingVendor is null)
+        {
+            // Staging account during create
+            _stagedInitialAccount = new StagedAccount(
+                _stagedInitialAccount?.Id ?? Guid.NewGuid(),
+                _accType,
+                _accProvider,
+                _accNumber,
+                _accHolder,
+                _accBranch,
+                _accFileName,
+                _accContentType,
+                _accSizeBytes,
+                _accPreUploadedPath,
+                _accPreviewUrl);
+            _showAccountModal = false;
+            return;
+        }
+
+        // Live account addition/update for existing vendor
+        _savingAccount = true;
+        try
+        {
+            if (_editingAccountId.HasValue)
+            {
+                var result = await Mediator.Send(new UpdateVendorPaymentAccountCommand(
+                    _editingVendor.Id,
+                    _editingAccountId.Value,
+                    _accType,
+                    _accProvider,
+                    _accNumber,
+                    _accHolder,
+                    _accBranch));
+
+                if (result.IsFailure) { _accountModalError = result.Error.Message; return; }
+
+                if (_deleteExistingAttachment)
+                {
+                    var delRes = await Mediator.Send(new RemoveVendorAccountAttachmentCommand(_editingVendor.Id, _editingAccountId.Value));
+                    if (delRes.IsFailure) { _accountModalError = delRes.Error.Message; return; }
+                }
+
+                if (!string.IsNullOrEmpty(_accPreUploadedPath))
+                {
+                    var uploadRes = await Mediator.Send(new UploadVendorAccountAttachmentCommand(
+                        _editingVendor.Id,
+                        _editingAccountId.Value,
+                        _accFileName ?? "attachment",
+                        _accContentType ?? "application/octet-stream",
+                        _accSizeBytes ?? 0,
+                        _accPreUploadedPath));
+                    if (uploadRes.IsFailure) { _accountModalError = uploadRes.Error.Message; return; }
+                }
+
+                Toast.Success("Account Updated", "Payment account updated.");
+            }
+            else
+            {
+                var result = await Mediator.Send(new AddVendorPaymentAccountCommand(
+                    _editingVendor.Id,
+                    _accType,
+                    _accProvider,
+                    _accNumber,
+                    _accHolder,
+                    _accBranch,
+                    IsDefault: false,
+                    _accFileName,
+                    _accContentType,
+                    _accSizeBytes,
+                    _accPreUploadedPath));
+
+                if (result.IsFailure) { _accountModalError = result.Error.Message; return; }
+                Toast.Success("Account Added", "Payment account added.");
+            }
+
+            _showAccountModal = false;
+            await RefreshEditingVendor();
+        }
+        catch (Exception ex)
+        {
+            _accountModalError = $"Error saving account: {ex.Message}";
+        }
+        finally
+        {
+            _savingAccount = false;
+        }
+    }
+
+    private async Task RefreshEditingVendor()
+    {
+        if (_editingVendor is null) return;
+        var result = await Mediator.Send(new GetVendorByIdQuery(_editingVendor.Id));
+        if (result.IsSuccess)
+        {
+            _editingVendor = result.Value;
+            await LoadData();
+        }
+    }
+
+    private async Task DoSetDefaultAccount(Guid accountId)
+    {
+        if (_editingVendor is null) return;
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new SetDefaultVendorPaymentAccountCommand(_editingVendor.Id, accountId));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Default Account Set", "Default payment account updated."); await RefreshEditingVendor(); }
+        }
+        finally { _saving = false; }
+        StateHasChanged();
+    }
+
+    private async Task DoDeactivateAccount(Guid accountId)
+    {
+        if (_editingVendor is null) return;
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new DeactivateVendorPaymentAccountCommand(_editingVendor.Id, accountId));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Account Deactivated", "Account deactivated."); await RefreshEditingVendor(); }
+        }
+        finally { _saving = false; }
+
+        StateHasChanged();
+    }
+
+    private async Task DoReactivateAccount(Guid accountId)
+    {
+        if (_editingVendor is null) return;
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new ReactivateVendorPaymentAccountCommand(_editingVendor.Id, accountId));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Account Reactivated", "Account reactivated."); await RefreshEditingVendor(); }
+        }
+        finally { _saving = false; }
+        StateHasChanged();
+    }
+
+    private async Task HandleUploadAttachmentDirect(InputFileChangeEventArgs e, Guid accountId)
+    {
+        if (_editingVendor is null) return;
+        var file = e.File;
+        if (file is null) return;
+
+        _saving = true;
+        try
+        {
+            var tempPath = await FileStorage.SaveAsync($"temp/{Guid.NewGuid():N}", file.Name, file.OpenReadStream(10 * 1024 * 1024));
+            var result = await Mediator.Send(new UploadVendorAccountAttachmentCommand(
+                _editingVendor.Id,
+                accountId,
+                file.Name,
+                file.ContentType,
+                file.Size,
+                tempPath));
+
+            if (result.IsFailure) { Toast.Error("Upload Failed", result.Error.Message); }
+            else { Toast.Success("Attachment Uploaded", "Account attachment document saved."); await RefreshEditingVendor(); }
+        }
+        catch (Exception ex)
+        {
+            Toast.Error("Upload Error", ex.Message);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DoRemoveAccountAttachment(Guid accountId)
+    {
+        if (_editingVendor is null) return;
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new RemoveVendorAccountAttachmentCommand(_editingVendor.Id, accountId));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Attachment Removed", "Account attachment document removed."); await RefreshEditingVendor(); }
+        }
+        finally { _saving = false; }
+        StateHasChanged();
+    }
+
+    // ── Deactivate / Reactivate Vendor Actions ────────────────────────────────
+    private void ConfirmDeactivate(VendorDto v) => _deactivatingVendor = v;
+
+    private async Task DoDeactivate()
+    {
+        if (_deactivatingVendor is null) return;
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new DeactivateVendorCommand(_deactivatingVendor.Id));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Vendor Deactivated", $"'{_deactivatingVendor.Name}' deactivated."); await LoadData(); }
+            _deactivatingVendor = null;
+        }
+        finally { _saving = false; }
+    }
+
+    private async Task DoReactivate(VendorDto v)
+    {
+        _saving = true;
+        try
+        {
+            var result = await Mediator.Send(new ReactivateVendorCommand(v.Id));
+            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
+            else { Toast.Success("Vendor Reactivated", $"'{v.Name}' reactivated."); await LoadData(); }
+        }
+        finally { _saving = false; }
+    }
+}

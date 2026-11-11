@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Web
 @using Microsoft.Extensions.Logging
 @inherits ErrorBoundary
 @* @inject ILogger<GlobalErrorBoundary> Logger *@
@@ -23,6 +23,13 @@ else
             <i class="bi bi-exclamation-triangle-fill me-2"></i> An unexpected error occurred.
         </h4>
         <p>Our engineering team has been notified and the error has been logged. Please try resetting the view.</p>
+        @if (CurrentException is not null)
+        {
+            <details class="mt-2 text-start">
+                <summary class="text-xs text-muted cursor-pointer" style="cursor: pointer;">Error details</summary>
+                <pre class="bg-dark text-white p-3 rounded text-xs mt-2 overflow-auto" style="max-height: 240px; white-space: pre-wrap;">@CurrentException.ToString()</pre>
+            </details>
+        }
         <hr>
         <button class="btn btn-outline-danger" @onclick="Recover">Clear Error & Try Again</button>
     </div>
@@ -31,8 +38,7 @@ else
 @code {
     protected override Task OnErrorAsync(Exception exception)
     {
-        // This ensures unexpected exceptions in Blazor Server components are actually logged
-        //Logger.LogError(exception, "An unhandled exception was caught by the Global Error Boundary.");
+        Console.Error.WriteLine($"[CRITICAL] GlobalErrorBoundry caught: {exception}");
         return base.OnErrorAsync(exception);
     }
 }

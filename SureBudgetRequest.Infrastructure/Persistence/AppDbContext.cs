@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
     public DbSet<Coa> Coas => Set<Coa>();
     public DbSet<WithdrawMethod> WithdrawMethods => Set<WithdrawMethod>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<Vendor> Vendors => Set<Vendor>();
+    public DbSet<VendorPaymentAccount> VendorPaymentAccounts => Set<VendorPaymentAccount>();
     public DbSet<BudgetCategory> BudgetCategories => Set<BudgetCategory>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<BudgetRequestModification> BudgetRequestModifications => Set<BudgetRequestModification>();
