@@ -1,6 +1,7 @@
 using MediatR;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Domain.Common;
+using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest;
@@ -14,17 +15,20 @@ public sealed class GetBudgetRequestQueryHandler
     private readonly ICoaRepository _coaRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IBudgetCategoryRepository _budgetCategoryRepository;
+    private readonly IVendorRepository _vendorRepository;
 
     public GetBudgetRequestQueryHandler(
         IBudgetRequestRepository repository,
         ICoaRepository coaRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
-        IBudgetCategoryRepository budgetCategoryRepository)
+        IBudgetCategoryRepository budgetCategoryRepository,
+        IVendorRepository vendorRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _budgetCategoryRepository = budgetCategoryRepository;
+        _vendorRepository = vendorRepository;
     }
 
     public async Task<Result<BudgetRequestDto>> Handle(
@@ -52,6 +56,13 @@ public sealed class GetBudgetRequestQueryHandler
             ? await _budgetCategoryRepository.GetByIdAsync(entity.BudgetCategoryId.Value, cancellationToken)
             : null;
 
-        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod, budgetCategory));
+        // Resolve vendor for display (null when unset).
+        Vendor? vendor = null;
+        if (entity.VendorId.HasValue)
+        {
+            vendor = await _vendorRepository.GetByIdAsync(entity.VendorId.Value, cancellationToken);
+        }
+
+        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod, budgetCategory, vendor));
     }
 }

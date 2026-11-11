@@ -450,6 +450,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("type");
 
+                    b.Property<Guid?>("VendorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_id");
+
                     b.Property<Guid?>("WithdrawMethodId")
                         .HasColumnType("uuid")
                         .HasColumnName("withdraw_method_id");
@@ -486,6 +490,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
                     b.HasIndex("Status")
                         .HasDatabaseName("ix_budget_requests_status");
+
+                    b.HasIndex("VendorId")
+                        .HasDatabaseName("ix_budget_requests_vendor_id");
 
                     b.HasIndex("WithdrawMethodId")
                         .HasDatabaseName("ix_budget_requests_withdraw_method_id");
@@ -865,6 +872,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("source_bank_name");
 
+                    b.Property<Guid?>("VendorPaymentAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vendor_payment_account_id");
+
                     b.Property<string>("VoidReason")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -886,6 +897,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
                     b.HasIndex("SourceBankAccountId")
                         .HasDatabaseName("ix_payments_source_bank_account_id");
+
+                    b.HasIndex("VendorPaymentAccountId")
+                        .HasDatabaseName("ix_payments_vendor_payment_account_id");
 
                     b.ToTable("payments", (string)null);
                 });
@@ -1093,7 +1107,6 @@ namespace SureBudgetRequest.Infrastructure.Migrations
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.VendorPaymentAccount", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
@@ -1144,10 +1157,6 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
-
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_default");
 
                     b.Property<string>("ProviderName")
                         .IsRequired()
@@ -1316,6 +1325,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_budget_requests_currencies_currency_code");
 
+                    b.HasOne("SureBudgetRequest.Domain.Entities.Vendor", null)
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_budget_requests_vendors_vendor_id");
+
                     b.HasOne("SureBudgetRequest.Domain.Entities.WithdrawMethod", null)
                         .WithMany()
                         .HasForeignKey("WithdrawMethodId")
@@ -1400,6 +1415,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_payments_budget_requests_budget_request_id");
+
+                    b.HasOne("SureBudgetRequest.Domain.Entities.VendorPaymentAccount", null)
+                        .WithMany()
+                        .HasForeignKey("VendorPaymentAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_payments_vendor_payment_accounts_vendor_payment_account_id");
                 });
 
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.Tag", b =>

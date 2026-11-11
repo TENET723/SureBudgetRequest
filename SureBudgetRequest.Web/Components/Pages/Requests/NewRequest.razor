@@ -17,6 +17,7 @@
 @using SureBudgetRequest.Application.Currencies.Queries
 @using SureBudgetRequest.Application.Departments.Queries
 @using SureBudgetRequest.Application.Users.Queries
+@using SureBudgetRequest.Application.Vendors.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Domain.Enums
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
@@ -204,6 +205,82 @@
                 </div>
             </div>
 
+            @* ── Vendor Selection (optional) ── *@
+            <div class="mb-4">
+                <label class="form-label text-sm font-semibold">Vendor / Supplier <span class="text-muted fw-normal">(optional)</span></label>
+                <Dropdown Items="_vendors"
+                          @bind-Value="_vendorId"
+                          ValueSelector="v => v.Id.ToString()"
+                          TextSelector="v => v.Name"
+                          Placeholder="— select vendor (optional) —"
+                          Searchable="true"
+                          SearchPlaceholder="Search vendor..."
+                          AllowClear="true" />
+
+                @if (SelectedVendor is not null && SelectedMethodRequiresAttachment)
+                {
+                    @if (SelectedVendor.PaymentAccounts.Any(a => a.IsActive))
+                    {
+                        <div class="mt-2 text-xs text-muted mb-1">Registered payment accounts for <strong>@SelectedVendor.Name</strong>:</div>
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-no">#</th>
+                                        <th>Provider</th>
+                                        <th>Account / Phone</th>
+                                        <th>Account Holder</th>
+                                        <th>Attachment / QR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var aIdx = 0; }
+                                    @foreach (var vAcc in SelectedVendor.PaymentAccounts.Where(a => a.IsActive))
+                                    {
+                                        aIdx++;
+                                        <tr>
+                                            <td class="col-no text-muted">@aIdx</td>
+                                            <td><strong>@vAcc.ProviderName</strong></td>
+                                            <td class="font-mono">@vAcc.AccountNumber</td>
+                                            <td>@vAcc.AccountHolderName</td>
+                                            <td>
+                                                @if (vAcc.HasAttachment)
+                                                {
+                                                    var vAttDto = new AttachmentDto(
+                                                        vAcc.Id,
+                                                        vAcc.AttachmentFileName ?? "proof.jpg",
+                                                        vAcc.AttachmentContentType ?? "image/jpeg",
+                                                        vAcc.AttachmentSizeBytes ?? 0,
+                                                        Guid.Empty,
+                                                        vAcc.CreatedAt,
+                                                        AttachmentCategory.WithdrawMethod);
+                                                    var vAttMap = new Dictionary<Guid, string>
+                                                    {
+                                                        [vAcc.Id] = $"/api/vendors/{SelectedVendor.Id}/accounts/{vAcc.Id}/attachment"
+                                                    };
+                                                    <AttachmentStackGallery Attachments="@([vAttDto])"
+                                                                            PreviewUrls="vAttMap"
+                                                                            CardWidth="46px"
+                                                                            CardHeight="34px" />
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted text-xs">— none —</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-xs text-muted mt-2">No payment accounts registered for this vendor yet.</div>
+                    }
+                }
+            </div>
+
             <div class="mb-4">
                 <label class="form-label text-sm font-semibold">Withdraw Method <span class="text-danger">*</span></label>
                 <Dropdown Items="_withdrawMethods"
@@ -229,11 +306,24 @@
                 @if (SelectedMethodRequiresAttachment)
                 {
                     <div class="mt-3">
-                        <label class="form-label text-sm font-semibold">
-                            Banking info <span class="text-danger">*</span>
-                        </label>
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="form-label text-sm font-semibold mb-0">
+                                Banking info @(MustUploadBankingAttachment ? "*" : "(optional - verified on file)")
+                            </label>
+                            @if (HasPreverifiedVendorAttachment)
+                            {
+                                <span class="badge badge-success text-xs">✓ Pre-verified Attachment on File</span>
+                            }
+                        </div>
                         <div class="form-text text-sm mb-2 text-muted">
-                            The chosen withdraw method requires at least one banking-info file (e.g. bank book photo, account details).
+                            @if (HasPreverifiedVendorAttachment)
+                            {
+                                <span>The selected vendor account already has an attachment on file. Uploading a new file is optional.</span>
+                            }
+                            else
+                            {
+                                <span>The chosen withdraw method requires at least one banking-info file (e.g. bank book photo, account details).</span>
+                            }
                         </div>
                         <AttachmentList Attachments="_emptyAttachments"
                                         PendingAttachments="_pendingAttachments"
@@ -280,8 +370,8 @@
             </button>
             <button class="btn btn-primary btn-sm"
                     @onclick="() => OnSaveClicked(submit: true)"
-                    title="@(SelectedMethodRequiresAttachment && !HasStagedBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload the file before submitting." : null)"
-                    disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasStagedBankingAttachment) || _pendingAttachments.Any(p => p.Uploading))">
+                    title="@(MustUploadBankingAttachment && !HasStagedBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload the file before submitting." : null)"
+                    disabled="@(_saving || _deptHeadId == Guid.Empty || HasValidationErrors || (MustUploadBankingAttachment && !HasStagedBankingAttachment) || _pendingAttachments.Any(p => p.Uploading))">
                 @if (_saving && _submitting) { <span class="spinner spinner-sm"></span> }
                 Submit
             </button>
@@ -446,6 +536,19 @@
     private string _withdrawMethodId = "";
     private List<BudgetCategoryDto> _budgetCategories = new();
     private string _budgetCategoryId = "";
+    private List<VendorDto> _vendors = new();
+    private string? _vendorId;
+
+    private VendorDto? SelectedVendor =>
+        !string.IsNullOrEmpty(_vendorId) && Guid.TryParse(_vendorId, out var vId)
+            ? _vendors.FirstOrDefault(v => v.Id == vId)
+            : null;
+
+    private bool HasPreverifiedVendorAttachment =>
+        SelectedVendor?.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment) ?? false;
+
+    private bool MustUploadBankingAttachment =>
+        SelectedMethodRequiresAttachment && !HasPreverifiedVendorAttachment;
 
     // Monthly spending cap state
     private decimal _monthlyLimit;
@@ -539,6 +642,13 @@
         if (categoriesResult.IsSuccess)
         {
             _budgetCategories = categoriesResult.Value.OrderBy(c => c.Name).ToList();
+        }
+
+        // Load active vendors for the optional selector
+        var vendorsResult = await Mediator.Send(new ListVendorsQuery(IncludeInactive: false));
+        if (vendorsResult.IsSuccess)
+        {
+            _vendors = vendorsResult.Value.OrderBy(v => v.Name).ToList();
         }
 
         var deptResult = await Mediator.Send(new GetDepartmentQuery(CurrentUser.DepartmentId));
@@ -636,7 +746,7 @@
         if (_deptHeadId == Guid.Empty || string.IsNullOrWhiteSpace(_deptHeadName))
         { _error = "Department head is not set for your department."; return false; }
 
-        if (submit && SelectedMethodRequiresAttachment && !HasStagedBankingAttachment)
+        if (submit && MustUploadBankingAttachment && !HasStagedBankingAttachment)
         {
             _error = "This withdraw method requires a banking-info attachment.";
             return false;
@@ -694,7 +804,8 @@
                     : Guid.Parse(_budgetCategoryId),
                 ExternalReferences: string.IsNullOrWhiteSpace(_externalReferences)
                     ? null
-                    : _externalReferences));
+                    : _externalReferences,
+                VendorId: !string.IsNullOrEmpty(_vendorId) && Guid.TryParse(_vendorId, out var vid) ? vid : null));
 
             if (draftResult.IsFailure) { _error = draftResult.Error.Message; return; }
 
@@ -765,5 +876,6 @@
         }
         finally { _saving = false; _submitting = false; }
     }
+
 
 }

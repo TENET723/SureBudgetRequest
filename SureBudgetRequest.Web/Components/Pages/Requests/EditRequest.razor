@@ -15,6 +15,7 @@
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.WithdrawMethods.Queries
 @using SureBudgetRequest.Application.BudgetCategories.Queries
+@using SureBudgetRequest.Application.Vendors.Queries
 @using SureBudgetRequest.Domain.Enums
 @using AttachmentCategory = SureBudgetRequest.Domain.Enums.AttachmentCategory
 @using SureBudgetRequest.Application.BudgetRequests.Common
@@ -180,12 +181,24 @@
                 @if (SelectedMethodRequiresAttachment)
                 {
                     <div class="mb-4">
-                        <label class="form-label text-sm font-semibold">
-                            Banking info <span class="text-danger">*</span>
-                        </label>
-                        <div class="form-text text-sm mb-2">
-                            The chosen withdraw method requires at least one banking-info file
-                            (e.g. bank book photo, account details).
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="form-label text-sm font-semibold mb-0">
+                                Banking info @(MustUploadBankingAttachment ? "*" : "(optional - verified on file)")
+                            </label>
+                            @if (HasPreverifiedVendorAttachment)
+                            {
+                                <span class="badge badge-success text-xs">✓ Pre-verified Attachment on File</span>
+                            }
+                        </div>
+                        <div class="form-text text-sm mb-2 text-muted">
+                            @if (HasPreverifiedVendorAttachment)
+                            {
+                                <span>The selected vendor account already has an attachment on file. Uploading a new file is optional.</span>
+                            }
+                            else
+                            {
+                                <span>The chosen withdraw method requires at least one banking-info file (e.g. bank book photo, account details).</span>
+                            }
                         </div>
                         <AttachmentList Attachments="_request.Attachments"
                                         PendingAttachments="_pendingAttachments"
@@ -255,6 +268,82 @@
                     </div>
                 </div>
 
+                @* ── Vendor Selection (optional) ── *@
+                <div class="mb-4">
+                    <label class="form-label text-sm font-semibold">Vendor / Supplier <span class="text-muted fw-normal">(optional)</span></label>
+                    <Dropdown Items="_vendors"
+                              @bind-Value="_vendorId"
+                              ValueSelector="v => v.Id.ToString()"
+                              TextSelector="v => v.Name"
+                              Placeholder="— select vendor (optional) —"
+                              Searchable="true"
+                              SearchPlaceholder="Search vendor..."
+                              AllowClear="true" />
+
+                    @if (SelectedVendor is not null && SelectedMethodRequiresAttachment)
+                    {
+                        @if (SelectedVendor.PaymentAccounts.Any(a => a.IsActive))
+                        {
+                            <div class="mt-2 text-xs text-muted mb-1">Registered payment accounts for <strong>@SelectedVendor.Name</strong>:</div>
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-no">#</th>
+                                            <th>Provider</th>
+                                            <th>Account / Phone</th>
+                                            <th>Account Holder</th>
+                                            <th>Attachment / QR</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @{ var aIdx = 0; }
+                                        @foreach (var vAcc in SelectedVendor.PaymentAccounts.Where(a => a.IsActive))
+                                        {
+                                            aIdx++;
+                                            <tr>
+                                                <td class="col-no text-muted">@aIdx</td>
+                                                <td><strong>@vAcc.ProviderName</strong></td>
+                                                <td class="font-mono">@vAcc.AccountNumber</td>
+                                                <td>@vAcc.AccountHolderName</td>
+                                                <td>
+                                                    @if (vAcc.HasAttachment)
+                                                    {
+                                                        var vAttDto = new AttachmentDto(
+                                                            vAcc.Id,
+                                                            vAcc.AttachmentFileName ?? "proof.jpg",
+                                                            vAcc.AttachmentContentType ?? "image/jpeg",
+                                                            vAcc.AttachmentSizeBytes ?? 0,
+                                                            Guid.Empty,
+                                                            vAcc.CreatedAt,
+                                                            AttachmentCategory.WithdrawMethod);
+                                                        var vAttMap = new Dictionary<Guid, string>
+                                                        {
+                                                            [vAcc.Id] = $"/api/vendors/{SelectedVendor.Id}/accounts/{vAcc.Id}/attachment"
+                                                        };
+                                                        <AttachmentStackGallery Attachments="@([vAttDto])"
+                                                                                PreviewUrls="vAttMap"
+                                                                                CardWidth="46px"
+                                                                                CardHeight="34px" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted text-xs">— none —</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-xs text-muted mt-2">No payment accounts registered for this vendor yet.</div>
+                        }
+                    }
+                </div>
+
                 <div class="mb-4">
                     <label class="form-label text-sm font-semibold">Withdraw Method <span class="text-danger">*</span></label>
                     <Dropdown Items="_withdrawMethods"
@@ -319,8 +408,8 @@
                         @SaveLabel
                     </button>
                     <button class="btn btn-primary btn-sm" @onclick="() => OnSaveClicked(submit: true)"
-                            title="@(SelectedMethodRequiresAttachment && !HasBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload at least one banking file before submitting." : null)"
-                            disabled="@(_saving || HasValidationErrors || (SelectedMethodRequiresAttachment && !HasBankingAttachment) || _pendingAttachments.Any(p => p.Uploading))">
+                            title="@(MustUploadBankingAttachment && !HasBankingAttachment ? "This withdraw method requires a banking-info attachment. Upload at least one banking file before submitting." : null)"
+                            disabled="@(_saving || HasValidationErrors || (MustUploadBankingAttachment && !HasBankingAttachment) || _pendingAttachments.Any(p => p.Uploading))">
                         @if (_saving && _submitting) { <span class="spinner spinner-sm mr-1"></span> }
                         @SubmitLabel
                     </button>
@@ -426,6 +515,21 @@
     private string? _partialDetail;
     private string? _lastSendBackComment;
 
+    // Vendor state
+    private List<VendorDto> _vendors = new();
+    private string? _vendorId;
+
+    private VendorDto? SelectedVendor =>
+        !string.IsNullOrEmpty(_vendorId) && Guid.TryParse(_vendorId, out var vId)
+            ? _vendors.FirstOrDefault(v => v.Id == vId)
+            : null;
+
+    private bool HasPreverifiedVendorAttachment =>
+        SelectedVendor?.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment) ?? false;
+
+    private bool MustUploadBankingAttachment =>
+        SelectedMethodRequiresAttachment && !HasPreverifiedVendorAttachment;
+
     // Monthly spending cap state
     private decimal _monthlyLimit;
     private decimal _monthlySpent;
@@ -518,6 +622,7 @@
             _externalReferences = _request.ExternalReferences ?? "";
             _withdrawerName = _request.WithdrawerName;
             _withdrawerTitle = _request.WithdrawerJobTitle;
+            _vendorId = _request.VendorId?.ToString() ?? "";
             _allowsPartial = _request.AllowsPartialPayment;
             _partialDetail = _request.PartialPaymentDetail;
             _withdrawMethodId = _request.WithdrawMethodId?.ToString() ?? "";
@@ -568,6 +673,12 @@
                 }
             }
 
+            var vendorsResult = await Mediator.Send(new ListVendorsQuery(IncludeInactive: false));
+            if (vendorsResult.IsSuccess)
+            {
+                _vendors = vendorsResult.Value.OrderBy(v => v.Name).ToList();
+            }
+
             var headResult = await Mediator.Send(new GetUserQuery(_request.DeptHeadIdAtSubmission));
             if (headResult.IsSuccess) _deptHeadName = headResult.Value.FullName;
 
@@ -605,6 +716,8 @@
 
     private void OnAmountChanged() { }
 
+
+
     private async Task ReloadAsync()
     {
         var result = await Mediator.Send(new GetBudgetRequestQuery(Id));
@@ -618,7 +731,7 @@
 
         // Banking-attachment guard — only blocks Submit / Resubmit, not Save Draft.
         // The user can save partial work; only the submit transition needs the file.
-        if (submit && SelectedMethodRequiresAttachment && !HasBankingAttachment)
+        if (submit && MustUploadBankingAttachment && !HasBankingAttachment)
         {
             _error = "This withdraw method requires a banking-info attachment. " +
                      "Upload at least one banking file before submitting.";
@@ -727,7 +840,8 @@
                 Note: IsDhModifying ? _modificationNote : null,
                 ExternalReferences: string.IsNullOrWhiteSpace(_externalReferences)
                     ? null
-                    : _externalReferences));
+                    : _externalReferences,
+                VendorId: !string.IsNullOrEmpty(_vendorId) && Guid.TryParse(_vendorId, out var vId) ? vId : null));
 
             if (updateResult.IsFailure) { _error = updateResult.Error.Message; return; }
 

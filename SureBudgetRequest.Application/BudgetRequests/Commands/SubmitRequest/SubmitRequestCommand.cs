@@ -22,6 +22,7 @@ public sealed class SubmitRequestCommandHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly ICurrencyRepository _currencyRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IVendorRepository _vendorRepository;
     private readonly IBudgetRequestModificationRepository _modificationRepository;
     private readonly IDepartmentMonthlyBudgetRepository _monthlyBudgetRepository;
     private readonly IAppSettingRepository _appSettingRepository;
@@ -36,6 +37,7 @@ public sealed class SubmitRequestCommandHandler
         IDepartmentRepository departmentRepository,
         ICurrencyRepository currencyRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
+        IVendorRepository vendorRepository,
         IBudgetRequestModificationRepository modificationRepository,
         IDepartmentMonthlyBudgetRepository monthlyBudgetRepository,
         IAppSettingRepository appSettingRepository,
@@ -49,6 +51,7 @@ public sealed class SubmitRequestCommandHandler
         _departmentRepository = departmentRepository;
         _currencyRepository = currencyRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _vendorRepository = vendorRepository;
         _modificationRepository = modificationRepository;
         _monthlyBudgetRepository = monthlyBudgetRepository;
         _appSettingRepository = appSettingRepository;
@@ -132,6 +135,17 @@ public sealed class SubmitRequestCommandHandler
             methodRequiresAttachment = method.RequiresAttachment;
         }
 
+        bool vendorAccountHasAttachment = false;
+        if (budgetRequest.VendorId.HasValue)
+        {
+            var vendor = await _vendorRepository.GetByIdAsync(
+                budgetRequest.VendorId.Value, cancellationToken);
+            if (vendor is not null && vendor.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment))
+            {
+                vendorAccountHasAttachment = true;
+            }
+        }
+
         var previousStatus = budgetRequest.Status;
 
         // Draw the global, ever-incrementing reference number (N) from the DB
@@ -151,7 +165,8 @@ public sealed class SubmitRequestCommandHandler
             headUser.FullName,
             requester.FullName,
             methodRequiresAttachment,
-            sequenceNumber);
+            sequenceNumber,
+            vendorAccountHasAttachment);
 
         if (result.IsFailure) return result;
 

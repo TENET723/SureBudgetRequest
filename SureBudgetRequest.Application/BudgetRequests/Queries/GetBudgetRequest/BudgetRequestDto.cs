@@ -70,7 +70,10 @@ public sealed record BudgetRequestDto(
     DateTime? RefundReceivedAt = null,
     decimal ReimbursementAmount = 0m,
     DateTime? ReimbursementPaidAt = null,
-    string? ExternalReferences = null)
+    string? ExternalReferences = null,
+    Guid? VendorId = null,
+    string? VendorName = null,
+    bool VendorHasAttachment = false)
 {
     /// <summary>Total advance usage self-reported so far.</summary>
     public decimal TotalUsageRecorded => AdvanceUsages.Sum(u => u.Amount);
@@ -97,7 +100,8 @@ public sealed record BudgetRequestDto(
         BudgetRequest e,
         Coa? coa = null,
         WithdrawMethod? withdrawMethod = null,
-        BudgetCategory? budgetCategory = null) => new(
+        BudgetCategory? budgetCategory = null,
+        Vendor? vendor = null) => new(
         e.Id,
         e.RequesterId,
         e.Reference,
@@ -146,7 +150,10 @@ public sealed record BudgetRequestDto(
         e.RefundReceivedAt,
         e.ReimbursementAmount,
         e.ReimbursementPaidAt,
-        e.ExternalReferences);
+        e.ExternalReferences,
+        e.VendorId,
+        vendor?.Name,
+        vendor?.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment) ?? false);
 }
 
 public sealed record AdvanceUsageDto(
@@ -195,12 +202,14 @@ public sealed record PaymentDto(
     bool IsVoided = false,
     DateTime? VoidedAt = null,
     Guid? VoidedByUserId = null,
-    string? VoidReason = null)
+    string? VoidReason = null,
+    Guid? VendorPaymentAccountId = null)
 {
     public static PaymentDto FromEntity(Payment e, IReadOnlyList<Guid>? attachmentIds = null) => new(
         e.Id, e.Amount, e.PaidAt, e.RecordedAt, e.RecordedByUserId, e.Reference, e.Note, attachmentIds ?? Array.Empty<Guid>(),
         e.SourceBankAccountId, e.SourceBankName, e.SourceAccountNumber, e.SourceAccountHolderName,
-        e.IsVoided, e.VoidedAt, e.VoidedByUserId, e.VoidReason);
+        e.IsVoided, e.VoidedAt, e.VoidedByUserId, e.VoidReason,
+        e.VendorPaymentAccountId);
 }
 
 public sealed record AttachmentDto(

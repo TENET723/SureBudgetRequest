@@ -15,7 +15,6 @@
 @using SureBudgetRequest.Application.Vendors.Commands.ReactivateVendor
 @using SureBudgetRequest.Application.Vendors.Commands.AddVendorPaymentAccount
 @using SureBudgetRequest.Application.Vendors.Commands.UpdateVendorPaymentAccount
-@using SureBudgetRequest.Application.Vendors.Commands.SetDefaultVendorPaymentAccount
 @using SureBudgetRequest.Application.Vendors.Commands.DeactivateVendorPaymentAccount
 @using SureBudgetRequest.Application.Vendors.Commands.ReactivateVendorPaymentAccount
 @using SureBudgetRequest.Application.Vendors.Commands.UploadVendorAccountAttachment
@@ -257,10 +256,6 @@
                                             <td>
                                                 <div class="flex items-center gap-1.5">
                                                     <strong>@acc.ProviderName</strong>
-                                                    @if (acc.IsDefault)
-                                                    {
-                                                        <span class="badge badge-role badge-xs" style="height: 18px; font-size: 10px; padding: 0 6px; font-weight: 600; line-height: 16px;">Default</span>
-                                                    }
                                                 </div>
                                                 <div class="text-muted-cell font-mono">@acc.AccountNumber</div>
                                                 @if (!string.IsNullOrEmpty(acc.BranchName))
@@ -342,7 +337,6 @@
                                         <td>
                                             <div class="flex items-center gap-1.5">
                                                 <strong>@_stagedInitialAccount.ProviderName</strong>
-                                                <span class="badge badge-role badge-xs" style="height: 18px; font-size: 10px; padding: 0 6px; font-weight: 600; line-height: 16px;">Default</span>
                                             </div>
                                             <div class="text-muted-cell font-mono">@_stagedInitialAccount.AccountNumber</div>
                                         </td>
@@ -622,14 +616,6 @@
         <div class="context-menu-header">
             <span>@_accountContextMenuTarget.ProviderName (@_accountContextMenuTarget.AccountNumber)</span>
         </div>
-
-        @if (_accountContextMenuTarget.IsActive && !_accountContextMenuTarget.IsDefault)
-        {
-            <button type="button" class="context-menu-item" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); DoSetDefaultAccount(target.Id); }">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                <span>Make Default</span>
-            </button>
-        }
 
         <button type="button" class="context-menu-item" @onclick="() => { var target = _accountContextMenuTarget; CloseAccountContextMenu(); OpenEditAccountModal(target); }">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -1064,15 +1050,23 @@
             {
                 try
                 {
-                    var resized = await file.RequestImageFileAsync("image/png", 400, 400);
-                    using var ms = new MemoryStream();
-                    using var stream = resized.OpenReadStream(10 * 1024 * 1024);
-                    await stream.CopyToAsync(ms);
-                    _accPreviewUrl = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+                    var urls = await JS.InvokeAsync<List<string>>("attachmentPreview.createObjectUrls", "vendor-acc-file-input");
+                    if (urls != null && urls.Count > 0)
+                    {
+                        _accPreviewUrl = urls[0];
+                    }
+                    else
+                    {
+                        var resized = await file.RequestImageFileAsync("image/png", 400, 400);
+                        using var ms = new MemoryStream();
+                        using var stream = resized.OpenReadStream(10 * 1024 * 1024);
+                        await stream.CopyToAsync(ms);
+                        _accPreviewUrl = $"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}";
+                    }
                 }
                 catch
                 {
-                    // If client-side resizing fails, keep file staged without thumbnail
+                    // If client-side preview creation fails, keep file staged without thumbnail
                     _accPreviewUrl = null;
                 }
             }
@@ -1155,7 +1149,6 @@
                     _accNumber,
                     _accHolder,
                     _accBranch,
-                    IsDefault: false,
                     _accFileName,
                     _accContentType,
                     _accSizeBytes,
@@ -1187,20 +1180,6 @@
             _editingVendor = result.Value;
             await LoadData();
         }
-    }
-
-    private async Task DoSetDefaultAccount(Guid accountId)
-    {
-        if (_editingVendor is null) return;
-        _saving = true;
-        try
-        {
-            var result = await Mediator.Send(new SetDefaultVendorPaymentAccountCommand(_editingVendor.Id, accountId));
-            if (result.IsFailure) { Toast.Error("Action Failed", result.Error.Message); }
-            else { Toast.Success("Default Account Set", "Default payment account updated."); await RefreshEditingVendor(); }
-        }
-        finally { _saving = false; }
-        StateHasChanged();
     }
 
     private async Task DoDeactivateAccount(Guid accountId)

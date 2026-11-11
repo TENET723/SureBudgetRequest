@@ -16,7 +16,8 @@ public sealed record RecordPaymentCommand(
     string? Reference,
     string? Note,
     IReadOnlyList<Guid>? AttachmentIds = null,
-    Guid? SourceBankAccountId = null) : IRequest<Result>;
+    Guid? SourceBankAccountId = null,
+    Guid? VendorPaymentAccountId = null) : IRequest<Result>;
 
 public sealed class RecordPaymentCommandHandler
     : IRequestHandler<RecordPaymentCommand, Result>
@@ -86,7 +87,8 @@ public sealed class RecordPaymentCommandHandler
             sourceBankAccountId,
             sourceBankName,
             sourceAccountNumber,
-            sourceAccountHolderName);
+            sourceAccountHolderName,
+            command.VendorPaymentAccountId);
 
         if (result.IsFailure) return result;
 

@@ -115,6 +115,12 @@ public partial class BudgetRequest
     /// </summary>
     public Guid? BudgetCategoryId { get; private set; }
 
+    /// <summary>
+    /// Optional vendor chosen by the requester at draft time. Nullable by design.
+    /// References the <see cref="Vendor"/> master list.
+    /// </summary>
+    public Guid? VendorId { get; private set; }
+
     // === Advance withdrawal — reconciliation phase ===
     // All the fields below stay at their defaults for non-advance requests.
     // Reconciliation has three outcomes: usage == advance → Reconciled; usage <

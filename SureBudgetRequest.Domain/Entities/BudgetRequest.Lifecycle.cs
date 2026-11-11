@@ -31,7 +31,8 @@ public partial class BudgetRequest
         string? monthlyOverrunJustification = null,
         decimal? manualExchangeRate = null,
         Guid? budgetCategoryId = null,
-        string? externalReferences = null)
+        string? externalReferences = null,
+        Guid? vendorId = null)
     {
         if (requestedAmount <= 0)
             throw new ArgumentException("Requested amount must be greater than zero.", nameof(requestedAmount));
@@ -76,6 +77,7 @@ public partial class BudgetRequest
             ExternalReferences = string.IsNullOrWhiteSpace(externalReferences) ? null : externalReferences.Trim(),
             MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification),
             BudgetCategoryId = budgetCategoryId,
+            VendorId = vendorId,
             Status = RequestStatus.Draft,
             ApprovedAmount = 0,
             CreatedAt = DateTime.UtcNow
@@ -97,7 +99,8 @@ public partial class BudgetRequest
         string? monthlyOverrunJustification = null,
         decimal? manualExchangeRate = null,
         Guid? budgetCategoryId = null,
-        string? externalReferences = null)
+        string? externalReferences = null,
+        Guid? vendorId = null)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack and not RequestStatus.PendingDeptHead)
             return Result.Failure($"Cannot edit a request in status '{Status}'.");
@@ -136,6 +139,7 @@ public partial class BudgetRequest
         ExternalReferences = string.IsNullOrWhiteSpace(externalReferences) ? null : externalReferences.Trim();
         MonthlyOverrunJustification = NormalizeJustification(monthlyOverrunJustification);
         BudgetCategoryId = budgetCategoryId;
+        VendorId = vendorId;
 
         // If the request was already submitted (PendingDeptHead or SentBack), we must
         // update the MMK snapshot to reflect the new amount, using the exchange rate
@@ -172,7 +176,8 @@ public partial class BudgetRequest
         string deptHeadName,
         string requesterName,
         bool withdrawMethodRequiresAttachment,
-        long sequenceNumber)
+        long sequenceNumber,
+        bool vendorAccountHasAttachment = false)
     {
         if (Status is not RequestStatus.Draft and not RequestStatus.SentBack)
             return Result.Failure($"Cannot submit a request that is in status '{Status}'.");
@@ -189,15 +194,15 @@ public partial class BudgetRequest
         if (!WithdrawMethodId.HasValue)
             return Result.Failure("Withdraw method is required.");
 
-        // Banking-info attachment guard. The chosen WithdrawMethod's
-        // RequiresAttachment flag is passed in by the Application layer (which
-        // looked it up) — domain doesn't reach into the master record.
+        // Banking-info attachment guard. If a verified vendor payment account
+        // has an attachment on file, it satisfies the banking-info requirement.
         if (withdrawMethodRequiresAttachment
+            && !vendorAccountHasAttachment
             && !_attachments.Any(a => a.Category == AttachmentCategory.WithdrawMethod))
         {
             return Result.Failure(
                 "This withdraw method requires a banking-info attachment. " +
-                "Please upload at least one banking file before submitting.");
+                "Please upload at least one banking file or select a verified vendor payment account before submitting.");
         }
 
         // Convert to MMK for the limit comparisons

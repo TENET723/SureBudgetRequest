@@ -100,7 +100,6 @@ public sealed class CreateVendorCommandHandler
                     command.InitialAccountNumber,
                     command.InitialAccountHolderName,
                     command.InitialBranchName,
-                    isDefault: true,
                     attachmentFileName: command.AttachmentFileName,
                     attachmentStoredPath: storedAttachmentPath,
                     attachmentContentType: command.AttachmentContentType,

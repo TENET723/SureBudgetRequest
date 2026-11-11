@@ -19,7 +19,6 @@ public class VendorPaymentAccountConfiguration : IEntityTypeConfiguration<Vendor
         builder.Property(a => a.AccountNumber).IsRequired().HasMaxLength(100);
         builder.Property(a => a.AccountHolderName).IsRequired().HasMaxLength(200);
         builder.Property(a => a.BranchName).HasMaxLength(200);
-        builder.Property(a => a.IsDefault).IsRequired();
         builder.Property(a => a.IsActive).IsRequired();
         builder.Property(a => a.CreatedAt).IsRequired();
 

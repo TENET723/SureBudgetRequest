@@ -15,7 +15,6 @@ public sealed record VendorPaymentAccountDto(
     string AccountNumber,
     string AccountHolderName,
     string? BranchName,
-    bool IsDefault,
     bool IsActive,
     DateTime CreatedAt,
     string? AttachmentFileName,
@@ -34,7 +33,6 @@ public sealed record VendorPaymentAccountDto(
             a.AccountNumber,
             a.AccountHolderName,
             a.BranchName,
-            a.IsDefault,
             a.IsActive,
             a.CreatedAt,
             a.AttachmentFileName,
@@ -54,10 +52,6 @@ public sealed record VendorDto(
     DateTime CreatedAt,
     IReadOnlyList<VendorPaymentAccountDto> PaymentAccounts)
 {
-    public VendorPaymentAccountDto? DefaultAccount =>
-        PaymentAccounts.FirstOrDefault(a => a.IsDefault && a.IsActive)
-        ?? PaymentAccounts.FirstOrDefault(a => a.IsActive);
-
     public static VendorDto FromEntity(Vendor v) =>
         new(
             v.Id,

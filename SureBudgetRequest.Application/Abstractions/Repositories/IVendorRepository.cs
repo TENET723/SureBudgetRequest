@@ -10,5 +10,6 @@ public interface IVendorRepository
         bool includeInactive = false,
         CancellationToken cancellationToken = default);
     Task AddAsync(Vendor vendor, CancellationToken cancellationToken = default);
+    Task<VendorPaymentAccount?> GetAccountByIdAsync(Guid accountId, CancellationToken cancellationToken = default);
     void AddAccount(VendorPaymentAccount account);
 }

@@ -19,6 +19,9 @@ public class Payment
     public string? SourceAccountNumber { get; private set; }
     public string? SourceAccountHolderName { get; private set; }
 
+    // Destination vendor payment account — nullable (set when paid to a vendor account).
+    public Guid? VendorPaymentAccountId { get; private set; }
+
     // Void tracking (soft void for audit preservation)
     public bool IsVoided { get; private set; }
     public DateTime? VoidedAt { get; private set; }
@@ -55,7 +58,8 @@ public class Payment
         Guid? sourceBankAccountId,
         string? sourceBankName,
         string? sourceAccountNumber,
-        string? sourceAccountHolderName)
+        string? sourceAccountHolderName,
+        Guid? vendorPaymentAccountId = null)
     {
         //Id = Guid.NewGuid();
         BudgetRequestId = budgetRequestId;
@@ -69,6 +73,7 @@ public class Payment
         SourceBankName = sourceBankName;
         SourceAccountNumber = sourceAccountNumber;
         SourceAccountHolderName = sourceAccountHolderName;
+        VendorPaymentAccountId = vendorPaymentAccountId;
         IsVoided = false;
     }
 }

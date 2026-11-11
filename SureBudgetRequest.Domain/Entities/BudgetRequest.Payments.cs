@@ -16,7 +16,8 @@ public partial class BudgetRequest
         Guid? sourceBankAccountId = null,
         string? sourceBankName = null,
         string? sourceAccountNumber = null,
-        string? sourceAccountHolderName = null)
+        string? sourceAccountHolderName = null,
+        Guid? vendorPaymentAccountId = null)
     {
         if (amount <= 0)
             return Result.Failure("Payment amount must be greater than zero.");
@@ -55,7 +56,8 @@ public partial class BudgetRequest
 
         var payment = new Payment(
             Id, amount, paidAt, financeUserId, reference, note,
-            sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName);
+            sourceBankAccountId, sourceBankName, sourceAccountNumber, sourceAccountHolderName,
+            vendorPaymentAccountId);
 
         _payments.Add(payment);
 

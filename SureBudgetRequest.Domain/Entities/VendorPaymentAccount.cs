@@ -15,7 +15,6 @@ public class VendorPaymentAccount
     public string AccountNumber { get; private set; } = null!;
     public string AccountHolderName { get; private set; } = null!;
     public string? BranchName { get; private set; }
-    public bool IsDefault { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime CreatedAt { get; private set; }
 
@@ -39,7 +38,6 @@ public class VendorPaymentAccount
         string accountNumber,
         string accountHolderName,
         string? branchName = null,
-        bool isDefault = false,
         string? attachmentFileName = null,
         string? attachmentStoredPath = null,
         string? attachmentContentType = null,
@@ -61,7 +59,6 @@ public class VendorPaymentAccount
         AccountNumber = accountNumber.Trim();
         AccountHolderName = accountHolderName.Trim();
         BranchName = string.IsNullOrWhiteSpace(branchName) ? null : branchName.Trim();
-        IsDefault = isDefault;
         IsActive = true;
         CreatedAt = DateTime.UtcNow;
 
@@ -89,12 +86,9 @@ public class VendorPaymentAccount
         BranchName = string.IsNullOrWhiteSpace(branchName) ? null : branchName.Trim();
     }
 
-    internal void SetDefault(bool isDefault) => IsDefault = isDefault;
-
     internal void Deactivate()
     {
         IsActive = false;
-        IsDefault = false;
     }
 
     internal void Reactivate() => IsActive = true;

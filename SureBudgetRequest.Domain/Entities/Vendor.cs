@@ -64,7 +64,6 @@ public class Vendor
 
     /// <summary>
     /// Adds a new payment account to this vendor.
-    /// If marked as default, or if this is the only active account, it becomes the default account.
     /// </summary>
     public VendorPaymentAccount AddPaymentAccount(
         PaymentAccountType accountType,
@@ -72,23 +71,11 @@ public class Vendor
         string accountNumber,
         string accountHolderName,
         string? branchName = null,
-        bool isDefault = false,
         string? attachmentFileName = null,
         string? attachmentStoredPath = null,
         string? attachmentContentType = null,
         long? attachmentSizeBytes = null)
     {
-        var hasActiveAccounts = _paymentAccounts.Any(a => a.IsActive);
-        var shouldBeDefault = isDefault || !hasActiveAccounts;
-
-        if (shouldBeDefault)
-        {
-            foreach (var existing in _paymentAccounts)
-            {
-                existing.SetDefault(false);
-            }
-        }
-
         var account = new VendorPaymentAccount(
             Id,
             accountType,
@@ -96,7 +83,6 @@ public class Vendor
             accountNumber,
             accountHolderName,
             branchName,
-            shouldBeDefault,
             attachmentFileName,
             attachmentStoredPath,
             attachmentContentType,
@@ -118,44 +104,16 @@ public class Vendor
         account.Update(accountType, providerName, accountNumber, accountHolderName, branchName);
     }
 
-    public void SetDefaultPaymentAccount(Guid accountId)
-    {
-        var target = GetAccountOrThrow(accountId);
-        if (!target.IsActive)
-            throw new InvalidOperationException("Cannot set an inactive payment account as default.");
-
-        foreach (var account in _paymentAccounts)
-        {
-            account.SetDefault(account.Id == accountId);
-        }
-    }
-
     public void DeactivatePaymentAccount(Guid accountId)
     {
         var account = GetAccountOrThrow(accountId);
-        var wasDefault = account.IsDefault;
         account.Deactivate();
-
-        if (wasDefault)
-        {
-            var nextActive = _paymentAccounts.FirstOrDefault(a => a.IsActive && a.Id != accountId);
-            if (nextActive is not null)
-            {
-                nextActive.SetDefault(true);
-            }
-        }
     }
 
     public void ReactivatePaymentAccount(Guid accountId)
     {
         var account = GetAccountOrThrow(accountId);
         account.Reactivate();
-
-        // If no active account is currently default, make this one default
-        if (!_paymentAccounts.Any(a => a.IsActive && a.IsDefault))
-        {
-            account.SetDefault(true);
-        }
     }
 
     public void SetAccountAttachment(

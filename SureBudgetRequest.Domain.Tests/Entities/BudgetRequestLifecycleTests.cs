@@ -616,4 +616,81 @@ public class BudgetRequestLifecycleTests
         cancelResult.IsSuccess.Should().BeTrue();
         request.Status.Should().Be(RequestStatus.Cancelled);
     }
+
+    [Fact]
+    public void Submit_WithdrawMethodRequiresAttachment_WhenVendorAccountHasAttachment_ShouldSucceedWithoutLocalAttachment()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var vendorId = Guid.NewGuid();
+        var accountId = Guid.NewGuid();
+
+        var request = BudgetRequest.CreateDraft(
+            requesterId: reqId,
+            requesterNameAtSubmission: "Alice",
+            type: BudgetRequestType.Standard,
+            deptHeadId: headId,
+            deptHeadName: "Bob",
+            requestDate: DateTime.UtcNow,
+            requestedAmount: 100_000m,
+            currencyCode: "MMK",
+            reasons: "Vendor payment",
+            withdrawerName: "Alice",
+            withdrawerJobTitle: "Staff",
+            withdrawMethodId: Guid.NewGuid(),
+            allowsPartialPayment: false,
+            partialPaymentDetail: null,
+            vendorId: vendorId);
+
+        // Act: withdrawMethodRequiresAttachment = true, but vendorAccountHasAttachment = true
+        var submitResult = request.Submit(
+            departmentId: Guid.NewGuid(),
+            departmentLimit: 500_000m,
+            monthlyLimit: 10_000_000m,
+            monthlySpendBeforeInMmk: 0m,
+            monthlyWindowStartUtc: DateTime.UtcNow,
+            monthlyWindowEndUtc: DateTime.UtcNow.AddMonths(1),
+            exchangeRateToMmk: 1m,
+            deptHeadId: headId,
+            deptHeadName: "Bob",
+            requesterName: "Alice",
+            withdrawMethodRequiresAttachment: true,
+            sequenceNumber: 1,
+            vendorAccountHasAttachment: true);
+
+        // Assert
+        submitResult.IsSuccess.Should().BeTrue();
+        request.Status.Should().Be(RequestStatus.PendingDeptHead);
+        request.VendorId.Should().Be(vendorId);
+    }
+
+    [Fact]
+    public void Submit_WithdrawMethodRequiresAttachment_WhenNoVendorAccountAttachmentAndNoLocalAttachment_ShouldFail()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var request = CreateStandardDraft(requesterId: reqId, deptHeadId: headId);
+
+        // Act: withdrawMethodRequiresAttachment = true, vendorAccountHasAttachment = false
+        var submitResult = request.Submit(
+            departmentId: Guid.NewGuid(),
+            departmentLimit: 500_000m,
+            monthlyLimit: 10_000_000m,
+            monthlySpendBeforeInMmk: 0m,
+            monthlyWindowStartUtc: DateTime.UtcNow,
+            monthlyWindowEndUtc: DateTime.UtcNow.AddMonths(1),
+            exchangeRateToMmk: 1m,
+            deptHeadId: headId,
+            deptHeadName: "Bob",
+            requesterName: "Alice",
+            withdrawMethodRequiresAttachment: true,
+            sequenceNumber: 1,
+            vendorAccountHasAttachment: false);
+
+        // Assert
+        submitResult.IsFailure.Should().BeTrue();
+        submitResult.Error.Message.Should().Contain("banking-info attachment");
+    }
 }

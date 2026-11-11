@@ -19,6 +19,7 @@ public class SubmitRequestCommandHandlerTests
     private readonly IDepartmentRepository _departmentRepository = Substitute.For<IDepartmentRepository>();
     private readonly ICurrencyRepository _currencyRepository = Substitute.For<ICurrencyRepository>();
     private readonly IWithdrawMethodRepository _withdrawMethodRepository = Substitute.For<IWithdrawMethodRepository>();
+    private readonly IVendorRepository _vendorRepository = Substitute.For<IVendorRepository>();
     private readonly IBudgetRequestModificationRepository _modificationRepository = Substitute.For<IBudgetRequestModificationRepository>();
     private readonly IDepartmentMonthlyBudgetRepository _monthlyBudgetRepository = Substitute.For<IDepartmentMonthlyBudgetRepository>();
     private readonly IAppSettingRepository _appSettingRepository = Substitute.For<IAppSettingRepository>();
@@ -38,6 +39,7 @@ public class SubmitRequestCommandHandlerTests
             _departmentRepository,
             _currencyRepository,
             _withdrawMethodRepository,
+            _vendorRepository,
             _modificationRepository,
             _monthlyBudgetRepository,
             _appSettingRepository,

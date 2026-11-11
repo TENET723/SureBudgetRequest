@@ -28,6 +28,14 @@ public class PaymentConfiguration : IEntityTypeConfiguration<Payment>
         builder.Property(p => p.SourceAccountNumber).HasMaxLength(100);
         builder.Property(p => p.SourceAccountHolderName).HasMaxLength(200);
 
+        // Destination vendor payment account — nullable
+        builder.Property(p => p.VendorPaymentAccountId).IsRequired(false);
+        builder.HasOne<VendorPaymentAccount>()
+               .WithMany()
+               .HasForeignKey(p => p.VendorPaymentAccountId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => p.VendorPaymentAccountId);
+
         // Void tracking
         builder.Property(p => p.IsVoided).IsRequired().HasDefaultValue(false);
         builder.Property(p => p.VoidedAt);

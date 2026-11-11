@@ -28,6 +28,7 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveAttachment
 @using SureBudgetRequest.Application.BudgetRequests.Commands.AddTagToRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.RemoveTagFromRequest
+@using SureBudgetRequest.Application.Vendors.Queries
 @using SureBudgetRequest.Application.Tags.Commands.CreateTag
 @using SureBudgetRequest.Application.Tags.Queries
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
@@ -197,6 +198,13 @@ else
                         <div>
                             <div class="text-sm text-muted">Withdraw Method</div>
                             <div>@_request.WithdrawMethodName</div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_request.VendorName))
+                    {
+                        <div>
+                            <div class="text-sm text-muted">Vendor / Supplier</div>
+                            <div><strong>@_request.VendorName</strong></div>
                         </div>
                     }
                     @if (!string.IsNullOrWhiteSpace(_request.BudgetCategoryName))
@@ -480,6 +488,80 @@ else
                     <AttachmentList Attachments="_request.Attachments"
                                     Category="AttachmentCategory.WithdrawMethod"
                                     Editable="false" />
+                </div>
+            </div>
+        }
+        @* ── Vendor Payment Accounts (when vendor is selected and electronic withdraw method) ── *@
+        @if (_vendor is not null && _request.WithdrawMethodRequiresAttachment)
+        {
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h6 class="card-title text-sm font-semibold text-uppercase text-muted mb-0">Vendor Payment Accounts</h6>
+                            <div class="text-xs text-muted mt-0.5">Accounts on file for <strong>@_vendor.Name</strong></div>
+                        </div>
+                        <span class="badge badge-info text-xs">@_request.WithdrawMethodName</span>
+                    </div>
+
+                    @if (_vendor.PaymentAccounts.Any(a => a.IsActive))
+                    {
+                        <div class="table-wrapper">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-no">#</th>
+                                        <th>Provider</th>
+                                        <th>Account / Phone</th>
+                                        <th>Account Holder</th>
+                                        <th>Attachment / QR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var aIdx = 0; }
+                                    @foreach (var vAcc in _vendor.PaymentAccounts.Where(a => a.IsActive))
+                                    {
+                                        aIdx++;
+                                        <tr>
+                                            <td class="col-no text-muted">@aIdx</td>
+                                            <td><strong>@vAcc.ProviderName</strong></td>
+                                            <td class="font-mono">@vAcc.AccountNumber</td>
+                                            <td>@vAcc.AccountHolderName</td>
+                                            <td>
+                                                @if (vAcc.HasAttachment)
+                                                {
+                                                    var vAttDto = new AttachmentDto(
+                                                        vAcc.Id,
+                                                        vAcc.AttachmentFileName ?? "proof.jpg",
+                                                        vAcc.AttachmentContentType ?? "image/jpeg",
+                                                        vAcc.AttachmentSizeBytes ?? 0,
+                                                        Guid.Empty,
+                                                        vAcc.CreatedAt,
+                                                        AttachmentCategory.WithdrawMethod);
+                                                    var vAttMap = new Dictionary<Guid, string>
+                                                    {
+                                                        [vAcc.Id] = $"/api/vendors/{_vendor.Id}/accounts/{vAcc.Id}/attachment"
+                                                    };
+                                                    <AttachmentStackGallery Attachments="@([vAttDto])"
+                                                                            PreviewUrls="vAttMap"
+                                                                            CardWidth="50px"
+                                                                            CardHeight="38px" />
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted text-xs">— none —</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-xs text-muted">No active payment accounts registered on file for this vendor.</div>
+                    }
                 </div>
             </div>
         }
@@ -1133,6 +1215,35 @@ else
                     @if (!string.IsNullOrEmpty(_paymentError))
                     {
                         <div class="alert alert-error">@_paymentError</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_request?.VendorName))
+                    {
+                        @if (_request?.WithdrawMethodRequiresAttachment == true)
+                        {
+                            @if (_vendor is not null && _vendor.PaymentAccounts.Any(a => a.IsActive))
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label text-sm font-semibold mb-1">
+                                        Vendor Account <span class="text-muted fw-normal">(@_request.VendorName)</span>
+                                    </label>
+                                    <select class="input" @bind="_selectedVendorPaymentAccountId">
+                                        <option value="">— none / unlinked —</option>
+                                        @foreach (var acc in _vendor.PaymentAccounts.Where(a => a.IsActive))
+                                        {
+                                            <option value="@acc.Id">
+                                                @acc.ProviderName - @acc.AccountNumber (@acc.AccountHolderName)
+                                            </option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-xs text-muted mb-3">
+                                Cash payout directly to <strong>@_request?.WithdrawerName</strong>.
+                            </div>
+                        }
                     }
                     <div class="mb-4">
                         <label class="form-label text-sm font-semibold">Amount (@(_request?.CurrencyCode ?? ""))</label>
@@ -2353,6 +2464,8 @@ else
     // Source bank account picker for the payment modal. Empty = none (cash).
     private List<BankAccountDto> _bankAccounts = new();
     private string _selectedBankAccountId = "";
+    private VendorDto? _vendor;
+    private string _selectedVendorPaymentAccountId = "";
     private bool _showCancelModal;
 
     // Finance approve modal state
@@ -2702,6 +2815,19 @@ else
                     if (u.IsSuccess) _userNames[id] = u.Value.FullName;
                 }
             }
+
+            if (_request.VendorId.HasValue)
+            {
+                var vRes = await Mediator.Send(new GetVendorByIdQuery(_request.VendorId.Value));
+                if (vRes.IsSuccess)
+                {
+                    _vendor = vRes.Value;
+                }
+            }
+            else
+            {
+                _vendor = null;
+            }
         }
             var tagsRes = await Mediator.Send(new GetRequestTagsQuery(Id, CurrentUser.UserId));
             if (tagsRes.IsSuccess)
@@ -2928,6 +3054,9 @@ else
         _pendingPaymentReceipts.Clear();
         _paymentSessionId = Guid.NewGuid();
         _selectedBankAccountId = "";
+        _selectedVendorPaymentAccountId = (_request?.WithdrawMethodRequiresAttachment == true)
+            ? (_vendor?.PaymentAccounts.FirstOrDefault(a => a.IsActive)?.Id.ToString() ?? "")
+            : "";
         _paymentError = null;
         _showPaymentModal = true;
 
@@ -3009,6 +3138,9 @@ else
                 _paymentDate.Subtract(DateTimeExtensions.MyanmarOffset),
                 DateTimeKind.Utc);
 
+            Guid? vendorAccId = (_request?.WithdrawMethodRequiresAttachment == true && Guid.TryParse(_selectedVendorPaymentAccountId, out var parsedVAccId))
+                ? parsedVAccId
+                : null;
             var result = await Mediator.Send(new RecordPaymentCommand(
                 Id,
                 CurrentUser.UserId,
@@ -3017,7 +3149,8 @@ else
                 _paymentRef,
                 _paymentNote,
                 attachmentIds.Any() ? attachmentIds : null,
-                sourceBankAccountId));
+                sourceBankAccountId,
+                VendorPaymentAccountId: vendorAccId));
 
             if (result.IsFailure)
             {
@@ -3033,6 +3166,7 @@ else
             _paymentNote = null;
             _pendingPaymentReceipts.Clear();
             _selectedBankAccountId = "";
+            _selectedVendorPaymentAccountId = "";
             _actionSuccess = "Payment recorded.";
             await LoadRequest();
         }

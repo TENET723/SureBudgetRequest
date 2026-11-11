@@ -80,7 +80,7 @@ public class VendorTests
     }
 
     [Fact]
-    public void AddPaymentAccount_FirstAccount_ShouldAutomaticallyBeDefault()
+    public void AddPaymentAccount_ShouldCreateActiveAccount()
     {
         // Arrange
         var vendor = new Vendor("Vendor KBZ");
@@ -91,11 +91,9 @@ public class VendorTests
             "KBZPay",
             "09123456789",
             "U Kyaw",
-            branchName: null,
-            isDefault: false); // even if passed false, first active account becomes default
+            branchName: null);
 
         // Assert
-        account.IsDefault.Should().BeTrue();
         account.AccountType.Should().Be(PaymentAccountType.MobileWallet);
         account.ProviderName.Should().Be("KBZPay");
         account.AccountNumber.Should().Be("09123456789");
@@ -105,61 +103,17 @@ public class VendorTests
     }
 
     [Fact]
-    public void AddPaymentAccount_SecondAccountAsDefault_ShouldMakePreviousNonDefault()
-    {
-        // Arrange
-        var vendor = new Vendor("Vendor Multi");
-        var first = vendor.AddPaymentAccount(PaymentAccountType.MobileWallet, "KBZPay", "09111", "Name 1");
-
-        // Act
-        var second = vendor.AddPaymentAccount(
-            PaymentAccountType.BankTransfer,
-            "KBZ Bank",
-            "0123456789",
-            "Name 2",
-            branchName: "Hledan",
-            isDefault: true);
-
-        // Assert
-        first.IsDefault.Should().BeFalse();
-        second.IsDefault.Should().BeTrue();
-        vendor.PaymentAccounts.Should().HaveCount(2);
-    }
-
-    [Fact]
-    public void SetDefaultPaymentAccount_ShouldSwitchDefaultCorrectly()
-    {
-        // Arrange
-        var vendor = new Vendor("Vendor Test");
-        var acc1 = vendor.AddPaymentAccount(PaymentAccountType.MobileWallet, "KBZPay", "09111", "Name 1");
-        var acc2 = vendor.AddPaymentAccount(PaymentAccountType.BankTransfer, "AYA Bank", "09222", "Name 2", isDefault: false);
-
-        acc1.IsDefault.Should().BeTrue();
-        acc2.IsDefault.Should().BeFalse();
-
-        // Act
-        vendor.SetDefaultPaymentAccount(acc2.Id);
-
-        // Assert
-        acc1.IsDefault.Should().BeFalse();
-        acc2.IsDefault.Should().BeTrue();
-    }
-
-    [Fact]
-    public void DeactivatePaymentAccount_WhenDefault_ShouldElectNextActiveAccountAsDefault()
+    public void DeactivatePaymentAccount_ShouldMakeAccountInactive()
     {
         // Arrange
         var vendor = new Vendor("Vendor Deact");
-        var acc1 = vendor.AddPaymentAccount(PaymentAccountType.MobileWallet, "KBZPay", "09111", "Name 1", isDefault: true);
-        var acc2 = vendor.AddPaymentAccount(PaymentAccountType.BankTransfer, "CB Bank", "09222", "Name 2", isDefault: false);
+        var acc1 = vendor.AddPaymentAccount(PaymentAccountType.MobileWallet, "KBZPay", "09111", "Name 1");
 
         // Act
         vendor.DeactivatePaymentAccount(acc1.Id);
 
         // Assert
         acc1.IsActive.Should().BeFalse();
-        acc1.IsDefault.Should().BeFalse();
-        acc2.IsDefault.Should().BeTrue();
     }
 
     [Fact]

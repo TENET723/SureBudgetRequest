@@ -44,6 +44,12 @@ public sealed class VendorRepository : IVendorRepository
     public async Task AddAsync(Vendor vendor, CancellationToken cancellationToken = default)
         => await _context.Vendors.AddAsync(vendor, cancellationToken);
 
+    public async Task<VendorPaymentAccount?> GetAccountByIdAsync(Guid accountId, CancellationToken cancellationToken = default)
+    {
+        return await _context.VendorPaymentAccounts
+            .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken);
+    }
+
     public void AddAccount(VendorPaymentAccount account)
         => _context.VendorPaymentAccounts.Add(account);
 }

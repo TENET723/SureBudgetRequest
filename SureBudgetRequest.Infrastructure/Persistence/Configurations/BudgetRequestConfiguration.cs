@@ -124,6 +124,14 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(r => r.BudgetCategoryId);
 
+        // ── Vendor FK ──────────────────────────────────────────────────────────
+        builder.Property(r => r.VendorId);
+        builder.HasOne<Vendor>()
+               .WithMany()
+               .HasForeignKey(r => r.VendorId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => r.VendorId);
+
         // ── Indexes ───────────────────────────────────────────────────────────
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);

@@ -25,7 +25,8 @@ public sealed record CreateDraftCommand(
     string? MonthlyOverrunJustification = null,
     decimal? ManualExchangeRate = null,
     Guid? BudgetCategoryId = null,
-    string? ExternalReferences = null) : IRequest<Result<Guid>>;
+    string? ExternalReferences = null,
+    Guid? VendorId = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateDraftCommandHandler
     : IRequestHandler<CreateDraftCommand, Result<Guid>>
@@ -119,7 +120,8 @@ public sealed class CreateDraftCommandHandler
                 command.MonthlyOverrunJustification,
                 command.ManualExchangeRate,
                 command.BudgetCategoryId,
-                command.ExternalReferences);
+                command.ExternalReferences,
+                command.VendorId);
         }
         catch (ArgumentException ex)
         {
