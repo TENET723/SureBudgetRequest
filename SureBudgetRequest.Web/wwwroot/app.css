@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    aSure Budget — Custom Design System
    No Bootstrap. All styles owned here.
    ============================================================ */
@@ -1329,3 +1329,222 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 
 
 
+
+
+/* ============================================================
+   macOS-Style Clean Table Design System
+   ============================================================ */
+.macos-window {
+  background: #ffffff;
+  border: 1px solid #e8ecf0;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+/* Custom Thin macOS Scrollbar (No end buttons, compact & clean) */
+.macos-table-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.macos-table-scroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.macos-table-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0 4px;
+}
+
+.macos-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+  transition: background 150ms ease;
+}
+
+.macos-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+.macos-table-scroll::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.macos-table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.macos-table thead th {
+  background: #F8FAFC;
+  color: #64748B;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 12px 18px;
+  text-align: left;
+  border-bottom: 1px solid #E8ECF0;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Sticky NO. Column with true soft gradient edge (Mirrors action button) */
+.macos-table th.sticky-no-col {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background-color: #F8FAFC;
+  width: 58px;
+  min-width: 58px;
+  text-align: center;
+  border-right: none !important;
+}
+
+.macos-table th.sticky-no-col::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -24px;
+  width: 24px;
+  background: linear-gradient(90deg, #F8FAFC 0%, rgba(248, 250, 252, 0) 100%);
+  pointer-events: none;
+}
+
+.macos-table td.sticky-no-col {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background-color: #FFFFFF;
+  width: 58px;
+  min-width: 58px;
+  text-align: center;
+  border-right: none !important;
+  transition: background-color 40ms ease-out;
+}
+
+.macos-table td.sticky-no-col::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -24px;
+  width: 24px;
+  background: linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+  transition: background 40ms ease-out;
+}
+
+.macos-table thead th.sortable,
+.macos-table thead th[role="button"] {
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.macos-table thead th.sortable:hover,
+.macos-table thead th[role="button"]:hover {
+  color: #0F172A;
+}
+
+.macos-table thead th .sort-icon {
+  display: inline-flex;
+  margin-left: 4px;
+  opacity: 0.45;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.macos-table thead th.sortable:hover .sort-icon,
+.macos-table thead th[role="button"]:hover .sort-icon {
+  opacity: 0.9;
+}
+
+/* Snappy instant row hover feedback (zero lag, zero gap across all columns) */
+.macos-table tbody tr {
+  transition: background-color 40ms ease-out;
+}
+
+.macos-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.macos-table tbody tr.clickable-row:hover td,
+.macos-table tbody tr.clickable-row:hover td.sticky-no-col {
+  background-color: #F8FAFC !important;
+  transition: none !important; /* Instant feedback on cursor enter */
+}
+
+.macos-table tbody tr.clickable-row:hover td.sticky-no-col::after {
+  background: linear-gradient(90deg, #F8FAFC 0%, rgba(248, 250, 252, 0) 100%) !important;
+  transition: none !important; /* Instant sync with row hover */
+}
+
+.macos-table tbody tr.clickable-row.menu-open td,
+.macos-table tbody tr.clickable-row.menu-open td.sticky-no-col {
+  background-color: transparent !important;
+}
+
+.macos-table tbody tr.clickable-row.menu-open td.sticky-no-col::after {
+  background: linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%) !important;
+}
+
+.macos-table tbody td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #F1F4F8;
+  vertical-align: middle;
+  color: #1E293B;
+  font-size: 13px;
+}
+
+.macos-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.macos-table .row-hover-backdrop {
+  background: linear-gradient(90deg, rgba(248, 250, 252, 0) 0%, rgba(248, 250, 252, 0.95) 45%, #F8FAFC 100%);
+}
+
+.macos-table-footer {
+  padding: 12px 18px;
+  background: #FFFFFF;
+  border-top: 1px solid #E8ECF0;
+}
+
+/* macOS Skeleton Shimmer Animation */
+@keyframes skeleton-shimmer {
+  0% {
+    background-color: #f1f5f9;
+    opacity: 0.7;
+  }
+  50% {
+    background-color: #e2e8f0;
+    opacity: 1;
+  }
+  100% {
+    background-color: #f1f5f9;
+    opacity: 0.7;
+  }
+}
+
+.skeleton-box {
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  display: inline-block;
+  background-color: #f1f5f9;
+}
+
+.skeleton-pill {
+  border-radius: 9999px;
+}

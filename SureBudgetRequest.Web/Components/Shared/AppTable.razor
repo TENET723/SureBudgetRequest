@@ -1,0 +1,111 @@
+﻿@typeparam TItem
+
+<div class="macos-window">
+    <div class="macos-table-scroll">
+        <table class="macos-table @TableClass">
+            @if (TableHeader != null)
+            {
+                <thead>
+                    <tr>
+                        @TableHeader
+                    </tr>
+                </thead>
+            }
+            <tbody>
+                @if (IsLoading)
+                {
+                    @for (var s = 0; s < SkeletonRowCount; s++)
+                    {
+                        <tr>
+                            <td class="sticky-no-col"><span class="skeleton-box" style="height: 14px; width: 16px;"></span></td>
+                            <td>
+                                <span class="skeleton-box" style="height: 15px; width: 110px; margin-bottom: 4px; display: block;"></span>
+                                <span class="skeleton-box" style="height: 12px; width: 80px; display: block;"></span>
+                            </td>
+                            <td>
+                                <span class="skeleton-box" style="height: 15px; width: 100px; margin-bottom: 4px; display: block;"></span>
+                                <span class="skeleton-box" style="height: 12px; width: 120px; display: block;"></span>
+                            </td>
+                            <td><span class="skeleton-box" style="height: 14px; width: @(s % 2 == 0 ? "170px" : "210px");"></span></td>
+                            <td><span class="skeleton-box skeleton-pill" style="height: 20px; width: @(s % 2 == 0 ? "65px" : "80px");"></span></td>
+                            <td class="text-end"><span class="skeleton-box" style="height: 14px; width: 32px;"></span></td>
+                            <td class="text-end"><span class="skeleton-box" style="height: 15px; width: 95px;"></span></td>
+                            <td class="text-end"><span class="skeleton-box" style="height: 14px; width: 95px;"></span></td>
+                            <td><span class="skeleton-box skeleton-pill" style="height: 24px; width: 90px;"></span></td>
+                            <td><span class="skeleton-box" style="height: 14px; width: 55px;"></span></td>
+                            <td><span class="skeleton-box" style="height: 14px; width: 75px;"></span></td>
+                            <td class="sticky-action-col"></td>
+                        </tr>
+                    }
+                }
+                else if (Items != null && Items.Count > 0)
+                {
+                    @for (var i = 0; i < Items.Count; i++)
+                    {
+                        var item = Items[i];
+                        if (RowTemplateWithIndex != null)
+                        {
+                            @RowTemplateWithIndex((item, i))
+                        }
+                        else if (RowTemplate != null)
+                        {
+                            @RowTemplate(item)
+                        }
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="@ColSpan" class="text-center" style="padding: 48px 16px; color: var(--color-text-muted); font-size: 13px;">
+                            @if (EmptyContent != null)
+                            {
+                                @EmptyContent
+                            }
+                            else
+                            {
+                                <span>No items to display.</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="macos-table-footer flex items-center justify-between flex-wrap gap-3">
+            <div class="flex items-center gap-2">
+                <span class="skeleton-box" style="height: 16px; width: 180px;"></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="skeleton-box" style="height: 28px; width: 60px;"></span>
+                <span class="skeleton-box" style="height: 14px; width: 80px;"></span>
+                <span class="skeleton-box" style="height: 28px; width: 60px;"></span>
+                <div class="flex items-center gap-1.5 ml-2">
+                    <span class="skeleton-box" style="height: 14px; width: 50px;"></span>
+                    <span class="skeleton-box" style="height: 28px; width: 64px;"></span>
+                </div>
+            </div>
+        </div>
+    }
+    else if (PaginationContent != null)
+    {
+        <div class="macos-table-footer">
+            @PaginationContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<TItem>? Items { get; set; }
+    [Parameter] public RenderFragment? TableHeader { get; set; }
+    [Parameter] public RenderFragment<TItem>? RowTemplate { get; set; }
+    [Parameter] public RenderFragment<(TItem Item, int Index)>? RowTemplateWithIndex { get; set; }
+    [Parameter] public RenderFragment? EmptyContent { get; set; }
+    [Parameter] public RenderFragment? PaginationContent { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public int ColSpan { get; set; } = 12;
+    [Parameter] public int SkeletonRowCount { get; set; } = 5;
+    [Parameter] public string TableClass { get; set; } = "";
+}

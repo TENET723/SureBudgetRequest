@@ -79,180 +79,167 @@
             <div class="alert alert-error">@_errorMessage</div>
         }
 
-        @if (_loading)
-        {
-            <div class="text-center">
-                <div class="spinner spinner-sm"></div>
-            </div>
-        }
-        else
-        {
-            <div class="table-wrapper">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th class="col-no">#</th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
-                                Reference & Date @(SortIndicator(BudgetRequestSortBy.SubmittedAt) != "" ? SortIndicator(BudgetRequestSortBy.SubmittedAt) : SortIndicator(BudgetRequestSortBy.Reference))
-                            </th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
-                                Requester & Dept @SortIndicator(BudgetRequestSortBy.Requester)
-                            </th>
-                            <th>Reason</th>
-                            <th style="min-width: 180px">Tags</th>
-                            <th class="text-end">Ccy</th>
-                            <th class="text-end">Requested</th>
-                            <th class="text-end" role="button" style="cursor:pointer;text-align:right"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">≈ MMK @SortIndicator(BudgetRequestSortBy.AmountInMmk)</th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
-                                Status @SortIndicator(BudgetRequestSortBy.Status)
-                            </th>
-                            <th>COA</th>
-                            <th>Withdraw</th>
-                            <th class="sticky-action-col"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (var i = 0; i < (_result?.Items.Count ?? 0); i++)
+        <AppTable TItem="BudgetRequestSummaryDto"
+                  Items="@_result?.Items"
+                  IsLoading="@_loading"
+                  ColSpan="12">
+            <TableHeader>
+                <th class="sticky-no-col font-bold">NO.</th>
+                <th role="button" class="sortable"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
+                    Reference & Date @(SortIndicator(BudgetRequestSortBy.SubmittedAt) != "" ? SortIndicator(BudgetRequestSortBy.SubmittedAt) : SortIndicator(BudgetRequestSortBy.Reference))
+                </th>
+                <th role="button" class="sortable"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
+                    Requester & Dept @SortIndicator(BudgetRequestSortBy.Requester)
+                </th>
+                <th>Reason</th>
+                <th style="min-width: 180px">Tags</th>
+                <th class="text-end">Ccy</th>
+                <th class="text-end">Requested</th>
+                <th class="text-end sortable" role="button" style="text-align:right"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">≈ MMK @SortIndicator(BudgetRequestSortBy.AmountInMmk)</th>
+                <th role="button" class="sortable"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
+                    Status @SortIndicator(BudgetRequestSortBy.Status)
+                </th>
+                <th>COA</th>
+                <th>Withdraw</th>
+                <th class="sticky-action-col"></th>
+            </TableHeader>
+            <RowTemplateWithIndex Context="ctx">
+                @{
+                    var r = ctx.Item;
+                    var i = ctx.Index;
+                }
+                <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
+                    @onclick="() => NavigateToDetail(r.Id)"
+                    @oncontextmenu="e => OpenContextMenu(e, r)"
+                    @oncontextmenu:preventDefault="true">
+                    <td class="sticky-no-col text-muted text-sm text-center">@((_result!.Page - 1) * _result.PageSize + i + 1)</td>
+                    <td class="text-sm">
+                        <div class="font-semibold text-dark">@(r.Reference ?? "—")</div>
+                        <div class="text-muted text-xs">@r.SubmittedAt.ToMyanmarTime()</div>
+                    </td>
+                    <td class="text-sm">
+                        <div>@LookupUser(r.RequesterId)</div>
+                        <div class="text-muted text-xs">@LookupDepartment(r.DepartmentIdAtSubmission)</div>
+                    </td>
+                    <td title="@r.Reasons">@Truncate(r.Reasons, 35)</td>
+                    <td>
+                        @if (r.Tags != null && r.Tags.Count > 0)
                         {
-                            var r = _result!.Items[i];
-                            <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
-                                @onclick="() => NavigateToDetail(r.Id)"
-                                @oncontextmenu="e => OpenContextMenu(e, r)"
-                                @oncontextmenu:preventDefault="true">
-                                <td class="text-muted text-sm">@((_result.Page - 1) * _result.PageSize + i + 1)</td>
-                                <td class="text-sm">
-                                    <div><strong>@(r.Reference ?? "—")</strong></div>
-                                    <div class="text-muted text-xs">@r.SubmittedAt.ToMyanmarTime()</div>
-                                </td>
-                                <td class="text-sm">
-                                    <div>@LookupUser(r.RequesterId)</div>
-                                    <div class="text-muted text-xs">@LookupDepartment(r.DepartmentIdAtSubmission)</div>
-                                </td>
-                                <td title="@r.Reasons">@Truncate(r.Reasons, 35)</td>
-                                <td>
-                                    @if (r.Tags != null && r.Tags.Count > 0)
-                                    {
-                                        <div class="flex items-center gap-1 flex-wrap">
-                                            @foreach (var tag in r.Tags.Take(5))
+                            <div class="flex items-center gap-1 flex-wrap">
+                                @foreach (var tag in r.Tags.Take(5))
+                                {
+                                    <span class="tag-badge-pill"
+                                          style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                        #@tag.Name
+                                    </span>
+                                }
+                                @if (r.Tags.Count > 5)
+                                {
+                                    var overflowCount = r.Tags.Count - 5;
+                                    <div class="tag-tooltip-container" @onclick:stopPropagation="true">
+                                        <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                            +@overflowCount
+                                        </span>
+                                        <div class="tag-tooltip-popup">
+                                            @foreach (var ot in r.Tags.Skip(5))
                                             {
-                                                <span class="tag-badge-pill"
-                                                      style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
-                                                    #@tag.Name
-                                                </span>
-                                            }
-                                            @if (r.Tags.Count > 5)
-                                            {
-                                                var overflowCount = r.Tags.Count - 5;
-                                                <div class="tag-tooltip-container" @onclick:stopPropagation="true">
-                                                    <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
-                                                        +@overflowCount
-                                                    </span>
-                                                    <div class="tag-tooltip-popup">
-                                                        @foreach (var ot in r.Tags.Skip(5))
-                                                        {
-                                                            <span>#@ot.Name</span>
-                                                        }
-                                                    </div>
-                                                </div>
+                                                <span>#@ot.Name</span>
                                             }
                                         </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted text-xs">—</span>
-                                    }
-                                </td>
-                                <td class="text-end text-sm text-muted">@r.CurrencyCode</td>
-                                <td class="text-end">@r.RequestedAmount.ToString("N2")</td>
-                                <td class="text-end text-sm text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
-                                <td>
-                                    <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
-                                    @if (r.IsOverLimit)
-                                    {
-                                        <span class="badge badge-warning" title="Routed through Management">Over-limit</span>
-                                    }
-                                </td>
-                                <td class="text-sm">
-                                    @if (!string.IsNullOrEmpty(r.CoaCode))
-                                    {
-                                        <span title="@r.CoaName">@r.CoaCode</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                                <td class="text-sm">
-                                    @if (!string.IsNullOrEmpty(r.WithdrawMethodName))
-                                    {
-                                        @r.WithdrawMethodName
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted">—</span>
-                                    }
-                                </td>
-                                <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                    <div class="row-hover-btn-wrapper">
-                                        <div class="row-hover-backdrop"></div>
-                                        <button type="button" class="btn-three-dots" title="Quick actions"
-                                                @onclick="e => OpenContextMenuFromButton(e, r)">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                <circle cx="12" cy="5" r="2"/>
-                                                <circle cx="12" cy="12" r="2"/>
-                                                <circle cx="12" cy="19" r="2"/>
-                                            </svg>
-                                        </button>
                                     </div>
-                                </td>
-                            </tr>
+                                }
+                            </div>
                         }
-                        @if (_result is null || _result.Items.Count == 0)
+                        else
                         {
-                            <tr><td colspan="12" class="text-center text-muted">No requests match the current filters.</td></tr>
+                            <span class="text-muted text-xs">—</span>
                         }
-                    </tbody>
-                </table>
-            </div>
+                    </td>
+                    <td class="text-end text-sm text-muted">@r.CurrencyCode</td>
+                    <td class="text-end font-semibold">@r.RequestedAmount.ToString("N2")</td>
+                    <td class="text-end text-sm text-muted">@r.RequestedAmountInMmkAtSubmission.ToString("N2")</td>
+                    <td>
+                        <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
+                        @if (r.IsOverLimit)
+                        {
+                            <span class="badge badge-warning ms-1" title="Routed through Management">Over-limit</span>
+                        }
+                    </td>
+                    <td class="text-sm">
+                        @if (!string.IsNullOrEmpty(r.CoaCode))
+                        {
+                            <span title="@r.CoaName">@r.CoaCode</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td class="text-sm">
+                        @if (!string.IsNullOrEmpty(r.WithdrawMethodName))
+                        {
+                            @r.WithdrawMethodName
+                        }
+                        else
+                        {
+                            <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td class="sticky-action-col" @onclick:stopPropagation="true">
+                        <div class="row-hover-btn-wrapper">
+                            <div class="row-hover-backdrop"></div>
+                            <button type="button" class="btn-three-dots" title="Quick actions"
+                                    @onclick="e => OpenContextMenuFromButton(e, r)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="5" r="2"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <circle cx="12" cy="19" r="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </RowTemplateWithIndex>
+            <EmptyContent>
+                No requests match the current filters.
+            </EmptyContent>
+            <PaginationContent>
+                @if (_result is not null && _result.Items.Count > 0)
+                {
+                    <div class="flex items-center justify-between flex-wrap gap-3 w-full">
+                        <div class="text-sm text-muted">
+                            Page subtotal (MMK): <strong class="text-dark">@_result.Items.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N2")</strong>
+                        </div>
 
-            @if (_result is not null && _result.Items.Count > 0)
-            {
-                <div class="flex items-center justify-between flex-wrap gap-2 mt-2">
-                    <div class="flex items-center gap-2">
-                        <button class="btn btn-outline btn-sm" @onclick="PrevPage"
-                                disabled="@(_loading || !_result.HasPrev)">
-                            ‹ Prev
-                        </button>
-                        <span class="text-sm text-muted">Page @_result.Page of @_result.TotalPages</span>
-                        <button class="btn btn-outline btn-sm" @onclick="NextPage"
-                                disabled="@(_loading || !_result.HasNext)">
-                            Next ›
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button class="btn btn-outline btn-sm" @onclick="PrevPage"
+                                    disabled="@(_loading || !_result.HasPrev)">
+                                ‹ Prev
+                            </button>
+                            <span class="text-sm text-muted">Page @_result.Page of @_result.TotalPages</span>
+                            <button class="btn btn-outline btn-sm" @onclick="NextPage"
+                                    disabled="@(_loading || !_result.HasNext)">
+                                Next ›
+                            </button>
 
-                        <div class="flex items-center gap-1 ml-3">
-                            <span class="text-sm text-muted">Per page</span>
-                            <select class="select" style="width:auto"
-                                    @bind="_pageSize" @bind:after="OnPageSizeChanged">
-                                <option value="20">20</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
+                            <div class="flex items-center gap-1 ml-3">
+                                <span class="text-sm text-muted">Per page</span>
+                                <select class="select" style="width:auto"
+                                        @bind="_pageSize" @bind:after="OnPageSizeChanged">
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="text-sm text-muted text-end">
-                        <div>Page subtotal (MMK):
-                            <strong class="text-dark">@_result.Items.Sum(r => r.RequestedAmountInMmkAtSubmission).ToString("N2")</strong>
-                        </div>
-                        <div class="fst-italic">Full total available via Export to Excel.</div>
-                    </div>
-                </div>
-            }
-        }
+                }
+            </PaginationContent>
+        </AppTable>
     }
 </div>
 
