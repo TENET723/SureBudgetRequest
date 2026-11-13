@@ -23,12 +23,10 @@ namespace SureBudgetRequest.Infrastructure.Notifications;
 /// fixing a typo (wrong Slack ID, wrong department name, wrong webhook URL)
 /// applies even to already-queued rows.
 ///
-/// MISSING-WEBHOOK BEHAVIOUR (Option Y):
-/// When the requester's department has no SlackWebhookUrl configured the entry
-/// is left PENDING — RetryCount is NOT bumped — and a warning is logged on every
-/// poll cycle. The notification will deliver automatically once an admin sets
-/// the webhook in Admin → Departments. We trade log noise for guaranteed
-/// delivery; misconfiguration stays visible.
+/// MISSING-WEBHOOK BEHAVIOUR:
+/// When the requester's department has no SlackWebhookUrl configured, the entry
+/// is marked as skipped (IsProcessed = true with LastError recorded) so that an
+/// unconfigured department never causes head-of-line blocking for other departments.
 /// </summary>
 public sealed class NotificationOutboxProcessor : BackgroundService
 {
@@ -115,15 +113,16 @@ public sealed class NotificationOutboxProcessor : BackgroundService
                 var departmentName = department?.Name ?? "—";
                 var webhookUrl = department?.SlackWebhookUrl;
 
-                // OPTION Y: department has no webhook configured. Leave the entry
-                // pending (do NOT bump RetryCount) so it goes out as soon as an
-                // admin sets the URL. Log loudly so misconfiguration is visible.
+                // Department has no webhook configured. Mark the entry as skipped
+                // so that it leaves the active queue and never blocks other departments.
                 if (string.IsNullOrWhiteSpace(webhookUrl))
                 {
+                    entry.RecordFailure($"Skipped: No Slack webhook configured for department '{departmentName}'.");
+                    entry.MarkProcessed();
+                    hasMutations = true;
                     _logger.LogWarning(
                         "No Slack webhook configured for department '{DepartmentName}' (id {DepartmentId}). " +
-                        "Outbox entry {EntryId} for request {RequestId} (trigger: {Trigger}) is left pending. " +
-                        "Configure the webhook in Admin → Departments to deliver this and any other queued notifications.",
+                        "Outbox entry {EntryId} for request {RequestId} (trigger: {Trigger}) marked as skipped to prevent queue blocking.",
                         departmentName,
                         budgetRequest.DepartmentIdAtSubmission,
                         entry.Id,
