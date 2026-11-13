@@ -1,4 +1,4 @@
-﻿@page "/reports/budget-requests"
+@page "/reports/budget-requests"
 @inject IMediator Mediator
 @inject ICurrentUser CurrentUser
 @inject NavigationManager Nav
@@ -87,21 +87,21 @@
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
-                    Reference & Date @(SortIndicator(BudgetRequestSortBy.SubmittedAt) != "" ? SortIndicator(BudgetRequestSortBy.SubmittedAt) : SortIndicator(BudgetRequestSortBy.Reference))
+                    Reference & Date @RenderSortIcon(BudgetRequestSortBy.SubmittedAt, BudgetRequestSortBy.Reference)
                 </th>
                 <th role="button" class="sortable"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
-                    Requester & Dept @SortIndicator(BudgetRequestSortBy.Requester)
+                    Requester & Dept @RenderSortIcon(BudgetRequestSortBy.Requester)
                 </th>
                 <th>Reason</th>
                 <th style="min-width: 180px">Tags</th>
                 <th class="text-end">Ccy</th>
                 <th class="text-end">Requested</th>
                 <th class="text-end sortable" role="button" style="text-align:right"
-                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">≈ MMK @SortIndicator(BudgetRequestSortBy.AmountInMmk)</th>
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">≈ MMK @RenderSortIcon(BudgetRequestSortBy.AmountInMmk)</th>
                 <th role="button" class="sortable"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
-                    Status @SortIndicator(BudgetRequestSortBy.Status)
+                    Status @RenderSortIcon(BudgetRequestSortBy.Status)
                 </th>
                 <th>COA</th>
                 <th>Withdraw</th>
@@ -226,9 +226,9 @@
                                 Next ›
                             </button>
 
-                            <div class="flex items-center gap-1 ml-3">
+                            <div class="flex items-center gap-2 ml-3">
                                 <span class="text-sm text-muted">Per page</span>
-                                <select class="select" style="width:auto"
+                                <select class="select select-sm" style="width:auto; height: 30px;"
                                         @bind="_pageSize" @bind:after="OnPageSizeChanged">
                                     <option value="20">20</option>
                                     <option value="50">50</option>
@@ -1264,8 +1264,21 @@
         return RunQueryAsync();
     }
 
-    private string SortIndicator(BudgetRequestSortBy column) =>
-        _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
+    private RenderFragment RenderSortIcon(params BudgetRequestSortBy[] columns) => builder =>
+    {
+        if (!columns.Contains(_sortBy)) return;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "sort-icon");
+        if (_sortDescending)
+        {
+            builder.AddMarkupContent(2, "<svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 6l4 4 4-4\"/></svg>");
+        }
+        else
+        {
+            builder.AddMarkupContent(2, "<svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10l4-4 4 4\"/></svg>");
+        }
+        builder.CloseElement();
+    };
 
     private Task PrevPage()
     {

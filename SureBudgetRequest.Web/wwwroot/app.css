@@ -1348,8 +1348,6 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   overflow-y: hidden;
   width: 100%;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
 }
 
 .macos-table-scroll::-webkit-scrollbar {
@@ -1372,10 +1370,15 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   background: rgba(100, 116, 139, 0.6);
 }
 
-.macos-table-scroll::-webkit-scrollbar-button {
+.macos-table-scroll::-webkit-scrollbar-button,
+.macos-table-scroll::-webkit-scrollbar-button:single-button,
+.macos-table-scroll::-webkit-scrollbar-button:horizontal:decrement,
+.macos-table-scroll::-webkit-scrollbar-button:horizontal:increment,
+.macos-table-scroll::-webkit-scrollbar-corner {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+  background: transparent !important;
 }
 
 .macos-table {
@@ -1435,7 +1438,8 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: background-color 40ms ease-out;
 }
 
-.macos-table td.sticky-no-col::after {
+/* Dual-layer GPU-composited soft edge (pre-rendered gradients, 0ms opacity switch) */
+.macos-table td.sticky-no-col::before {
   content: "";
   position: absolute;
   top: 0;
@@ -1444,7 +1448,23 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   width: 24px;
   background: linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%);
   pointer-events: none;
-  transition: background 40ms ease-out;
+  opacity: 1;
+  transition: opacity 40ms ease-out;
+  z-index: 1;
+}
+
+.macos-table td.sticky-no-col::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -24px;
+  width: 24px;
+  background: linear-gradient(90deg, #F8FAFC 0%, rgba(248, 250, 252, 0) 100%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 40ms ease-out;
+  z-index: 2;
 }
 
 .macos-table thead th.sortable,
@@ -1460,15 +1480,26 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .macos-table thead th .sort-icon {
   display: inline-flex;
-  margin-left: 4px;
-  opacity: 0.45;
-  font-size: 11px;
-  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  margin-left: 5px;
+  vertical-align: -1px;
+  color: #0F172A;
+  opacity: 0.85;
+  transition: opacity 120ms ease, transform 120ms ease;
 }
 
 .macos-table thead th.sortable:hover .sort-icon,
 .macos-table thead th[role="button"]:hover .sort-icon {
-  opacity: 0.9;
+  opacity: 1;
+}
+
+.macos-table-footer .select.select-sm {
+  height: 30px !important;
+  line-height: 28px !important;
+  font-size: 13px !important;
+  padding: 0 24px 0 10px !important;
+  border-radius: 6px !important;
 }
 
 /* Snappy instant row hover feedback (zero lag, zero gap across all columns) */
@@ -1486,9 +1517,14 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: none !important; /* Instant feedback on cursor enter */
 }
 
+.macos-table tbody tr.clickable-row:hover td.sticky-no-col::before {
+  opacity: 0 !important;
+  transition: none !important;
+}
+
 .macos-table tbody tr.clickable-row:hover td.sticky-no-col::after {
-  background: linear-gradient(90deg, #F8FAFC 0%, rgba(248, 250, 252, 0) 100%) !important;
-  transition: none !important; /* Instant sync with row hover */
+  opacity: 1 !important;
+  transition: none !important; /* GPU compositor opacity toggle: zero lag */
 }
 
 .macos-table tbody tr.clickable-row.menu-open td,
@@ -1496,8 +1532,12 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   background-color: transparent !important;
 }
 
+.macos-table tbody tr.clickable-row.menu-open td.sticky-no-col::before {
+  opacity: 1 !important;
+}
+
 .macos-table tbody tr.clickable-row.menu-open td.sticky-no-col::after {
-  background: linear-gradient(90deg, #FFFFFF 0%, rgba(255, 255, 255, 0) 100%) !important;
+  opacity: 0 !important;
 }
 
 .macos-table tbody td {
