@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    aSure Budget — Custom Design System
    No Bootstrap. All styles owned here.
    ============================================================ */
@@ -329,7 +329,7 @@ input[type="number"] {
   color: var(--color-text-dark); vertical-align: middle;
 }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: #F6F8FF; }
+.data-table tbody tr:hover td { background: #f1f5f9; }
 .data-table .col-no { width: 48px; color: var(--color-text-muted); font-size: 13px; }
 .data-table .col-actions { width: 80px; text-align: right; }
 .clickable-row { cursor: pointer; }
@@ -843,6 +843,9 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .clickable-row:hover td {
   background-color: #f1f5f9;
 }
+.clickable-row.menu-open td {
+  background-color: transparent !important;
+}
 
 /* Zero-width sticky action column on row hover */
 .sticky-action-col {
@@ -857,30 +860,33 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   overflow: visible !important;
   z-index: 30;
   background: transparent !important;
+  height: 100%;
 }
 
 .row-hover-btn-wrapper {
   position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0;
+  top: 0;
+  bottom: 0;
+  height: 100%;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  padding-right: 8px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity 120ms ease;
 }
 
 .row-hover-backdrop {
   position: absolute;
-  right: -8px;
-  top: -20px;
-  bottom: -20px;
-  width: 68px;
-  background: linear-gradient(90deg, rgba(241, 245, 249, 0) 0%, rgba(241, 245, 249, 0.94) 40%, #F1F5F9 100%);
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  background: linear-gradient(90deg, rgba(241, 245, 249, 0) 0%, rgba(241, 245, 249, 0.95) 45%, #F1F5F9 100%);
   pointer-events: none;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
+  border-radius: 0;
 }
 
 .clickable-row:hover .row-hover-btn-wrapper,
@@ -907,11 +913,16 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-three-dots:hover,
 .clickable-row.menu-open .btn-three-dots {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 10px rgba(44, 113, 246, 0.35);
-  transform: scale(1.06);
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  /*transform: scale(1.05);*/
+}
+
+.clickable-row.menu-open .btn-three-dots {
+  /*background: #e2e8f0;
+  border-color: none;*/
 }
 
 .btn-void-row:hover,

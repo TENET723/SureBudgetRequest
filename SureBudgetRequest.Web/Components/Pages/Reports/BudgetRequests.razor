@@ -119,7 +119,7 @@
                         @for (var i = 0; i < (_result?.Items.Count ?? 0); i++)
                         {
                             var r = _result!.Items[i];
-                            <tr class="clickable-row"
+                            <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
                                 @onclick="() => NavigateToDetail(r.Id)"
                                 @oncontextmenu="e => OpenContextMenu(e, r)"
                                 @oncontextmenu:preventDefault="true">
