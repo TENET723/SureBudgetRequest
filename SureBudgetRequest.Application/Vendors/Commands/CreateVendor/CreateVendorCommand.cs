@@ -9,21 +9,24 @@ using SureBudgetRequest.Domain.Errors;
 
 namespace SureBudgetRequest.Application.Vendors.Commands.CreateVendor;
 
+public sealed record CreateVendorPaymentAccountDto(
+    PaymentAccountType AccountType,
+    string ProviderName,
+    string AccountNumber,
+    string AccountHolderName,
+    string? BranchName = null,
+    string? AttachmentFileName = null,
+    string? AttachmentContentType = null,
+    long? AttachmentSizeBytes = null,
+    string? AttachmentPreUploadedPath = null);
+
 public sealed record CreateVendorCommand(
     string Name,
     string? ContactPerson = null,
     string? Phone = null,
     string? Email = null,
     string? Address = null,
-    PaymentAccountType? InitialAccountType = null,
-    string? InitialProviderName = null,
-    string? InitialAccountNumber = null,
-    string? InitialAccountHolderName = null,
-    string? InitialBranchName = null,
-    string? AttachmentFileName = null,
-    string? AttachmentContentType = null,
-    long? AttachmentSizeBytes = null,
-    string? AttachmentPreUploadedPath = null) : IRequest<Result<Guid>>;
+    IReadOnlyList<CreateVendorPaymentAccountDto>? InitialAccounts = null) : IRequest<Result<Guid>>;
 
 public sealed class CreateVendorCommandHandler
     : IRequestHandler<CreateVendorCommand, Result<Guid>>
@@ -66,52 +69,59 @@ public sealed class CreateVendorCommandHandler
             return Result.Failure<Guid>(VendorErrors.ValidationError(ex.Message));
         }
 
-        string? storedAttachmentPath = null;
+        var storedAttachmentPaths = new List<string>();
 
-        // If an initial payment account was supplied, add it
-        if (command.InitialAccountType.HasValue &&
-            !string.IsNullOrWhiteSpace(command.InitialProviderName) &&
-            !string.IsNullOrWhiteSpace(command.InitialAccountNumber) &&
-            !string.IsNullOrWhiteSpace(command.InitialAccountHolderName))
+        // If initial payment accounts were supplied, add each
+        if (command.InitialAccounts is not null && command.InitialAccounts.Count > 0)
         {
-            if (!string.IsNullOrEmpty(command.AttachmentPreUploadedPath))
+            foreach (var acc in command.InitialAccounts)
             {
-                var ext = System.IO.Path.GetExtension(command.AttachmentFileName ?? "").ToLowerInvariant();
-                if (ext is not ".pdf" and not ".png" and not ".jpg" and not ".jpeg" and not ".webp")
+                if (string.IsNullOrWhiteSpace(acc.ProviderName) ||
+                    string.IsNullOrWhiteSpace(acc.AccountNumber) ||
+                    string.IsNullOrWhiteSpace(acc.AccountHolderName))
                 {
-                    ext = ".bin";
+                    continue;
                 }
-                storedAttachmentPath = $"vendors/{vendor.Id}/{Guid.NewGuid():N}{ext}";
+
+                string? storedAttachmentPath = null;
+                if (!string.IsNullOrEmpty(acc.AttachmentPreUploadedPath))
+                {
+                    var ext = System.IO.Path.GetExtension(acc.AttachmentFileName ?? "").ToLowerInvariant();
+                    if (ext is not ".pdf" and not ".png" and not ".jpg" and not ".jpeg" and not ".webp")
+                    {
+                        ext = ".bin";
+                    }
+                    storedAttachmentPath = $"vendors/{vendor.Id}/{Guid.NewGuid():N}{ext}";
+                    try
+                    {
+                        await _fileStorage.MoveAsync(acc.AttachmentPreUploadedPath, storedAttachmentPath, ct);
+                        storedAttachmentPaths.Add(storedAttachmentPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        await CleanupStoredFilesAsync(storedAttachmentPaths);
+                        return Result.Failure<Guid>($"Failed to store account proof file: {ex.Message}");
+                    }
+                }
+
                 try
                 {
-                    await _fileStorage.MoveAsync(command.AttachmentPreUploadedPath, storedAttachmentPath, ct);
+                    vendor.AddPaymentAccount(
+                        acc.AccountType,
+                        acc.ProviderName,
+                        acc.AccountNumber,
+                        acc.AccountHolderName,
+                        acc.BranchName,
+                        attachmentFileName: acc.AttachmentFileName,
+                        attachmentStoredPath: storedAttachmentPath,
+                        attachmentContentType: acc.AttachmentContentType,
+                        attachmentSizeBytes: acc.AttachmentSizeBytes);
                 }
                 catch (Exception ex)
                 {
-                    return Result.Failure<Guid>($"Failed to store account proof file: {ex.Message}");
+                    await CleanupStoredFilesAsync(storedAttachmentPaths);
+                    return Result.Failure<Guid>(VendorErrors.ValidationError(ex.Message));
                 }
-            }
-
-            try
-            {
-                vendor.AddPaymentAccount(
-                    command.InitialAccountType.Value,
-                    command.InitialProviderName,
-                    command.InitialAccountNumber,
-                    command.InitialAccountHolderName,
-                    command.InitialBranchName,
-                    attachmentFileName: command.AttachmentFileName,
-                    attachmentStoredPath: storedAttachmentPath,
-                    attachmentContentType: command.AttachmentContentType,
-                    attachmentSizeBytes: command.AttachmentSizeBytes);
-            }
-            catch (Exception ex)
-            {
-                if (storedAttachmentPath is not null)
-                {
-                    await _fileStorage.DeleteAsync(storedAttachmentPath, ct);
-                }
-                return Result.Failure<Guid>(VendorErrors.ValidationError(ex.Message));
             }
         }
 
@@ -123,13 +133,18 @@ public sealed class CreateVendorCommandHandler
         }
         catch
         {
-            if (storedAttachmentPath is not null)
-            {
-                await _fileStorage.DeleteAsync(storedAttachmentPath, ct);
-            }
+            await CleanupStoredFilesAsync(storedAttachmentPaths);
             throw;
         }
 
         return Result.Success(vendor.Id);
+    }
+
+    private async Task CleanupStoredFilesAsync(List<string> paths)
+    {
+        foreach (var path in paths)
+        {
+            try { await _fileStorage.DeleteAsync(path, CancellationToken.None); } catch { }
+        }
     }
 }

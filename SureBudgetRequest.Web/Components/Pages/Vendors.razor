@@ -234,7 +234,10 @@
                                     <th>Account Details</th>
                                     <th>Account Holder</th>
                                     <th>Attachment</th>
-                                    <th class="text-center w-20">Status</th>
+                                    @if (_editingVendor is not null)
+                                    {
+                                        <th class="text-center w-20">Status</th>
+                                    }
                                     @if (CanManage)
                                     {
                                         <th class="sticky-action-col"></th>
@@ -242,141 +245,170 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (_editingVendor is not null && _editingVendor.PaymentAccounts.Any())
+                                @if (_editingVendor is not null)
                                 {
-                                    var accNo = 0;
-                                    @foreach (var acc in _editingVendor.PaymentAccounts)
+                                    @if (_editingVendor.PaymentAccounts.Any())
                                     {
-                                        accNo++;
-                                        <tr class="clickable-row @(!acc.IsActive ? "text-muted opacity-60" : "") @(_accountContextMenuTarget?.Id == acc.Id ? "menu-open" : "")"
-                                            @onclick="() => { if (CanManage) OpenEditAccountModal(acc); }"
-                                            @oncontextmenu="e => OpenAccountContextMenu(e, acc)"
-                                            @oncontextmenu:preventDefault="true">
-                                            <td class="col-no">@accNo</td>
-                                            <td>
-                                                <div class="flex items-center gap-1.5">
-                                                    <strong>@acc.ProviderName</strong>
-                                                </div>
-                                                <div class="text-muted-cell font-mono">@acc.AccountNumber</div>
-                                                @if (!string.IsNullOrEmpty(acc.BranchName))
-                                                {
-                                                    <div class="text-xs text-muted">@acc.BranchName</div>
-                                                }
-                                            </td>
-                                            <td>@acc.AccountHolderName</td>
-                                            <td @onclick:stopPropagation="true">
-                                                @if (acc.HasAttachment)
-                                                {
-                                                    var attDto = new AttachmentDto(
-                                                        acc.Id,
-                                                        acc.AttachmentFileName ?? "proof.jpg",
-                                                        acc.AttachmentContentType ?? "image/jpeg",
-                                                        acc.AttachmentSizeBytes ?? 0,
-                                                        Guid.Empty,
-                                                        acc.CreatedAt,
-                                                        AttachmentCategory.WithdrawMethod);
-
-                                                    var previewMap = new Dictionary<Guid, string>
+                                        var accNo = 0;
+                                        @foreach (var acc in _editingVendor.PaymentAccounts)
+                                        {
+                                            accNo++;
+                                            <tr class="clickable-row @(!acc.IsActive ? "text-muted opacity-60" : "") @(_accountContextMenuTarget?.Id == acc.Id ? "menu-open" : "")"
+                                                @onclick="() => { if (CanManage) OpenEditAccountModal(acc); }"
+                                                @oncontextmenu="e => OpenAccountContextMenu(e, acc)"
+                                                @oncontextmenu:preventDefault="true">
+                                                <td class="col-no">@accNo</td>
+                                                <td>
+                                                    <div class="flex items-center gap-1.5">
+                                                        <strong>@acc.ProviderName</strong>
+                                                    </div>
+                                                    <div class="text-muted-cell font-mono">@acc.AccountNumber</div>
+                                                    @if (!string.IsNullOrEmpty(acc.BranchName))
                                                     {
-                                                        [acc.Id] = $"/api/vendors/{_editingVendor.Id}/accounts/{acc.Id}/attachment"
-                                                    };
-
-                                                    <AttachmentStackGallery Attachments="@([attDto])"
-                                                                            PreviewUrls="previewMap"
-                                                                            CardWidth="40px"
-                                                                            CardHeight="30px" />
-                                                }
-                                                else
-                                                {
-                                                    @if (CanManage)
+                                                        <div class="text-xs text-muted">@acc.BranchName</div>
+                                                    }
+                                                </td>
+                                                <td>@acc.AccountHolderName</td>
+                                                <td @onclick:stopPropagation="true">
+                                                    @if (acc.HasAttachment)
                                                     {
-                                                        <label class="btn btn-outline btn-sm py-0 px-1 text-xs cursor-pointer mb-0">
-                                                            <span>Upload</span>
-                                                            <InputFile OnChange="@(e => HandleUploadAttachmentDirect(e, acc.Id))" style="display:none;" />
-                                                        </label>
+                                                        var attDto = new AttachmentDto(
+                                                            acc.Id,
+                                                            acc.AttachmentFileName ?? "proof.jpg",
+                                                            acc.AttachmentContentType ?? "image/jpeg",
+                                                            acc.AttachmentSizeBytes ?? 0,
+                                                            Guid.Empty,
+                                                            acc.CreatedAt,
+                                                            AttachmentCategory.WithdrawMethod);
+
+                                                        var previewMap = new Dictionary<Guid, string>
+                                                        {
+                                                            [acc.Id] = $"/api/vendors/{_editingVendor.Id}/accounts/{acc.Id}/attachment"
+                                                        };
+
+                                                        <AttachmentStackGallery Attachments="@([attDto])"
+                                                                                PreviewUrls="previewMap"
+                                                                                CardWidth="40px"
+                                                                                CardHeight="30px" />
+                                                    }
+                                                    else
+                                                    {
+                                                        @if (CanManage)
+                                                        {
+                                                            <label class="btn btn-outline btn-sm py-0 px-1 text-xs cursor-pointer mb-0">
+                                                                <span>Upload</span>
+                                                                <InputFile OnChange="@(e => HandleUploadAttachmentDirect(e, acc.Id))" style="display:none;" />
+                                                            </label>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">—</span>
+                                                        }
+                                                    }
+                                                </td>
+                                                <td class="text-center" @onclick:stopPropagation="true">
+                                                    @if (acc.IsActive)
+                                                    {
+                                                        <span class="badge badge-active">Active</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge badge-inactive">Inactive</span>
+                                                    }
+                                                </td>
+                                                @if (CanManage)
+                                                {
+                                                    <td class="sticky-action-col" @onclick:stopPropagation="true">
+                                                        <div class="row-hover-btn-wrapper">
+                                                            <div class="row-hover-backdrop"></div>
+                                                            <button type="button" class="btn-three-dots" title="Account actions"
+                                                                    @onclick="e => OpenAccountContextMenuFromButton(e, acc)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <circle cx="12" cy="5" r="2"/>
+                                                                    <circle cx="12" cy="12" r="2"/>
+                                                                    <circle cx="12" cy="19" r="2"/>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                }
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted py-3">No payment accounts registered yet.</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (_stagedAccounts.Any())
+                                    {
+                                        var accNo = 0;
+                                        @foreach (var acc in _stagedAccounts)
+                                        {
+                                            accNo++;
+                                            <tr class="clickable-row" @onclick="() => OpenEditStagedAccountModal(acc)">
+                                                <td class="col-no">@accNo</td>
+                                                <td>
+                                                    <div class="flex items-center gap-1.5">
+                                                        <strong>@acc.ProviderName</strong>
+                                                    </div>
+                                                    <div class="text-muted-cell font-mono">@acc.AccountNumber</div>
+                                                    @if (!string.IsNullOrEmpty(acc.BranchName))
+                                                    {
+                                                        <div class="text-xs text-muted">@acc.BranchName</div>
+                                                    }
+                                                </td>
+                                                <td>@acc.AccountHolderName</td>
+                                                <td @onclick:stopPropagation="true">
+                                                    @if (!string.IsNullOrEmpty(acc.PreviewUrl))
+                                                    {
+                                                        var tempDto = new AttachmentDto(
+                                                            acc.Id,
+                                                            acc.FileName ?? "proof.jpg",
+                                                            acc.ContentType ?? "image/jpeg",
+                                                            acc.SizeBytes ?? 0,
+                                                            Guid.Empty,
+                                                            DateTime.UtcNow,
+                                                            AttachmentCategory.WithdrawMethod);
+                                                        var tempMap = new Dictionary<Guid, string> { [acc.Id] = acc.PreviewUrl };
+                                                        <AttachmentStackGallery Attachments="@([tempDto])" PreviewUrls="tempMap" CardWidth="40px" CardHeight="30px" />
+                                                    }
+                                                    else if (!string.IsNullOrEmpty(acc.FileName))
+                                                    {
+                                                        <span class="text-primary text-xs">📎 @acc.FileName</span>
                                                     }
                                                     else
                                                     {
                                                         <span class="text-muted">—</span>
                                                     }
-                                                }
-                                            </td>
-                                            <td class="text-center" @onclick:stopPropagation="true">
-                                                @if (acc.IsActive)
-                                                {
-                                                    <span class="badge badge-active">Active</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge badge-inactive">Inactive</span>
-                                                }
-                                            </td>
-                                            @if (CanManage)
-                                            {
+                                                </td>
                                                 <td class="sticky-action-col" @onclick:stopPropagation="true">
                                                     <div class="row-hover-btn-wrapper">
                                                         <div class="row-hover-backdrop"></div>
-                                                        <button type="button" class="btn-three-dots" title="Account actions"
-                                                                @onclick="e => OpenAccountContextMenuFromButton(e, acc)">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                                <circle cx="12" cy="5" r="2"/>
-                                                                <circle cx="12" cy="12" r="2"/>
-                                                                <circle cx="12" cy="19" r="2"/>
+                                                        <button type="button" class="btn-three-dots text-danger" title="Remove account"
+                                                                @onclick="() => RemoveStagedAccount(acc)">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                <polyline points="3 6 5 6 21 6"/>
+                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                                                <line x1="10" y1="11" x2="10" y2="17"/>
+                                                                <line x1="14" y1="11" x2="14" y2="17"/>
                                                             </svg>
                                                         </button>
                                                     </div>
                                                 </td>
-                                            }
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-3">No payment accounts registered yet.</td>
                                         </tr>
                                     }
-                                }
-                                else if (_editingVendor is null && _stagedInitialAccount is not null)
-                                {
-                                    <tr class="clickable-row" @onclick="OpenEditStagedAccountModal">
-                                        <td class="col-no">1</td>
-                                        <td>
-                                            <div class="flex items-center gap-1.5">
-                                                <strong>@_stagedInitialAccount.ProviderName</strong>
-                                            </div>
-                                            <div class="text-muted-cell font-mono">@_stagedInitialAccount.AccountNumber</div>
-                                        </td>
-                                        <td>@_stagedInitialAccount.AccountHolderName</td>
-                                        <td @onclick:stopPropagation="true">
-                                            @if (!string.IsNullOrEmpty(_stagedInitialAccount.PreviewUrl))
-                                            {
-                                                var tempDto = new AttachmentDto(
-                                                    _stagedInitialAccount.Id,
-                                                    _stagedInitialAccount.FileName ?? "proof.jpg",
-                                                    _stagedInitialAccount.ContentType ?? "image/jpeg",
-                                                    _stagedInitialAccount.SizeBytes ?? 0,
-                                                    Guid.Empty,
-                                                    DateTime.UtcNow,
-                                                    AttachmentCategory.WithdrawMethod);
-                                                var tempMap = new Dictionary<Guid, string> { [_stagedInitialAccount.Id] = _stagedInitialAccount.PreviewUrl };
-                                                <AttachmentStackGallery Attachments="@([tempDto])" PreviewUrls="tempMap" CardWidth="40px" CardHeight="30px" />
-                                            }
-                                            else if (!string.IsNullOrEmpty(_stagedInitialAccount.FileName))
-                                            {
-                                                <span class="text-primary text-xs">📎 @_stagedInitialAccount.FileName</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">—</span>
-                                            }
-                                        </td>
-                                        <td class="text-center" @onclick:stopPropagation="true">
-                                            <span class="badge badge-active">Active</span>
-                                        </td>
-                                        <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                            <button type="button" class="btn btn-link p-0 text-xs text-danger" @onclick="() => _stagedInitialAccount = null">Remove</button>
-                                        </td>
-                                    </tr>
-                                }
-                                else
-                                {
-                                    <tr>
-                                        <td colspan="6" class="text-center text-muted py-3">No payment accounts registered yet.</td>
-                                    </tr>
                                 }
                             </tbody>
                         </table>
@@ -709,7 +741,8 @@
     private string? _accPreviewUrl;
     private bool _deleteExistingAttachment = false;
 
-    private StagedAccount? _stagedInitialAccount;
+    private List<StagedAccount> _stagedAccounts = new();
+    private Guid? _editingStagedAccountId;
     private VendorDto? _deactivatingVendor;
 
     private sealed record StagedAccount(
@@ -851,8 +884,26 @@
     }
 
     // ── Create & Edit Modal Actions ──────────────────────────────────────────
-    private void OpenCreate()
+    private async Task ClearStagedAccountsAsync()
     {
+        foreach (var acc in _stagedAccounts)
+        {
+            if (!string.IsNullOrEmpty(acc.PreUploadedPath))
+            {
+                try { await FileStorage.DeleteAsync(acc.PreUploadedPath); } catch { }
+            }
+            if (!string.IsNullOrEmpty(acc.PreviewUrl) && !acc.PreviewUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                try { await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", acc.PreviewUrl); } catch { }
+            }
+        }
+        _stagedAccounts.Clear();
+        _editingStagedAccountId = null;
+    }
+
+    private async Task OpenCreate()
+    {
+        await ClearStagedAccountsAsync();
         _editingVendor = null;
         _formName = "";
         _formContactPerson = null;
@@ -861,12 +912,12 @@
         _formAddress = null;
         _formError = null;
         _showAccountModal = false;
-        _stagedInitialAccount = null;
         _showForm = true;
     }
 
-    private void OpenEdit(VendorDto v)
+    private async Task OpenEdit(VendorDto v)
     {
+        await ClearStagedAccountsAsync();
         _editingVendor = v;
         _formName = v.Name;
         _formContactPerson = v.ContactPerson;
@@ -875,12 +926,12 @@
         _formAddress = v.Address;
         _formError = null;
         _showAccountModal = false;
-        _stagedInitialAccount = null;
         _showForm = true;
     }
 
-    private void CloseForm()
+    private async Task CloseForm()
     {
+        await ClearStagedAccountsAsync();
         _showForm = false;
         _formError = null;
         _editingVendor = null;
@@ -915,25 +966,38 @@
             }
             else
             {
+                var initialAccounts = _stagedAccounts.Select(a => new CreateVendorPaymentAccountDto(
+                    AccountType: a.AccountType,
+                    ProviderName: a.ProviderName,
+                    AccountNumber: a.AccountNumber,
+                    AccountHolderName: a.AccountHolderName,
+                    BranchName: a.BranchName,
+                    AttachmentFileName: a.FileName,
+                    AttachmentContentType: a.ContentType,
+                    AttachmentSizeBytes: a.SizeBytes,
+                    AttachmentPreUploadedPath: a.PreUploadedPath)).ToList();
+
                 var cmd = new CreateVendorCommand(
-                    Name: _formName,
+                    Name: _formName.Trim(),
                     ContactPerson: _formContactPerson,
                     Phone: _formPhone,
                     Email: _formEmail,
                     Address: _formAddress,
-                    InitialAccountType: _stagedInitialAccount?.AccountType,
-                    InitialProviderName: _stagedInitialAccount?.ProviderName,
-                    InitialAccountNumber: _stagedInitialAccount?.AccountNumber,
-                    InitialAccountHolderName: _stagedInitialAccount?.AccountHolderName,
-                    InitialBranchName: _stagedInitialAccount?.BranchName,
-                    AttachmentFileName: _stagedInitialAccount?.FileName,
-                    AttachmentContentType: _stagedInitialAccount?.ContentType,
-                    AttachmentSizeBytes: _stagedInitialAccount?.SizeBytes,
-                    AttachmentPreUploadedPath: _stagedInitialAccount?.PreUploadedPath);
+                    InitialAccounts: initialAccounts);
 
                 var result = await Mediator.Send(cmd);
                 if (result.IsFailure) { _formError = result.Error.Message; return; }
                 Toast.Success("Vendor Created", $"'{_formName}' created successfully.");
+
+                // Revoke client-side previews
+                foreach (var a in _stagedAccounts)
+                {
+                    if (!string.IsNullOrEmpty(a.PreviewUrl) && !a.PreviewUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", a.PreviewUrl); } catch { }
+                    }
+                }
+                _stagedAccounts.Clear();
             }
 
             _showForm = false;
@@ -954,6 +1018,7 @@
     {
         _accountModalError = null;
         _editingAccountId = null;
+        _editingStagedAccountId = null;
         _deleteExistingAttachment = false;
         _accType = PaymentAccountType.MobileWallet;
         _accProvider = "KBZPay";
@@ -972,6 +1037,7 @@
     {
         _accountModalError = null;
         _editingAccountId = acc.Id;
+        _editingStagedAccountId = null;
         _deleteExistingAttachment = false;
         _accType = acc.AccountType;
         _accProvider = acc.ProviderName;
@@ -986,29 +1052,43 @@
         _showAccountModal = true;
     }
 
-    private void OpenEditStagedAccountModal()
+    private void OpenEditStagedAccountModal(StagedAccount acc)
     {
-        if (_stagedInitialAccount is null) return;
         _accountModalError = null;
         _editingAccountId = null;
+        _editingStagedAccountId = acc.Id;
         _deleteExistingAttachment = false;
-        _accType = _stagedInitialAccount.AccountType;
-        _accProvider = _stagedInitialAccount.ProviderName;
-        _accNumber = _stagedInitialAccount.AccountNumber;
-        _accHolder = _stagedInitialAccount.AccountHolderName;
-        _accBranch = _stagedInitialAccount.BranchName;
-        _accFileName = _stagedInitialAccount.FileName;
-        _accContentType = _stagedInitialAccount.ContentType;
-        _accSizeBytes = _stagedInitialAccount.SizeBytes;
-        _accPreUploadedPath = _stagedInitialAccount.PreUploadedPath;
-        _accPreviewUrl = _stagedInitialAccount.PreviewUrl;
+        _accType = acc.AccountType;
+        _accProvider = acc.ProviderName;
+        _accNumber = acc.AccountNumber;
+        _accHolder = acc.AccountHolderName;
+        _accBranch = acc.BranchName;
+        _accFileName = acc.FileName;
+        _accContentType = acc.ContentType;
+        _accSizeBytes = acc.SizeBytes;
+        _accPreUploadedPath = acc.PreUploadedPath;
+        _accPreviewUrl = acc.PreviewUrl;
         _showAccountModal = true;
+    }
+
+    private async Task RemoveStagedAccount(StagedAccount acc)
+    {
+        if (!string.IsNullOrEmpty(acc.PreUploadedPath))
+        {
+            try { await FileStorage.DeleteAsync(acc.PreUploadedPath); } catch { }
+        }
+        if (!string.IsNullOrEmpty(acc.PreviewUrl) && !acc.PreviewUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            try { await JS.InvokeVoidAsync("attachmentPreview.revokeObjectURL", acc.PreviewUrl); } catch { }
+        }
+        _stagedAccounts.Remove(acc);
     }
 
     private void CloseAccountModal()
     {
         _showAccountModal = false;
         _editingAccountId = null;
+        _editingStagedAccountId = null;
         _accountModalError = null;
         _deleteExistingAttachment = false;
     }
@@ -1087,19 +1167,42 @@
         if (_editingVendor is null)
         {
             // Staging account during create
-            _stagedInitialAccount = new StagedAccount(
-                _stagedInitialAccount?.Id ?? Guid.NewGuid(),
-                _accType,
-                _accProvider,
-                _accNumber,
-                _accHolder,
-                _accBranch,
-                _accFileName,
-                _accContentType,
-                _accSizeBytes,
-                _accPreUploadedPath,
-                _accPreviewUrl);
+            if (_editingStagedAccountId.HasValue)
+            {
+                var idx = _stagedAccounts.FindIndex(a => a.Id == _editingStagedAccountId.Value);
+                if (idx >= 0)
+                {
+                    _stagedAccounts[idx] = new StagedAccount(
+                        _editingStagedAccountId.Value,
+                        _accType,
+                        _accProvider,
+                        _accNumber,
+                        _accHolder,
+                        _accBranch,
+                        _accFileName,
+                        _accContentType,
+                        _accSizeBytes,
+                        _accPreUploadedPath,
+                        _accPreviewUrl);
+                }
+            }
+            else
+            {
+                _stagedAccounts.Add(new StagedAccount(
+                    Guid.NewGuid(),
+                    _accType,
+                    _accProvider,
+                    _accNumber,
+                    _accHolder,
+                    _accBranch,
+                    _accFileName,
+                    _accContentType,
+                    _accSizeBytes,
+                    _accPreUploadedPath,
+                    _accPreviewUrl));
+            }
             _showAccountModal = false;
+            _editingStagedAccountId = null;
             return;
         }
 
