@@ -55,85 +55,95 @@
         </div>
     </div>
 
-    @if (_loading)
+    @if (_plan is not null || _loading)
     {
-        <div class="text-center "><div class="spinner spinner-sm"></div></div>
-    }
-    else if (_plan is not null)
-    {
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead >
-                    <tr>
-                        <th>Month</th>
-                        <th class="text-end">Budget (MMK)</th>
-                        <th class="text-end">Spent (MMK)</th>
-                        <th class="text-end">Remaining</th>
-                        <th class="text-end">Used %</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var m in _plan.Months)
-                    {
-                        var monthName = new DateTime(2000, m.Month, 1).ToString("MMM");
-                        var spent = m.ActualSpentInMmk;
-                        var limit = m.EffectiveLimit;
-                        var remaining = limit - spent;
-                        var usedPct = limit > 0 ? Math.Min(100m, Math.Round(spent / limit * 100, 1)) : 0m;
-
-                        <tr class="@(m.IsCurrent ? "table-primary" : "")">
-                            <td>
-                                @monthName
-                                @if (m.IsCurrent)
-                                {
-                                    <span class="ml-1 badge bg-primary rounded-pill" style="font-size:.65rem">● Current</span>
-                                }
-                            </td>
-                            <td style="min-width:180px">
-                                @if (m.IsEditable)
-                                {
-                                    <NumericInput TValue="decimal?" Value="@GetAmount(m.Month)" ValueChanged="@(val => SetAmount(m.Month, val))" Min="0" Step="1000" Placeholder="e.g. 5000000" />
-                                    <div class="text-muted text-sm mt-1">fallback: @_plan.FallbackMonthlyLimit.ToString("N0") MMK</div>
-                                }
-                                else
-                                {
-                                    <span class="text-muted">@(m.PresetAmount.HasValue ? m.PresetAmount.Value.ToString("N0") : "—")</span>
-                                    <div class="text-muted text-sm mt-1">fallback: @_plan.FallbackMonthlyLimit.ToString("N0") MMK</div>
-                                }
-                            </td>
-                            <td class="text-end">@spent.ToString("N0")</td>
-                            <td class="text-end @(remaining < 0 ? "text-danger" : "")">@remaining.ToString("N0")</td>
-                            <td class="text-end">@usedPct%</td>
-                            <td>
-                                @if (m.IsCurrent)
-                                {
-                                    <span class="badge badge-role">Current</span>
-                                }
-                                else if (!m.IsEditable)
-                                {
-                                    <span class="badge badge-role">Past</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-role">Future</span>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-
-        <div class="mt-2">
-            <button class="btn btn-primary btn-sm" @onclick="SavePlan" disabled="@_saving">
-                @if (_saving)
-                {
-                    <span class="spinner spinner-sm mr-1"></span>
+        <AppTable TItem="MonthPlanDto"
+                  Items="@_plan?.Months"
+                  IsLoading="@_loading"
+                  ColSpan="7">
+            <TableHeader>
+                <th class="sticky-no-col font-bold">NO.</th>
+                <th>Month</th>
+                <th style="min-width: 200px">Budget (MMK)</th>
+                <th class="text-end">Spent (MMK)</th>
+                <th class="text-end">Remaining</th>
+                <th class="text-end">Used %</th>
+                <th>Status</th>
+            </TableHeader>
+            <RowTemplateWithIndex Context="ctx">
+                @{
+                    var m = ctx.Item;
+                    var i = ctx.Index;
+                    var monthName = new DateTime(2000, m.Month, 1).ToString("MMM");
+                    var spent = m.ActualSpentInMmk;
+                    var limit = m.EffectiveLimit;
+                    var remaining = limit - spent;
+                    var usedPct = limit > 0 ? Math.Min(100m, Math.Round(spent / limit * 100, 1)) : 0m;
                 }
-                Save
-            </button>
-        </div>
+                <tr class="@(m.IsCurrent ? "table-primary" : "")">
+                    <td class="sticky-no-col text-muted text-sm text-center">@(i + 1)</td>
+                    <td>
+                        <strong>@monthName</strong>
+                        @if (m.IsCurrent)
+                        {
+                            <span class="ml-1 badge bg-primary rounded-pill" style="font-size:.65rem">● Current</span>
+                        }
+                    </td>
+                    <td style="min-width:180px">
+                        @if (m.IsEditable)
+                        {
+                            <NumericInput TValue="decimal?" Value="@GetAmount(m.Month)" ValueChanged="@(val => SetAmount(m.Month, val))" Min="0" Step="1000" Placeholder="e.g. 5000000" />
+                            <div class="text-muted text-sm mt-1">fallback: @(_plan?.FallbackMonthlyLimit.ToString("N0") ?? "0") MMK</div>
+                        }
+                        else
+                        {
+                            <span class="text-muted">@(m.PresetAmount.HasValue ? m.PresetAmount.Value.ToString("N0") : "—")</span>
+                            <div class="text-muted text-sm mt-1">fallback: @(_plan?.FallbackMonthlyLimit.ToString("N0") ?? "0") MMK</div>
+                        }
+                    </td>
+                    <td class="text-end font-mono">@spent.ToString("N0")</td>
+                    <td class="text-end font-mono @(remaining < 0 ? "text-danger" : "")">@remaining.ToString("N0")</td>
+                    <td class="text-end font-mono">@usedPct%</td>
+                    <td>
+                        @if (m.IsCurrent)
+                        {
+                            <span class="badge badge-role">Current</span>
+                        }
+                        else if (!m.IsEditable)
+                        {
+                            <span class="badge badge-role">Past</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-role">Future</span>
+                        }
+                    </td>
+                </tr>
+            </RowTemplateWithIndex>
+            <PaginationContent>
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <div class="text-sm text-muted">
+                        Total Spent: <strong class="text-dark">@(_plan?.Months.Sum(x => x.ActualSpentInMmk).ToString("N0") ?? "—") MMK</strong>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-muted">12 months (@_selectedYear)</span>
+                    </div>
+                </div>
+            </PaginationContent>
+        </AppTable>
+
+        @if (_plan is not null)
+        {
+            <div class="mt-2">
+                <button class="btn btn-primary btn-sm" @onclick="SavePlan" disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <span class="spinner spinner-sm mr-1"></span>
+                    }
+                    Save
+                </button>
+            </div>
+        }
     }
 </div>
 

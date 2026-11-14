@@ -37,98 +37,121 @@
                        Placeholder="Search name or head" Width="260px" />
     </div>
 
-    @if (_loading)
-    {
-        <div class="text-center "><div class="spinner spinner-sm"></div></div>
+    @{
+        var page = _page;
+        var pageSize = _pageSize;
+        var paged = _filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var totalPages = (int)Math.Ceiling(_filtered.Count / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
     }
-    else
-    {
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead >
-                    <tr>
-                        <th class="col-no">#</th>
-                        <th>Name</th>
-                        <th>Department Head</th>
-                        <th class="text-end">Budget Limit (MMK)</th>
-                        <th class="text-end">Monthly Limit (MMK)</th>
-                        <th>Slack</th>
-                        <th>Status</th>
-                        <th class="sticky-action-col"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < _filtered.Count; i++)
+
+    <AppTable TItem="DepartmentDto"
+              Items="@paged"
+              IsLoading="@_loading"
+              ColSpan="8">
+        <TableHeader>
+            <th class="sticky-no-col font-bold">NO.</th>
+            <th>Name</th>
+            <th>Department Head</th>
+            <th class="text-end">Budget Limit (MMK)</th>
+            <th class="text-end">Monthly Limit (MMK)</th>
+            <th>Slack</th>
+            <th>Status</th>
+            <th class="sticky-action-col"></th>
+        </TableHeader>
+        <RowTemplateWithIndex Context="ctx">
+            @{
+                var d = ctx.Item;
+                var i = ctx.Index;
+                var rowNo = (page - 1) * pageSize + i + 1;
+            }
+            <tr class="clickable-row @(!d.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == d.Id ? "menu-open" : "")"
+                @onclick="() => OpenEdit(d)"
+                @oncontextmenu="e => OpenContextMenu(e, d)"
+                @oncontextmenu:preventDefault="true">
+                <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                <td><strong>@d.Name</strong></td>
+                <td>
+                    @if (d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var head))
                     {
-                        var d = _filtered[i];
-                        <tr class="clickable-row @(!d.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == d.Id ? "menu-open" : "")"
-                            @onclick="() => OpenEdit(d)"
-                            @oncontextmenu="e => OpenContextMenu(e, d)"
-                            @oncontextmenu:preventDefault="true">
-                            <td class="text-muted text-sm col-no">@(i + 1)</td>
-                            <td><strong>@d.Name</strong></td>
-                            <td>
-                                @if (d.HeadUserId.HasValue && _users.TryGetValue(d.HeadUserId.Value, out var head))
-                                {
-                                    @head
-                                }
-                                else
-                                {
-                                    <span class="text-muted text-sm">— none —</span>
-                                }
-                            </td>
-                            <td class="text-end font-mono">@d.BudgetLimit.ToString("N2")</td>
-                            <td class="text-end font-mono">@d.MonthlyLimit.ToString("N2")</td>
-                            <td>
-                                @if (!string.IsNullOrWhiteSpace(d.SlackWebhookUrl))
-                                {
-                                    <span class="badge badge-role">✓ Configured</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-role">— not set —</span>
-                                }
-                            </td>
-                            <td @onclick:stopPropagation="true">
-                                @if (d.IsActive)
-                                {
-                                    <button class="badge badge-active" @onclick="() => ConfirmDeactivate(d)" title="Click to deactivate">Active</button>
-                                }
-                                else
-                                {
-                                    <button class="badge badge-inactive" @onclick="() => DoReactivate(d)" title="Click to activate" disabled="@_saving">Inactive</button>
-                                }
-                            </td>
-                            <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                <div class="row-hover-btn-wrapper">
-                                    <div class="row-hover-backdrop"></div>
-                                    <button type="button" class="btn-three-dots" title="Quick actions"
-                                            @onclick="e => OpenContextMenuFromButton(e, d)">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                            <circle cx="12" cy="5" r="2"/>
-                                            <circle cx="12" cy="12" r="2"/>
-                                            <circle cx="12" cy="19" r="2"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                        @head
                     }
-                    @if (!_filtered.Any())
+                    else
                     {
-                        @if (!string.IsNullOrWhiteSpace(_search))
-                        {
-                            <tr><td colspan="8" class="text-center text-muted ">No departments match your search.</td></tr>
-                        }
-                        else
-                        {
-                            <tr><td colspan="8" class="text-center text-muted ">No departments found.</td></tr>
-                        }
+                        <span class="text-muted text-sm">— none —</span>
                     }
-                </tbody>
-            </table>
-        </div>
-    }
+                </td>
+                <td class="text-end font-mono">@d.BudgetLimit.ToString("N2")</td>
+                <td class="text-end font-mono">@d.MonthlyLimit.ToString("N2")</td>
+                <td>
+                    @if (!string.IsNullOrWhiteSpace(d.SlackWebhookUrl))
+                    {
+                        <span class="badge badge-role">✓ Configured</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-role">— not set —</span>
+                    }
+                </td>
+                <td @onclick:stopPropagation="true">
+                    @if (d.IsActive)
+                    {
+                        <button class="badge badge-active" @onclick="() => ConfirmDeactivate(d)" title="Click to deactivate">Active</button>
+                    }
+                    else
+                    {
+                        <button class="badge badge-inactive" @onclick="() => DoReactivate(d)" title="Click to activate" disabled="@_saving">Inactive</button>
+                    }
+                </td>
+                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                    <div class="row-hover-btn-wrapper">
+                        <div class="row-hover-backdrop"></div>
+                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                @onclick="e => OpenContextMenuFromButton(e, d)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="19" r="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </RowTemplateWithIndex>
+        <EmptyContent>
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <span>No departments match your search.</span>
+            }
+            else
+            {
+                <span>No departments found.</span>
+            }
+        </EmptyContent>
+        <PaginationContent>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <span class="text-sm text-muted">@_filtered.Count department(s)</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page <= 1)"
+                            @onclick="() => _page--">‹ Prev</button>
+                    <span class="text-sm text-muted">Page @(page) of @totalPages</span>
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page >= totalPages)"
+                            @onclick="() => _page++">Next ›</button>
+
+                    <div class="flex items-center gap-2 ml-3">
+                        <span class="text-sm text-muted">Per page</span>
+                        <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => _page = 1">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </PaginationContent>
+    </AppTable>
 </div>
 
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
@@ -267,6 +290,8 @@
     private bool _loading = true;
     private bool _showInactive;
     private string _search = "";
+    private int _page = 1;
+    private int _pageSize = 20;
 
     // Form state
     private bool _showForm;
@@ -369,6 +394,7 @@
 
     private void ApplyFilter()
     {
+        _page = 1;
         FilterState.SetSearch("departments", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0

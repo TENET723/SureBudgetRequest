@@ -201,173 +201,185 @@
             </div>
         }
 
-        @if (_loading)
-        {
-            <div class="text-center "><div class="spinner spinner-sm"></div></div>
-        }
-        else
-        {
-            <p class="text-muted text-sm mb-4">@InboxDescription()</p>
+        <p class="text-muted text-sm mb-4">@InboxDescription()</p>
 
-            <div class="table-wrapper">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th class="col-no">#</th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.RequestDate))">
-                                Date @SortIndicator(BudgetRequestSortBy.RequestDate)
-                            </th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
-                                Requester @SortIndicator(BudgetRequestSortBy.Requester)
-                            </th>
-                            <th>Reason</th>
-                            <th>Tags</th>
-                            <th class="text-end" role="button" style="cursor:pointer;text-align:right"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
-                                Amount @SortIndicator(BudgetRequestSortBy.AmountInMmk)
-                            </th>
-                            <th role="button" style="cursor:pointer"
-                                @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
-                                Status @SortIndicator(BudgetRequestSortBy.Status)
-                            </th>
-                            @if (_view == "overdue")
-                            {
-                                <th role="button" style="cursor:pointer"
-                                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.ReconciliationDeadline))">
-                                    Deadline @SortIndicator(BudgetRequestSortBy.ReconciliationDeadline)
-                                </th>
-                            }
-                            else
-                            {
-                                <th role="button" style="cursor:pointer"
-                                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
-                                    Submitted @SortIndicator(BudgetRequestSortBy.SubmittedAt)
-                                </th>
-                            }
-                            <th class="sticky-action-col"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (var i = 0; i < Items.Count; i++)
+        <AppTable TItem="BudgetRequestSummaryDto"
+                  Items="@Items"
+                  IsLoading="@_loading"
+                  ColSpan="@(_view == "overdue" ? 8 : 7)">
+            <TableHeader>
+                <th class="sticky-no-col font-bold">NO.</th>
+                <th role="button" class="sortable col-ref-date"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
+                    Reference @RenderSortIcon(BudgetRequestSortBy.SubmittedAt, BudgetRequestSortBy.Reference)
+                </th>
+                <th role="button" class="sortable col-requester"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
+                    Requester @RenderSortIcon(BudgetRequestSortBy.Requester)
+                </th>
+                <th class="col-reason">Reason</th>
+                <th class="col-tags">Tags</th>
+                <th class="text-end col-requested" role="button"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.AmountInMmk))">
+                    Requested @RenderSortIcon(BudgetRequestSortBy.AmountInMmk)
+                </th>
+                <th role="button" class="sortable col-status"
+                    @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
+                    Status @RenderSortIcon(BudgetRequestSortBy.Status)
+                </th>
+                @if (_view == "overdue")
+                {
+                    <th role="button" class="sortable"
+                        @onclick="@(() => SortByColumn(BudgetRequestSortBy.ReconciliationDeadline))">
+                        Deadline @RenderSortIcon(BudgetRequestSortBy.ReconciliationDeadline)
+                    </th>
+                }
+                <th class="sticky-action-col"></th>
+            </TableHeader>
+            <RowTemplateWithIndex Context="ctx">
+                @{
+                    var r = ctx.Item;
+                    var i = ctx.Index;
+                    var rowNo = ((_result?.Page ?? 1) - 1) * (_result?.PageSize ?? 0) + i + 1;
+                }
+                <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
+                    @onclick="() => NavigateToDetail(r.Id)"
+                    @oncontextmenu="e => OpenContextMenu(e, r)"
+                    @oncontextmenu:preventDefault="true">
+                    <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                    <td class="text-sm col-ref-date">
+                        <div class="font-semibold text-dark">@(r.Reference ?? "—")</div>
+                        <div class="datetime-tooltip-trigger">
+                            <div class="ref-time">
+                                <span>@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : r.RequestDate.ToString("dd MMM yyyy"))</span>
+                            </div>
+                            <div class="datetime-popup">
+                                <div class="popup-row">
+                                    <span class="popup-label">Submitted:</span>
+                                    <span class="popup-val">@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : "Not submitted (Draft)")</span>
+                                </div>
+                                <div class="popup-row">
+                                    <span class="popup-label">Request Date:</span>
+                                    <span class="popup-val">@r.RequestDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-sm col-requester font-medium">@r.RequesterName</td>
+                    <td class="col-reason">
+                        @if (!string.IsNullOrWhiteSpace(r.Reasons))
                         {
-                            var r = Items[i];
-                            var rowNo = ((_result?.Page ?? 1) - 1) * (_result?.PageSize ?? 0) + i + 1;
-                            <tr class="clickable-row @(_contextMenuTarget?.Id == r.Id ? "menu-open" : "")"
-                                @onclick="() => NavigateToDetail(r.Id)"
-                                @oncontextmenu="e => OpenContextMenu(e, r)"
-                                @oncontextmenu:preventDefault="true">
-                                <td class="text-muted text-sm">@rowNo</td>
-                                <td class="text-sm">@r.RequestDate.ToString("dd MMM yyyy")</td>
-                                <td class="text-sm">@r.RequesterName</td>
-                                <td>@Truncate(r.Reasons, 45)</td>
-                                <td class="text-sm">
-                                    @if (r.Tags != null && r.Tags.Count > 0)
-                                    {
-                                        <div class="flex items-center gap-1 flex-wrap">
-                                            @foreach (var tag in r.Tags.Take(5))
+                            <span class="reason-clamp">@r.Reasons</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-xs">—</span>
+                        }
+                    </td>
+                    <td class="col-tags">
+                        @if (r.Tags != null && r.Tags.Count > 0)
+                        {
+                            <div class="flex items-center gap-1 flex-wrap">
+                                @foreach (var tag in r.Tags.Take(5))
+                                {
+                                    <span class="tag-badge-pill"
+                                          style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                        #@tag.Name
+                                    </span>
+                                }
+                                @if (r.Tags.Count > 5)
+                                {
+                                    var overflowCount = r.Tags.Count - 5;
+                                    <div class="tag-tooltip-container" @onclick:stopPropagation="true">
+                                        <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                            +@overflowCount
+                                        </span>
+                                        <div class="tag-tooltip-popup">
+                                            @foreach (var ot in r.Tags.Skip(5))
                                             {
-                                                <span class="tag-badge-pill"
-                                                      style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
-                                                    #@tag.Name
-                                                </span>
-                                            }
-                                            @if (r.Tags.Count > 5)
-                                            {
-                                                var overflowCount = r.Tags.Count - 5;
-                                                <div class="tag-tooltip-container" @onclick:stopPropagation="true">
-                                                    <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
-                                                        +@overflowCount
-                                                    </span>
-                                                    <div class="tag-tooltip-popup">
-                                                        @foreach (var ot in r.Tags.Skip(5))
-                                                        {
-                                                            <span>#@ot.Name</span>
-                                                        }
-                                                    </div>
-                                                </div>
+                                                <span>#@ot.Name</span>
                                             }
                                         </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="text-muted text-xs">—</span>
-                                    }
-                                </td>
-                                <td class="text-end">
-                                    @r.RequestedAmount.ToString("N2") <span class="text-muted text-sm">@r.CurrencyCode</span>
-                                    @if (r.CurrencyCode != "MMK" && r.RequestedAmountInMmkAtSubmission > 0)
-                                    {
-                                        <div class="text-sm text-muted">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N2") MMK</div>
-                                    }
-                                </td>
-                                <td>
-                                    <span class="badge @StatusBadgeClass(r.Status)">@StatusLabel(r.Status)</span>
-                                    <MonthlyLimitBadge MonthlyLimitAtSubmission="@r.MonthlyLimitAtSubmission"
-                                        MonthlySpendBeforeAtSubmission="@r.MonthlySpendBeforeAtSubmission"
-                                        RequestedAmountInMmkAtSubmission="@r.RequestedAmountInMmkAtSubmission" />
-                                </td>
-                                <td class="text-sm @(_view == "overdue" ? "text-danger font-semibold" : "text-muted")">
-                                    @if (_view == "overdue")
-                                    {
-                                        @r.ReconciliationDeadline.ToMyanmarTime()
-                                    }
-                                    else
-                                    {
-                                        @r.SubmittedAt.ToMyanmarTime()
-                                    }
-                                </td>
-                                <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                    <div class="row-hover-btn-wrapper">
-                                        <div class="row-hover-backdrop"></div>
-                                        <button type="button" class="btn-three-dots" title="Quick actions"
-                                                @onclick="e => OpenContextMenuFromButton(e, r)">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                                <circle cx="12" cy="5" r="2"/>
-                                                <circle cx="12" cy="12" r="2"/>
-                                                <circle cx="12" cy="19" r="2"/>
-                                            </svg>
-                                        </button>
                                     </div>
-                                </td>
-                            </tr>
+                                }
+                            </div>
                         }
-                        @if (!Items.Any())
+                        else
                         {
-                            @if (_appliedHasFilters)
-                            {
-                                <tr><td colspan="9" class="text-center text-muted ">No requests match your search/filters.</td></tr>
-                            }
-                            else
-                            {
-                                <tr><td colspan="9" class="text-center text-muted ">@EmptyText()</td></tr>
-                            }
+                            <span class="text-muted text-xs">—</span>
                         }
-                    </tbody>
-                </table>
-            </div>
+                    </td>
+                    <td class="text-end font-semibold col-requested">
+                        @r.RequestedAmount.ToString("N2") <span class="ccy-tag">@r.CurrencyCode</span>
+                        @if (r.CurrencyCode != "MMK" && r.RequestedAmountInMmkAtSubmission > 0)
+                        {
+                            <div class="text-xs text-muted font-normal">≈ @r.RequestedAmountInMmkAtSubmission.ToString("N2") MMK</div>
+                        }
+                    </td>
+                    <td class="col-status">
+                        <div class="status-chip-group">
+                            <span class="chip @StatusChipClass(r.Status)"><span class="dot"></span>@StatusLabel(r.Status)</span>
+                            @if (r.IsOverLimit)
+                            {
+                                <span class="chip chip-overlimit" title="Routed through Management">Over-limit</span>
+                            }
+                        </div>
+                    </td>
+                    @if (_view == "overdue")
+                    {
+                        <td class="text-sm text-danger font-semibold">
+                            @r.ReconciliationDeadline.ToMyanmarTime()
+                        </td>
+                    }
+                    <td class="sticky-action-col" @onclick:stopPropagation="true">
+                        <div class="row-hover-btn-wrapper">
+                            <div class="row-hover-backdrop"></div>
+                            <button type="button" class="btn-three-dots" title="Quick actions"
+                                    @onclick="e => OpenContextMenuFromButton(e, r)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="5" r="2"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <circle cx="12" cy="19" r="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            </RowTemplateWithIndex>
+            <EmptyContent>
+                @if (_appliedHasFilters)
+                {
+                    <span>No requests match your search/filters.</span>
+                }
+                else
+                {
+                    <span>@EmptyText()</span>
+                }
+            </EmptyContent>
+            <PaginationContent>
+                <div class="flex items-center justify-between flex-wrap gap-3">
+                    <span class="text-sm text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
+                    <div class="flex items-center gap-2">
+                        <button class="btn btn-outline btn-sm"
+                                disabled="@(!(_result?.HasPrev ?? false))"
+                                @onclick="() => LoadPageAsync(_currentPage - 1)">‹ Prev</button>
+                        <span class="text-sm text-muted">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
+                        <button class="btn btn-outline btn-sm"
+                                disabled="@(!(_result?.HasNext ?? false))"
+                                @onclick="() => LoadPageAsync(_currentPage + 1)">Next ›</button>
 
-            @* ─── Pager (same pattern as MyRequests / the report page) ──────── *@
-            <div class="flex items-center justify-between mt-2">
-                <span class="text-sm text-muted">@(_result?.TotalCount ?? 0) request(s)</span>
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-muted ">Page size</label>
-                    <select class="select" style="width:auto" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
-                        <option value="20">20</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                    <button class="btn btn-outline btn-sm"
-                            disabled="@(!(_result?.HasPrev ?? false))"
-                            @onclick="() => LoadPageAsync(_currentPage - 1)">Prev</button>
-                    <span class="text-sm">Page @(_result?.Page ?? 1) of @(_result?.TotalPages ?? 1)</span>
-                    <button class="btn btn-outline btn-sm"
-                            disabled="@(!(_result?.HasNext ?? false))"
-                            @onclick="() => LoadPageAsync(_currentPage + 1)">Next</button>
+                        <div class="flex items-center gap-2 ml-3">
+                            <span class="text-sm text-muted">Per page</span>
+                            <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => LoadPageAsync(1)">
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        }
+            </PaginationContent>
+        </AppTable>
     }
 </div>
 
@@ -792,6 +804,22 @@
     private string SortIndicator(BudgetRequestSortBy column) =>
         _sortBy == column ? (_sortDescending ? "▼" : "▲") : "";
 
+    private RenderFragment RenderSortIcon(params BudgetRequestSortBy[] columns) => builder =>
+    {
+        if (!columns.Contains(_sortBy)) return;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "sort-icon");
+        if (_sortDescending)
+        {
+            builder.AddMarkupContent(2, "<svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 6l4 4 4-4\"/></svg>");
+        }
+        else
+        {
+            builder.AddMarkupContent(2, "<svg width=\"12\" height=\"12\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 10l4-4 4 4\"/></svg>");
+        }
+        builder.CloseElement();
+    };
+
     private IReadOnlyList<BudgetRequestSummaryDto> Items =>
         _result?.Items ?? Array.Empty<BudgetRequestSummaryDto>();
 
@@ -1201,6 +1229,24 @@
         RequestStatus.AwaitingReimbursement => "Awaiting Reimb.",
         RequestStatus.Reconciled            => "Reconciled",
         _ => s.ToString()
+    };
+
+    private static string StatusChipClass(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft             => "chip-draft",
+        RequestStatus.PendingDeptHead
+            or RequestStatus.PendingManagement
+            or RequestStatus.PendingFinance
+            or RequestStatus.PendingReconciliation
+            or RequestStatus.AwaitingRefund => "chip-pending",
+        RequestStatus.SentBack
+            or RequestStatus.AwaitingReimbursement => "chip-sentback",
+        RequestStatus.Approved          => "chip-approved",
+        RequestStatus.PartiallyPaid     => "chip-partial",
+        RequestStatus.Paid
+            or RequestStatus.Reconciled => "chip-paid",
+        RequestStatus.Rejected          => "chip-rejected",
+        _                               => "chip-draft"
     };
 
     private static string StatusBadgeClass(RequestStatus s) => s switch

@@ -312,27 +312,28 @@ input[type="number"] {
 
 /* 7. Data table */
 .table-wrapper {
-  background: white; border-radius: var(--radius-md);
-  border: 1px solid var(--color-border); overflow-y: hidden; overflow-x: auto;
+  background: white; border-radius: 8px;
+  border: 1px solid #E2E8F0; overflow-y: hidden; overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table thead th.text-end, .data-table tbody td.text-end { text-align: right; }
+.data-table thead th.text-end, .data-table tbody td.text-end { text-align: right !important; }
 .data-table thead th {
-  font-size: 12px; font-weight: 600; color: var(--color-text-muted);
-  background: #FAFBFC; border-bottom: 1px solid var(--color-border);
-  padding: 10px 16px; text-align: left; white-space: nowrap;
-  text-transform: uppercase; letter-spacing: 0.04em;
+  font-size: 11px; font-weight: 700; color: #64748B;
+  background: #F8FAFC; border-bottom: 1px solid #E2E8F0;
+  padding: 9px 12px; text-align: left; white-space: nowrap;
+  text-transform: uppercase; letter-spacing: 0.05em;
 }
 .data-table tbody td {
-  font-size: 14px; padding: 13px 16px;
-  border-bottom: 1px solid var(--color-border);
+  font-size: 13px; padding: 8px 12px;
+  border-bottom: 1px solid #F1F5F9;
   color: var(--color-text-dark); vertical-align: middle;
 }
 .data-table tbody tr:last-child td { border-bottom: none; }
-.data-table tbody tr:hover td { background: #f1f5f9; }
-.data-table .col-no { width: 48px; color: var(--color-text-muted); font-size: 13px; }
+.data-table tbody tr:hover td { background: #F8FAFC; }
+.data-table .col-no { width: 44px; color: #94A3B8; font-size: 12px; text-align: center; }
 .data-table .col-actions { width: 80px; text-align: right; }
-.clickable-row { cursor: pointer; }
+.clickable-row { cursor: pointer; transition: background 60ms ease; }
 .empty-cell { text-align: center; padding: 40px 16px !important; color: var(--color-text-muted); font-size: 14px; }
 .text-muted-cell { color: var(--color-text-muted); font-size: 13px; }
 /* Overdue cell */
@@ -349,6 +350,15 @@ input[type="number"] {
   display: inline-flex; align-items: center; height: 28px; padding: 0 10px;
   border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; border: 1px solid;
   white-space: nowrap;
+}
+.data-table .badge,
+.macos-table .badge {
+  height: 22px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 8px;
+  border-radius: 9999px;
+  line-height: 1;
 }
 .badge-pending   { color: var(--color-pending);  background: var(--color-pending-bg);  border-color: var(--color-pending);  }
 .badge-paid      { color: var(--color-paid);     background: var(--color-paid-bg);     border-color: var(--color-paid);     }
@@ -1595,6 +1605,11 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   text-align: right !important;
 }
 
+.macos-table .col-ref-date {
+  min-width: 160px;
+  white-space: nowrap;
+}
+
 .macos-table .col-requester {
   min-width: 175px;
 }
@@ -1602,6 +1617,10 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
 .macos-table .col-reason {
   min-width: 180px;
   max-width: 240px;
+}
+
+.macos-table .col-tags {
+  min-width: 160px;
 }
 
 .macos-table .col-requested {
@@ -1731,4 +1750,85 @@ button.badge:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 10.5px;
   padding: 0 7px;
   height: 20px;
+}
+
+/* Datetime Hover Tooltip */
+.datetime-tooltip-trigger {
+  position: relative;
+  display: inline-block;
+}
+
+.ref-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #64748b;
+  font-size: 11.5px;
+  cursor: help;
+  margin-top: 1px;
+  border-bottom: 1px dotted #cbd5e1;
+}
+
+.ref-time:hover {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.datetime-popup {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 1000;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  white-space: nowrap;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.datetime-popup::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 16px;
+  width: 8px;
+  height: 8px;
+  background: #0f172a;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  transform: rotate(45deg);
+}
+
+.datetime-tooltip-trigger:hover .datetime-popup {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.popup-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.popup-label {
+  color: #94a3b8;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.popup-val {
+  font-weight: 600;
+  color: #ffffff;
+  font-feature-settings: "tnum";
 }

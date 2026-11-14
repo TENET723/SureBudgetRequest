@@ -85,9 +85,9 @@
                   ColSpan="11">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
-                <th role="button" class="sortable"
+                <th role="button" class="sortable col-ref-date"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.SubmittedAt))">
-                    Reference & Date @RenderSortIcon(BudgetRequestSortBy.SubmittedAt, BudgetRequestSortBy.Reference)
+                    Reference @RenderSortIcon(BudgetRequestSortBy.SubmittedAt, BudgetRequestSortBy.Reference)
                 </th>
                 <th role="button" class="sortable col-requester"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.Requester))">
@@ -116,9 +116,23 @@
                     @oncontextmenu="e => OpenContextMenu(e, r)"
                     @oncontextmenu:preventDefault="true">
                     <td class="sticky-no-col text-muted text-sm text-center">@((_result!.Page - 1) * _result.PageSize + i + 1)</td>
-                    <td class="text-sm">
+                    <td class="text-sm col-ref-date">
                         <div class="font-semibold text-dark">@(r.Reference ?? "—")</div>
-                        <div class="text-muted text-xs">@r.SubmittedAt.ToMyanmarTime()</div>
+                        <div class="datetime-tooltip-trigger">
+                            <div class="ref-time">
+                                <span>@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : r.RequestDate.ToString("dd MMM yyyy"))</span>
+                            </div>
+                            <div class="datetime-popup">
+                                <div class="popup-row">
+                                    <span class="popup-label">Submitted:</span>
+                                    <span class="popup-val">@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : "Not submitted (Draft)")</span>
+                                </div>
+                                <div class="popup-row">
+                                    <span class="popup-label">Request Date:</span>
+                                    <span class="popup-val">@r.RequestDate.ToString("dd MMM yyyy")</span>
+                                </div>
+                            </div>
+                        </div>
                     </td>
                     <td class="text-sm col-requester">
                         <div>@LookupUser(r.RequesterId)</div>

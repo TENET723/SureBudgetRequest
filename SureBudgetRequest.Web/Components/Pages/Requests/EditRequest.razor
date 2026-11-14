@@ -27,7 +27,36 @@
 
     @if (_loading)
     {
-        <div class="spinner-wrap"><div class="spinner"></div></div>
+        <div class="flex items-center justify-between mb-4">
+            <span class="skeleton-box" style="height: 14px; width: 100px;"></span>
+            <span class="skeleton-box" style="height: 22px; width: 180px;"></span>
+            <span class="skeleton-box" style="height: 14px; width: 120px;"></span>
+        </div>
+
+        <div class="card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+            <div>
+                <span class="skeleton-box" style="height: 14px; width: 90px; margin-bottom: 6px; display: block;"></span>
+                <span class="skeleton-box" style="height: 38px; width: 100%; border-radius: 6px; display: block;"></span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div>
+                    <span class="skeleton-box" style="height: 14px; width: 70px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 38px; width: 100%; border-radius: 6px; display: block;"></span>
+                </div>
+                <div>
+                    <span class="skeleton-box" style="height: 14px; width: 80px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 38px; width: 100%; border-radius: 6px; display: block;"></span>
+                </div>
+            </div>
+            <div>
+                <span class="skeleton-box" style="height: 14px; width: 110px; margin-bottom: 6px; display: block;"></span>
+                <span class="skeleton-box" style="height: 80px; width: 100%; border-radius: 6px; display: block;"></span>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <span class="skeleton-box" style="height: 36px; width: 100px; border-radius: 6px;"></span>
+                <span class="skeleton-box" style="height: 36px; width: 80px; border-radius: 6px;"></span>
+            </div>
+        </div>
     }
     else if (_request is null)
     {
@@ -289,7 +318,7 @@
                                 <table class="data-table">
                                     <thead>
                                         <tr>
-                                            <th class="col-no">#</th>
+                                            <th class="col-no">NO.</th>
                                             <th>Provider</th>
                                             <th>Account / Phone</th>
                                             <th>Account Holder</th>

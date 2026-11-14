@@ -48,7 +48,63 @@
 
 @if (_loading)
 {
-    <div class="spinner-wrap"><div class="spinner"></div></div>
+    <div class="page-wrap" style="max-width:800px; margin: auto;">
+        @* Header Skeleton *@
+        <div class="flex items-start justify-content-between mb-4">
+            <div>
+                <span class="skeleton-box" style="height: 12px; width: 120px; display: block; margin-bottom: 8px;"></span>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="skeleton-box" style="height: 24px; width: 180px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 22px; width: 60px; border-radius: 4px;"></span>
+                </div>
+                <span class="skeleton-box" style="height: 14px; width: 140px; margin-top: 6px; display: block;"></span>
+            </div>
+            <span class="skeleton-box skeleton-pill" style="height: 26px; width: 90px;"></span>
+        </div>
+
+        @* Summary Card Skeleton *@
+        <div class="card mb-4" style="padding: 1.25rem;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem;">
+                <div>
+                    <span class="skeleton-box" style="height: 12px; width: 70px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 20px; width: 130px; display: block;"></span>
+                </div>
+                <div>
+                    <span class="skeleton-box" style="height: 12px; width: 80px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 20px; width: 150px; display: block;"></span>
+                </div>
+                <div>
+                    <span class="skeleton-box" style="height: 12px; width: 60px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 20px; width: 120px; display: block;"></span>
+                </div>
+                <div>
+                    <span class="skeleton-box" style="height: 12px; width: 90px; margin-bottom: 6px; display: block;"></span>
+                    <span class="skeleton-box" style="height: 20px; width: 140px; display: block;"></span>
+                </div>
+            </div>
+        </div>
+
+        @* Body / Description Skeleton *@
+        <div class="card mb-4" style="padding: 1.25rem;">
+            <span class="skeleton-box" style="height: 14px; width: 100px; margin-bottom: 12px; display: block;"></span>
+            <span class="skeleton-box" style="height: 14px; width: 100%; margin-bottom: 8px; display: block;"></span>
+            <span class="skeleton-box" style="height: 14px; width: 85%; margin-bottom: 8px; display: block;"></span>
+            <span class="skeleton-box" style="height: 14px; width: 60%; display: block;"></span>
+        </div>
+
+        @* Activity / Tabs Skeleton *@
+        <div class="card" style="padding: 1.25rem;">
+            <div class="flex items-center gap-3 mb-3 border-bottom pb-2">
+                <span class="skeleton-box" style="height: 16px; width: 80px;"></span>
+                <span class="skeleton-box" style="height: 16px; width: 90px;"></span>
+                <span class="skeleton-box" style="height: 16px; width: 70px;"></span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <span class="skeleton-box" style="height: 36px; width: 100%; border-radius: 6px;"></span>
+                <span class="skeleton-box" style="height: 36px; width: 100%; border-radius: 6px;"></span>
+            </div>
+        </div>
+    </div>
 }
 else if (_request is null)
 {
@@ -510,7 +566,7 @@ else
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-no">#</th>
+                                        <th class="col-no">NO.</th>
                                         <th>Provider</th>
                                         <th>Account / Phone</th>
                                         <th>Account Holder</th>
@@ -739,7 +795,7 @@ else
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-no">No</th>
+                                        <th class="col-no">NO.</th>
                                         <th>Paid At</th>
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Source Account</th>
@@ -916,7 +972,7 @@ else
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-no">No</th>
+                                        <th class="col-no">NO.</th>
                                         <th>Spent At</th>
                                         <th class="text-end">Amount (@_request.CurrencyCode)</th>
                                         <th>Description</th>
@@ -1619,7 +1675,7 @@ else
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th class="col-no">No</th>
+                                        <th class="col-no">NO.</th>
                                         <th>When</th>
                                         <th>Updated By</th>
                                         <th>Note</th>

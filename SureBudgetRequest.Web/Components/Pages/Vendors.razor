@@ -49,120 +49,150 @@
                        Placeholder="Search name, phone, or account..." Width="260px" />
     </div>
 
-    @if (_loading)
-    {
-        <div class="text-center py-5"><div class="spinner spinner-sm"></div></div>
+    @{
+        var page = _page;
+        var pageSize = _pageSize;
+        var paged = _filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var totalPages = (int)Math.Ceiling(_filtered.Count / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
     }
-    else
-    {
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th class="col-no">#</th>
-                        <th>Name</th>
-                        <th>Payment Provider</th>
-                        <th>Contact</th>
-                        <th>Status</th>
-                        <th class="sticky-action-col"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < _filtered.Count; i++)
+
+    <AppTable TItem="VendorDto"
+              Items="@paged"
+              IsLoading="@_loading"
+              ColSpan="6">
+        <TableHeader>
+            <th class="sticky-no-col font-bold">NO.</th>
+            <th>Name</th>
+            <th>Payment Provider</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th class="sticky-action-col"></th>
+        </TableHeader>
+        <RowTemplateWithIndex Context="ctx">
+            @{
+                var v = ctx.Item;
+                var i = ctx.Index;
+                var rowNo = (page - 1) * pageSize + i + 1;
+            }
+            <tr class="clickable-row @(!v.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == v.Id ? "menu-open" : "")"
+                @onclick="() => OpenEdit(v)"
+                @oncontextmenu="e => OpenContextMenu(e, v)"
+                @oncontextmenu:preventDefault="true">
+                <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                <td>
+                    <strong>@v.Name</strong>
+                    @if (!string.IsNullOrEmpty(v.Address))
                     {
-                        var v = _filtered[i];
-                        <tr class="clickable-row @(!v.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == v.Id ? "menu-open" : "")"
-                            @onclick="() => OpenEdit(v)"
-                            @oncontextmenu="e => OpenContextMenu(e, v)"
-                            @oncontextmenu:preventDefault="true">
-                            <td class="text-muted text-sm col-no">@(i + 1)</td>
-                            <td>
-                                <strong>@v.Name</strong>
-                                @if (!string.IsNullOrEmpty(v.Address))
-                                {
-                                    <div class="text-xs text-muted">@v.Address</div>
-                                }
-                            </td>
-                            <td>
-                                @{
-                                    var activeAccounts = v.PaymentAccounts.Where(a => _showInactive || a.IsActive).ToList();
-                                    var providers = activeAccounts.Select(a => a.ProviderName).Distinct().ToList();
-                                }
-                                @if (providers.Any())
-                                {
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        @foreach (var p in providers)
-                                        {
-                                            <span class="badge badge-secondary text-xs">@p</span>
-                                        }
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="text-muted text-sm">—</span>
-                                }
-                            </td>
-                            <td>
-                                @if (!string.IsNullOrEmpty(v.ContactPerson))
-                                {
-                                    <div>@v.ContactPerson</div>
-                                }
-                                @if (!string.IsNullOrEmpty(v.Phone))
-                                {
-                                    <div class="text-xs text-muted font-mono">@v.Phone</div>
-                                }
-                                @if (string.IsNullOrEmpty(v.ContactPerson) && string.IsNullOrEmpty(v.Phone))
-                                {
-                                    <span class="text-muted text-sm">—</span>
-                                }
-                            </td>
-                            <td @onclick:stopPropagation="true">
-                                @if (v.IsActive)
-                                {
-                                    @if (CanManage)
-                                    {
-                                        <button class="badge badge-active" @onclick="() => ConfirmDeactivate(v)" title="Click to deactivate">Active</button>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge badge-active">Active</span>
-                                    }
-                                }
-                                else
-                                {
-                                    @if (CanManage)
-                                    {
-                                        <AsyncButton Class="badge badge-inactive" OnClick="@(() => DoReactivate(v))" title="Click to activate">Inactive</AsyncButton>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge badge-inactive">Inactive</span>
-                                    }
-                                }
-                            </td>
-                            <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                <div class="row-hover-btn-wrapper">
-                                    <div class="row-hover-backdrop"></div>
-                                    <button type="button" class="btn-three-dots" title="Quick actions"
-                                            @onclick="e => OpenContextMenuFromButton(e, v)">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                            <circle cx="12" cy="5" r="2"/>
-                                            <circle cx="12" cy="12" r="2"/>
-                                            <circle cx="12" cy="19" r="2"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                        <div class="text-xs text-muted">@v.Address</div>
                     }
-                    @if (!_filtered.Any())
+                </td>
+                <td>
+                    @{
+                        var activeAccounts = v.PaymentAccounts.Where(a => _showInactive || a.IsActive).ToList();
+                        var providers = activeAccounts.Select(a => a.ProviderName).Distinct().ToList();
+                    }
+                    @if (providers.Any())
                     {
-                        <tr><td colspan="6" class="text-center text-muted">No vendors found.</td></tr>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            @foreach (var p in providers)
+                            {
+                                <span class="badge badge-secondary text-xs">@p</span>
+                            }
+                        </div>
                     }
-                </tbody>
-            </table>
-        </div>
-    }
+                    else
+                    {
+                        <span class="text-muted text-sm">—</span>
+                    }
+                </td>
+                <td>
+                    @if (!string.IsNullOrEmpty(v.ContactPerson))
+                    {
+                        <div>@v.ContactPerson</div>
+                    }
+                    @if (!string.IsNullOrEmpty(v.Phone))
+                    {
+                        <div class="text-xs text-muted font-mono">@v.Phone</div>
+                    }
+                    @if (string.IsNullOrEmpty(v.ContactPerson) && string.IsNullOrEmpty(v.Phone))
+                    {
+                        <span class="text-muted text-sm">—</span>
+                    }
+                </td>
+                <td @onclick:stopPropagation="true">
+                    @if (v.IsActive)
+                    {
+                        @if (CanManage)
+                        {
+                            <button class="badge badge-active" @onclick="() => ConfirmDeactivate(v)" title="Click to deactivate">Active</button>
+                        }
+                        else
+                        {
+                            <span class="badge badge-active">Active</span>
+                        }
+                    }
+                    else
+                    {
+                        @if (CanManage)
+                        {
+                            <AsyncButton Class="badge badge-inactive" OnClick="@(() => DoReactivate(v))" title="Click to activate">Inactive</AsyncButton>
+                        }
+                        else
+                        {
+                            <span class="badge badge-inactive">Inactive</span>
+                        }
+                    }
+                </td>
+                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                    <div class="row-hover-btn-wrapper">
+                        <div class="row-hover-backdrop"></div>
+                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                @onclick="e => OpenContextMenuFromButton(e, v)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="19" r="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </RowTemplateWithIndex>
+        <EmptyContent>
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <span>No vendors match your search.</span>
+            }
+            else
+            {
+                <span>No vendors found.</span>
+            }
+        </EmptyContent>
+        <PaginationContent>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <span class="text-sm text-muted">@_filtered.Count vendor(s)</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page <= 1)"
+                            @onclick="() => _page--">‹ Prev</button>
+                    <span class="text-sm text-muted">Page @(page) of @totalPages</span>
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page >= totalPages)"
+                            @onclick="() => _page++">Next ›</button>
+
+                    <div class="flex items-center gap-2 ml-3">
+                        <span class="text-sm text-muted">Per page</span>
+                        <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => _page = 1">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </PaginationContent>
+    </AppTable>
 </div>
 
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
@@ -230,7 +260,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th class="col-no">No</th>
+                                    <th class="col-no">NO.</th>
                                     <th>Account Details</th>
                                     <th>Account Holder</th>
                                     <th>Attachment</th>
@@ -688,6 +718,8 @@
     private bool _saving = false;
     private bool _showInactive = false;
     private string _search = "";
+    private int _page = 1;
+    private int _pageSize = 20;
 
     private List<VendorDto> _vendors = new();
     private List<VendorDto> _filtered = new();
@@ -787,6 +819,7 @@
 
     private void ApplyFilter()
     {
+        _page = 1;
         if (string.IsNullOrWhiteSpace(_search))
         {
             _filtered = _vendors.ToList();

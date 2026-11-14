@@ -16,25 +16,41 @@
                 {
                     @for (var s = 0; s < SkeletonRowCount; s++)
                     {
-                        <tr>
-                            <td class="sticky-no-col"><span class="skeleton-box" style="height: 14px; width: 16px;"></span></td>
-                            <td>
-                                <span class="skeleton-box" style="height: 15px; width: 110px; margin-bottom: 4px; display: block;"></span>
-                                <span class="skeleton-box" style="height: 12px; width: 80px; display: block;"></span>
-                            </td>
-                            <td>
-                                <span class="skeleton-box" style="height: 15px; width: 100px; margin-bottom: 4px; display: block;"></span>
-                                <span class="skeleton-box" style="height: 12px; width: 120px; display: block;"></span>
-                            </td>
-                            <td><span class="skeleton-box" style="height: 14px; width: @(s % 2 == 0 ? "170px" : "210px");"></span></td>
-                            <td><span class="skeleton-box skeleton-pill" style="height: 20px; width: @(s % 2 == 0 ? "65px" : "80px");"></span></td>
-                            <td class="text-end"><span class="skeleton-box" style="height: 15px; width: 110px;"></span></td>
-                            <td class="text-end"><span class="skeleton-box" style="height: 14px; width: 95px;"></span></td>
-                            <td><span class="skeleton-box skeleton-pill" style="height: 22px; width: 85px;"></span></td>
-                            <td><span class="skeleton-box" style="height: 14px; width: 65px;"></span></td>
-                            <td><span class="skeleton-box" style="height: 14px; width: 95px;"></span></td>
-                            <td class="sticky-action-col"></td>
-                        </tr>
+                        @if (SkeletonTemplate != null)
+                        {
+                            @SkeletonTemplate(s)
+                        }
+                        else if (ColSpan == 11)
+                        {
+                            <tr>
+                                <td class="sticky-no-col"><span class="skeleton-box" style="height: 14px; width: 16px;"></span></td>
+                                <td>
+                                    <span class="skeleton-box" style="height: 15px; width: 110px; margin-bottom: 4px; display: block;"></span>
+                                    <span class="skeleton-box" style="height: 12px; width: 80px; display: block;"></span>
+                                </td>
+                                <td>
+                                    <span class="skeleton-box" style="height: 15px; width: 100px; margin-bottom: 4px; display: block;"></span>
+                                    <span class="skeleton-box" style="height: 12px; width: 120px; display: block;"></span>
+                                </td>
+                                <td><span class="skeleton-box" style="height: 14px; width: @(s % 2 == 0 ? "170px" : "210px");"></span></td>
+                                <td><span class="skeleton-box skeleton-pill" style="height: 20px; width: @(s % 2 == 0 ? "65px" : "80px");"></span></td>
+                                <td class="text-end"><span class="skeleton-box" style="height: 15px; width: 110px;"></span></td>
+                                <td class="text-end"><span class="skeleton-box" style="height: 14px; width: 95px;"></span></td>
+                                <td><span class="skeleton-box skeleton-pill" style="height: 22px; width: 85px;"></span></td>
+                                <td><span class="skeleton-box" style="height: 14px; width: 65px;"></span></td>
+                                <td><span class="skeleton-box" style="height: 14px; width: 95px;"></span></td>
+                                <td class="sticky-action-col"></td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr>
+                                @for (var c = 0; c < ColSpan; c++)
+                                {
+                                    <td><span class="skeleton-box" style="height: 14px; width: @(c == 0 ? "24px" : c == ColSpan - 1 ? "40px" : (60 + (c * 17) % 35) + "%");"></span></td>
+                                }
+                            </tr>
+                        }
                     }
                 }
                 else if (Items != null && Items.Count > 0)
@@ -101,6 +117,7 @@
     [Parameter] public RenderFragment? TableHeader { get; set; }
     [Parameter] public RenderFragment<TItem>? RowTemplate { get; set; }
     [Parameter] public RenderFragment<(TItem Item, int Index)>? RowTemplateWithIndex { get; set; }
+    [Parameter] public RenderFragment<int>? SkeletonTemplate { get; set; }
     [Parameter] public RenderFragment? EmptyContent { get; set; }
     [Parameter] public RenderFragment? PaginationContent { get; set; }
     [Parameter] public bool IsLoading { get; set; }

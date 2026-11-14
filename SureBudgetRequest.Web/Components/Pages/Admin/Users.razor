@@ -58,95 +58,118 @@
         </div>
     </div>
 
-    @if (_loading)
-    {
-        <div class="text-center "><div class="spinner spinner-sm"></div></div>
+    @{
+        var page = _page;
+        var pageSize = _pageSize;
+        var paged = _filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var totalPages = (int)Math.Ceiling(_filtered.Count / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
     }
-    else
-    {
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead >
-                    <tr>
-                        <th class="col-no">#</th>
-                        <th>Full Name</th>
-                        <th>Email</th>
-                        <th>Username</th>
-                        <th>Department</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Last Login At</th>
-                        <th class="sticky-action-col"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < _filtered.Count; i++)
+
+    <AppTable TItem="UserDto"
+              Items="@paged"
+              IsLoading="@_loading"
+              ColSpan="9">
+        <TableHeader>
+            <th class="sticky-no-col font-bold">NO.</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Username</th>
+            <th>Department</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login At</th>
+            <th class="sticky-action-col"></th>
+        </TableHeader>
+        <RowTemplateWithIndex Context="ctx">
+            @{
+                var u = ctx.Item;
+                var i = ctx.Index;
+                var rowNo = (page - 1) * pageSize + i + 1;
+            }
+            <tr class="clickable-row @(!u.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == u.Id ? "menu-open" : "")"
+                @onclick="() => OpenEdit(u)"
+                @oncontextmenu="e => OpenContextMenu(e, u)"
+                @oncontextmenu:preventDefault="true">
+                <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                <td><strong>@u.FullName</strong></td>
+                <td class="text-sm">@u.Email</td>
+                <td class="text-muted text-sm font-mono">@u.Username</td>
+                <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
+                <td>
+                    <span class="badge badge-role">@u.Role</span>
+                    @if (u.Role == UserRole.Finance)
                     {
-                        var u = _filtered[i];
-                        <tr class="clickable-row @(!u.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == u.Id ? "menu-open" : "")"
-                            @onclick="() => OpenEdit(u)"
-                            @oncontextmenu="e => OpenContextMenu(e, u)"
-                            @oncontextmenu:preventDefault="true">
-                            <td class="text-muted text-sm col-no">@(i + 1)</td>
-                            <td><strong>@u.FullName</strong></td>
-                            <td class="text-sm">@u.Email</td>
-                            <td class="text-muted text-sm font-mono">@u.Username</td>
-                            <td>@(_deptNames.TryGetValue(u.DepartmentId, out var dn) ? dn : "—")</td>
-                            <td>
-                                <span class="badge badge-role">@u.Role</span>
-                                @if (u.Role == UserRole.Finance)
-                                {
-                                    @if (u.IsFinanceApprover)
-                                    {
-                                        <span class="badge badge-role" title="Can approve, reject, send back, and record payments.">Approver</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge badge-role" title="Can only record payments.">Payer only</span>
-                                    }
-                                }
-                            </td>
-                            <td @onclick:stopPropagation="true">
-                                @if (u.IsActive)
-                                {
-                                    <button class="badge badge-active" @onclick="() => ConfirmDeactivate(u)" title="Click to deactivate">Active</button>
-                                }
-                                else
-                                {
-                                    <button class="badge badge-inactive" @onclick="() => ConfirmReactivate(u)" title="Click to reactivate">Inactive</button>
-                                }
-                            </td>
-                            <td class="text-sm text-muted">@u.LastLoginAt.ToMyanmarTime()</td>
-                            <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                <div class="row-hover-btn-wrapper">
-                                    <div class="row-hover-backdrop"></div>
-                                    <button type="button" class="btn-three-dots" title="Quick actions"
-                                            @onclick="e => OpenContextMenuFromButton(e, u)">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                            <circle cx="12" cy="5" r="2"/>
-                                            <circle cx="12" cy="12" r="2"/>
-                                            <circle cx="12" cy="19" r="2"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                    @if (!_filtered.Any())
-                    {
-                        @if (!string.IsNullOrWhiteSpace(_search))
+                        @if (u.IsFinanceApprover)
                         {
-                            <tr><td colspan="9" class="text-center text-muted ">No users match your search.</td></tr>
+                            <span class="badge badge-role" title="Can approve, reject, send back, and record payments.">Approver</span>
                         }
                         else
                         {
-                            <tr><td colspan="9" class="text-center text-muted ">No users found.</td></tr>
+                            <span class="badge badge-role" title="Can only record payments.">Payer only</span>
                         }
                     }
-                </tbody>
-            </table>
-        </div>
-    }
+                </td>
+                <td @onclick:stopPropagation="true">
+                    @if (u.IsActive)
+                    {
+                        <button class="badge badge-active" @onclick="() => ConfirmDeactivate(u)" title="Click to deactivate">Active</button>
+                    }
+                    else
+                    {
+                        <button class="badge badge-inactive" @onclick="() => ConfirmReactivate(u)" title="Click to reactivate">Inactive</button>
+                    }
+                </td>
+                <td class="text-sm text-muted">@u.LastLoginAt.ToMyanmarTime()</td>
+                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                    <div class="row-hover-btn-wrapper">
+                        <div class="row-hover-backdrop"></div>
+                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                @onclick="e => OpenContextMenuFromButton(e, u)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="19" r="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </RowTemplateWithIndex>
+        <EmptyContent>
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <span>No users match your search.</span>
+            }
+            else
+            {
+                <span>No users found.</span>
+            }
+        </EmptyContent>
+        <PaginationContent>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <span class="text-sm text-muted">@_filtered.Count user(s)</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page <= 1)"
+                            @onclick="() => _page--">‹ Prev</button>
+                    <span class="text-sm text-muted">Page @(page) of @totalPages</span>
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page >= totalPages)"
+                            @onclick="() => _page++">Next ›</button>
+
+                    <div class="flex items-center gap-2 ml-3">
+                        <span class="text-sm text-muted">Per page</span>
+                        <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => _page = 1">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </PaginationContent>
+    </AppTable>
 </div>
 
 @* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
@@ -391,6 +414,8 @@
     private List<DepartmentDto> _departments = new();
     private Dictionary<Guid, string> _deptNames = new();
     private bool _loading = true;
+    private int _page = 1;
+    private int _pageSize = 20;
 
     // Filters
     private string _search = "";
@@ -510,6 +535,7 @@
 
     private void ApplyFilter()
     {
+        _page = 1;
         var term = _search.Trim();
         _filtered = _allUsers
             .Where(u => string.IsNullOrEmpty(_filterDept) || u.DepartmentId.ToString() == _filterDept)

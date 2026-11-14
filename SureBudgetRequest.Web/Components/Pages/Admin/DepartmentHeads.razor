@@ -26,85 +26,108 @@
                        Placeholder="Search department or head" Width="260px" />
     </div>
 
-    @if (_loading)
-    {
-        <div class="text-center "><div class="spinner spinner-sm"></div></div>
+    @{
+        var page = _page;
+        var pageSize = _pageSize;
+        var paged = _filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var totalPages = (int)Math.Ceiling(_filtered.Count / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
     }
-    else
-    {
-        <div class="table-wrapper">
-            <table class="data-table">
-                <thead >
-                    <tr>
-                        <th class="col-no">#</th>
-                        <th>Department</th>
-                        <th class="text-end">Budget Limit (MMK)</th>
-                        <th>Current Head</th>
-                        <th>Status</th>
-                        <th class="sticky-action-col"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @for (var i = 0; i < _filtered.Count; i++)
+
+    <AppTable TItem="DepartmentDto"
+              Items="@paged"
+              IsLoading="@_loading"
+              ColSpan="6">
+        <TableHeader>
+            <th class="sticky-no-col font-bold">NO.</th>
+            <th>Department</th>
+            <th class="text-end">Budget Limit (MMK)</th>
+            <th>Current Head</th>
+            <th>Status</th>
+            <th class="sticky-action-col"></th>
+        </TableHeader>
+        <RowTemplateWithIndex Context="ctx">
+            @{
+                var d = ctx.Item;
+                var i = ctx.Index;
+                var rowNo = (page - 1) * pageSize + i + 1;
+            }
+            <tr class="clickable-row @(!d.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == d.Id ? "menu-open" : "")"
+                @onclick="() => { if (d.IsActive) OpenAssign(d); }"
+                @oncontextmenu="e => OpenContextMenu(e, d)"
+                @oncontextmenu:preventDefault="true">
+                <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                <td><strong>@d.Name</strong></td>
+                <td class="text-end font-mono">@d.BudgetLimit.ToString("N2")</td>
+                <td>
+                    @if (d.HeadUserId.HasValue && _userNames.TryGetValue(d.HeadUserId.Value, out var name))
                     {
-                        var d = _filtered[i];
-                        <tr class="clickable-row @(!d.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == d.Id ? "menu-open" : "")"
-                            @onclick="() => { if (d.IsActive) OpenAssign(d); }"
-                            @oncontextmenu="e => OpenContextMenu(e, d)"
-                            @oncontextmenu:preventDefault="true">
-                            <td class="text-muted text-sm col-no">@(i + 1)</td>
-                            <td><strong>@d.Name</strong></td>
-                            <td class="text-end font-mono">@d.BudgetLimit.ToString("N2")</td>
-                            <td>
-                                @if (d.HeadUserId.HasValue && _userNames.TryGetValue(d.HeadUserId.Value, out var name))
-                                {
-                                    @name
-                                }
-                                else if (d.HeadUserId.HasValue)
-                                {
-                                    <span class="validation-message">Unknown user</span>
-                                }
-                                else
-                                {
-                                    <span class="text-muted text-sm">— none —</span>
-                                }
-                            </td>
-                            <td>
-                                @if (d.IsActive)
-                                { <span class="badge badge-role">Active</span> }
-                                else
-                                { <span class="badge badge-role">Inactive</span> }
-                            </td>
-                            <td class="sticky-action-col" @onclick:stopPropagation="true">
-                                <div class="row-hover-btn-wrapper">
-                                    <div class="row-hover-backdrop"></div>
-                                    <button type="button" class="btn-three-dots" title="Quick actions"
-                                            @onclick="e => OpenContextMenuFromButton(e, d)">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                            <circle cx="12" cy="5" r="2"/>
-                                            <circle cx="12" cy="12" r="2"/>
-                                            <circle cx="12" cy="19" r="2"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                        @name
                     }
-                    @if (!_filtered.Any())
+                    else if (d.HeadUserId.HasValue)
                     {
-                        @if (!string.IsNullOrWhiteSpace(_search))
-                        {
-                            <tr><td colspan="6" class="text-center text-muted ">No departments match your search.</td></tr>
-                        }
-                        else
-                        {
-                            <tr><td colspan="6" class="text-center text-muted ">No departments found.</td></tr>
-                        }
+                        <span class="validation-message">Unknown user</span>
                     }
-                </tbody>
-            </table>
-        </div>
-    }
+                    else
+                    {
+                        <span class="text-muted text-sm">— none —</span>
+                    }
+                </td>
+                <td>
+                    @if (d.IsActive)
+                    { <span class="badge badge-role">Active</span> }
+                    else
+                    { <span class="badge badge-role">Inactive</span> }
+                </td>
+                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                    <div class="row-hover-btn-wrapper">
+                        <div class="row-hover-backdrop"></div>
+                        <button type="button" class="btn-three-dots" title="Quick actions"
+                                @onclick="e => OpenContextMenuFromButton(e, d)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"/>
+                                <circle cx="12" cy="12" r="2"/>
+                                <circle cx="12" cy="19" r="2"/>
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </RowTemplateWithIndex>
+        <EmptyContent>
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <span>No departments match your search.</span>
+            }
+            else
+            {
+                <span>No departments found.</span>
+            }
+        </EmptyContent>
+        <PaginationContent>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <span class="text-sm text-muted">@_filtered.Count department(s)</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page <= 1)"
+                            @onclick="() => _page--">‹ Prev</button>
+                    <span class="text-sm text-muted">Page @(page) of @totalPages</span>
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page >= totalPages)"
+                            @onclick="() => _page++">Next ›</button>
+
+                    <div class="flex items-center gap-2 ml-3">
+                        <span class="text-sm text-muted">Per page</span>
+                        <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => _page = 1">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </PaginationContent>
+    </AppTable>
 </div>
 
 @* ── Assign Head Modal ───────────────────────────────────────────────────────── *@
@@ -193,6 +216,8 @@
     private Dictionary<Guid, string> _userNames = new();
     private bool _loading = true;
     private string _search = "";
+    private int _page = 1;
+    private int _pageSize = 20;
 
     // Assign form
     private DepartmentDto? _assigningDept;
@@ -286,6 +311,7 @@
 
     private void ApplyFilter()
     {
+        _page = 1;
         FilterState.SetSearch("department_heads", _search);
         var term = _search.Trim();
         _filtered = term.Length == 0
