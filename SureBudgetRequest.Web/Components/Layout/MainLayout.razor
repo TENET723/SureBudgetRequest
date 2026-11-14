@@ -8,6 +8,7 @@
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.Users.Queries.GetAvailableDelegations
 @using SureBudgetRequest.Application.Users.Commands.UpdateUserFallback
+@using SureBudgetRequest.Application.Users.Commands.ChangePassword
 @using SureBudgetRequest.Web.Components.Shared
 @using SureBudgetRequest.Web.Services
 @inject ICurrentUser CurrentUser
@@ -15,6 +16,7 @@
 @inject IMediator Mediator
 @inject ToastService Toast
 @inject IDelegationRevocationNotifier DelegationNotifier
+@inject ContextMenuService ContextMenu
 
 <div class="app-shell @(_sidebarCollapsed ? "sidebar-collapsed" : "")" id="app-shell">
     <aside class="sidebar" id="app-sidebar">
@@ -30,6 +32,43 @@
         <nav class="sidebar-nav">
             <NavMenu Collapsed="_sidebarCollapsed" />
         </nav>
+
+        @if (CurrentUser.IsLoaded)
+        {
+            <div class="sidebar-profile-wrap">
+                <button type="button" class="sidebar-profile-trigger @(ContextMenu.IsOpen ? "active" : "")"
+                        @onclick="OpenProfileContextMenu"
+                        title="@CurrentUser.FullName (@CurrentUser.Role)">
+                    <div class="profile-avatar-wrap">
+                        <div class="user-avatar">
+                            @(CurrentUser.FullName.Length > 0 ? CurrentUser.FullName[0].ToString().ToUpper() : "?")
+                        </div>
+                        <span class="avatar-status-dot @(_isOnLeave ? "status-leave" : "status-active")"></span>
+                    </div>
+                    @if (!_sidebarCollapsed)
+                    {
+                        <div class="profile-user-info">
+                            <span class="profile-user-name">@CurrentUser.FullName</span>
+                            <span class="profile-user-role">
+                                @if (_isOnLeave)
+                                {
+                                    <span class="text-amber-600 font-semibold">On Leave</span>
+                                }
+                                else
+                                {
+                                    @CurrentUser.Role
+                                }
+                            </span>
+                        </div>
+                        <svg class="profile-chevron" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="12" r="1.5"/>
+                            <circle cx="12" cy="5" r="1.5"/>
+                            <circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                    }
+                </button>
+            </div>
+        }
     </aside>
 
     <div class="main-area">
@@ -56,103 +95,6 @@
             </div>
         }
 
-        <header class="topbar">
-            <div class="topbar-left">
-                @* Page title injected by each page via CascadingValue or left blank *@
-            </div>
-            <div class="topbar-right">
-                @if (CurrentUser.IsLoaded)
-                {
-                    @if (!CurrentUser.IsFallbackPersonAct)
-                    {
-                        @if (_availableDelegations.Count == 1)
-                        {
-                            var del = _availableDelegations[0];
-                            <form method="post" action="/account/switch-user" style="display:inline;margin:0;"
-                                  onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching to @del.FullName…';if(o)o.style.display='flex';">
-                                <AntiforgeryToken />
-                                <input type="hidden" name="targetUserId" value="@del.Id" />
-                                <button type="submit" class="btn btn-outline btn-sm" title="Act on behalf of @del.FullName">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
-                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                        <circle cx="8.5" cy="7" r="4"/>
-                                        <polyline points="17 11 19 13 23 9"/>
-                                    </svg>
-                                    Switch to @del.FullName
-                                </button>
-                            </form>
-                        }
-                        else if (_availableDelegations.Count > 1)
-                        {
-                            <div class="switch-dropdown-wrap">
-                                <button type="button" class="btn btn-outline btn-sm" @onclick="ToggleSwitchDropdown" title="Switch account to act on behalf of a colleague">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
-                                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                                        <circle cx="8.5" cy="7" r="4"/>
-                                        <polyline points="17 11 19 13 23 9"/>
-                                    </svg>
-                                    Switch Account (@_availableDelegations.Count)
-                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="margin-left:4px;">
-                                        <path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                    </svg>
-                                </button>
-
-                                @if (_showSwitchDropdown)
-                                {
-                                    <div class="switch-dropdown-backdrop" @onclick="CloseSwitchDropdown" @onclick:stopPropagation="true"></div>
-                                    <div class="switch-dropdown-menu">
-                                        <div class="switch-dropdown-header">
-                                            Available Accounts (@_availableDelegations.Count)
-                                        </div>
-                                        <div class="switch-dropdown-list">
-                                            @foreach (var del in _availableDelegations)
-                                            {
-                                                <form method="post" action="/account/switch-user" style="display:block;margin:0;"
-                                                      onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching to @del.FullName…';if(o)o.style.display='flex';">
-                                                    <AntiforgeryToken />
-                                                    <input type="hidden" name="targetUserId" value="@del.Id" />
-                                                    <button type="submit" class="switch-dropdown-item">
-                                                        <div class="switch-avatar">@(del.FullName.Length > 0 ? del.FullName[0].ToString().ToUpper() : "?")</div>
-                                                        <div class="switch-info">
-                                                            <span class="switch-name">@del.FullName</span>
-                                                            <span class="switch-role">@del.Role</span>
-                                                        </div>
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="switch-arrow">
-                                                            <polyline points="9 18 15 12 9 6"/>
-                                                        </svg>
-                                                    </button>
-                                                </form>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        <button type="button" class="btn btn-outline btn-sm" style="margin-right:8px;" @onclick="OpenDelegationModal" title="Configure your fallback delegate and leave status">
-                            @if (_isOnLeave)
-                            {
-                                <span class="badge badge-role" style="background:#fef3c7;color:#b45309;margin-right:4px;">On Leave</span>
-                            }
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;">
-                                <circle cx="12" cy="12" r="10"/>
-                                <path d="M12 6v6l4 2"/>
-                            </svg>
-                            Leave & Fallback
-                        </button>
-                    }
-
-                    <div class="topbar-user">
-                        <div class="user-avatar">@(CurrentUser.FullName.Length > 0 ? CurrentUser.FullName[0].ToString().ToUpper() : "?")</div>
-                        <div class="user-info">
-                            <span class="user-name">@CurrentUser.FullName</span>
-                            <span class="user-role"><span class="role-dot"></span>@CurrentUser.Role</span>
-                        </div>
-                    </div>
-                }
-            </div>
-        </header>
-
         <main class="page-content">
             @Body
         </main>
@@ -170,56 +112,263 @@
     <span class="loading-overlay-text" id="switching-overlay-text">Switching account…</span>
 </div>
 
-@* ── Delegation & Leave Modal ───────────────────────────────────────────────── *@
-@if (_showDelegationModal)
+@* ── Switch Account Popover Box (Tag Management Style) ──────────────────────── *@
+@if (_showSwitchPopover)
 {
-    <div class="modal-backdrop">
-        <div class="modal" style="max-width:480px;overflow: visible;">
-            <div class="modal-header">
-                <h6 class="modal-title">Delegation & Out of Office</h6>
-                <button type="button" class="btn btn-icon modal-close" @onclick="CloseDelegationModal"></button>
-            </div>
-            <div class="form-field mb-4">
-                <label class="form-label text-sm font-semibold">Fallback Colleague</label>
-                <div class="text-xs text-muted mb-2">
-                    Designate a colleague who can temporarily switch into your account to process approvals when you are away.
+    <div style="position: fixed; inset: 0; z-index: 1055; background: transparent;"
+         @onclick="CloseAllPopovers"
+         @onclick:stopPropagation="true">
+    </div>
+
+    <div class="tag-popover-box" style="left: @(_sidebarCollapsed ? 64 : 12)px; bottom: 12px; width: 300px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
+            <div class="popover-header-lead">
+                <div class="popover-header-icon text-blue-600">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <polyline points="17 11 19 13 23 9"/>
+                    </svg>
                 </div>
-                <Dropdown TItem="UserDto" TValue="string"
-                          Items="_eligibleFallbackUsers"
-                          @bind-Value="_modalFallbackUserId"
-                          ValueSelector="u => u.Id.ToString()"
-                          TextSelector="FormatUserOption"
-                          Placeholder="— select fallback person —"
-                          Searchable="true"
-                          SearchPlaceholder="Search colleague..."
-                          AllowClear="true" />
+                <div>
+                    <div class="popover-title-text">Switch Account</div>
+                    <div class="popover-subtitle-text">Act on behalf of colleague on leave</div>
+                </div>
             </div>
-            <div class="modal-body">
-                @if (!string.IsNullOrEmpty(_modalError))
+            <div class="flex items-center gap-2">
+                <span class="popover-quota">@_availableDelegations.Count</span>
+                <button type="button" class="btn btn-icon btn-xs" style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: pointer;"
+                        @onclick="CloseAllPopovers" title="Close">✕</button>
+            </div>
+        </div>
+
+        <div class="popover-search-wrap">
+            <input type="text" class="input input-sm w-full"
+                   placeholder="Search colleague..."
+                   @bind="_switchSearchFilter"
+                   @bind:event="oninput" />
+        </div>
+
+        <div class="popover-tag-list" style="max-height: 240px; padding: 4px;">
+            @{
+                var filteredDelegations = _availableDelegations
+                    .Where(d => string.IsNullOrWhiteSpace(_switchSearchFilter) ||
+                                d.FullName.Contains(_switchSearchFilter, StringComparison.OrdinalIgnoreCase) ||
+                                d.Role.ToString().Contains(_switchSearchFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            @if (filteredDelegations.Count > 0)
+            {
+                @foreach (var del in filteredDelegations)
                 {
-                    <div class="alert alert-error mb-4">@_modalError</div>
+                    <form method="post" action="/account/switch-user" style="display:block;margin:0;"
+                          onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching to @del.FullName…';if(o)o.style.display='flex';">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="targetUserId" value="@del.Id" />
+                        <button type="submit" class="popover-user-row" title="Act on behalf of @del.FullName">
+                            <div class="cm-switch-avatar">@(del.FullName.Length > 0 ? del.FullName[0].ToString().ToUpper() : "?")</div>
+                            <div class="popover-user-info">
+                                <span class="popover-user-name">@del.FullName</span>
+                                <span class="popover-user-role">@del.Role</span>
+                            </div>
+                            <div class="popover-user-action">
+                                <span class="btn btn-outline btn-xs" style="padding: 2px 8px; font-size: 11px;">Switch</span>
+                            </div>
+                        </button>
+                    </form>
                 }
+            }
+            else
+            {
+                <div class="text-muted text-xs p-4 text-center">
+                    @(string.IsNullOrWhiteSpace(_switchSearchFilter) ? "No available delegations." : "No matching colleagues.")
+                </div>
+            }
+        </div>
+    </div>
+}
 
-               
+@* ── Assign Fallback Colleague Popover Box (Tag Management Style) ─────────────── *@
+@if (_showFallbackPopover)
+{
+    <div style="position: fixed; inset: 0; z-index: 1055; background: transparent;"
+         @onclick="CloseAllPopovers"
+         @onclick:stopPropagation="true">
+    </div>
 
-                <div class="form-field mb-2" style="background:var(--color-bg-subtle, #f8fafc);padding:12px;border-radius:8px;border:1px solid var(--color-border,#e2e8f0);">
-                    <label class="flex items-center gap-2 cursor-pointer" style="margin:0;">
-                        <input type="checkbox" @bind="_modalIsOnLeave" style="width:18px;height:18px;" />
-                        <span class="font-medium text-sm">I am currently on leave (Out of Office)</span>
-                    </label>
-                    <div class="text-xs text-muted mt-1" style="margin-left:26px;">
-                        When checked, your designated fallback colleague can switch to your account and approve requests on your behalf.
-                    </div>
+    <div class="tag-popover-box" style="left: @(_sidebarCollapsed ? 64 : 12)px; bottom: 12px; width: 310px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
+            <div class="popover-header-lead">
+                <div class="popover-header-icon text-indigo-600">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="popover-title-text">Fallback Colleague</div>
+                    <div class="popover-subtitle-text">Colleague who covers for you while on leave</div>
                 </div>
             </div>
-            
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline btn-sm" @onclick="CloseDelegationModal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" @onclick="SaveDelegationSettings" disabled="@_savingDelegation">
-                    @if (_savingDelegation) { <span class="spinner spinner-sm mr-1"></span> }
-                    Save Changes
-                </button>
+            <div class="flex items-center gap-2">
+                @if (_savingDelegation)
+                {
+                    <span class="spinner spinner-xs" style="width: 10px; height: 10px; border-width: 1.5px; border-color: var(--color-primary); border-top-color: transparent;"></span>
+                }
+                <button type="button" class="btn btn-icon btn-xs" style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: pointer;"
+                        @onclick="CloseAllPopovers" title="Close">✕</button>
             </div>
+        </div>
+
+        <div class="popover-search-wrap">
+            <input type="text" class="input input-sm w-full"
+                   placeholder="Search colleague to assign..."
+                   @bind="_fallbackSearchFilter"
+                   @bind:event="oninput" />
+        </div>
+
+        <div class="popover-tag-list" style="max-height: 240px; padding: 4px;">
+            @{
+                var filteredFallbackUsers = _eligibleFallbackUsers
+                    .Where(u => string.IsNullOrWhiteSpace(_fallbackSearchFilter) ||
+                                u.FullName.Contains(_fallbackSearchFilter, StringComparison.OrdinalIgnoreCase) ||
+                                u.Role.ToString().Contains(_fallbackSearchFilter, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+            @if (filteredFallbackUsers.Count > 0)
+            {
+                @foreach (var user in filteredFallbackUsers)
+                {
+                    var isCurrent = _currentFallbackUserId == user.Id;
+                    <div class="popover-user-row @(isCurrent ? "selected" : "")"
+                         style="cursor: pointer;"
+                         @onclick="() => SelectFallbackColleagueAsync(user)">
+                        <div class="cm-switch-avatar">@(user.FullName.Length > 0 ? user.FullName[0].ToString().ToUpper() : "?")</div>
+                        <div class="popover-user-info">
+                            <span class="popover-user-name">@user.FullName</span>
+                            <span class="popover-user-role">@user.Role</span>
+                        </div>
+                        <div class="popover-user-action">
+                            @if (isCurrent)
+                            {
+                                <span class="text-indigo-600 font-bold" style="font-size: 15px;">✓</span>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted text-xs p-4 text-center">
+                    @(string.IsNullOrWhiteSpace(_fallbackSearchFilter) ? "No eligible colleagues found." : "No matching colleagues.")
+                </div>
+            }
+        </div>
+
+        <div class="popover-footer-action flex items-center justify-between" style="padding: 8px 12px; border-top: 1px solid var(--color-border); background: #fafafa;">
+            @if (_currentFallbackUserId.HasValue)
+            {
+                <button type="button" class="btn btn-outline btn-xs text-danger" style="padding: 3px 8px; font-size: 11px;"
+                        disabled="@_savingDelegation"
+                        @onclick="RemoveFallbackColleagueAsync">
+                    Remove Fallback
+                </button>
+            }
+            else
+            {
+                <span class="text-xs text-muted" style="font-size: 11px;">None assigned</span>
+            }
+            <button type="button" class="btn btn-primary btn-xs" style="padding: 3px 12px; font-size: 11px;"
+                    @onclick="CloseAllPopovers">
+                Done
+            </button>
+        </div>
+    </div>
+}
+
+@* ── Change Password Popover Box (Tag Management Style) ──────────────────────── *@
+@if (_showChangePasswordPopover)
+{
+    <div style="position: fixed; inset: 0; z-index: 1055; background: transparent;"
+         @onclick="CloseAllPopovers"
+         @onclick:stopPropagation="true">
+    </div>
+
+    <div class="tag-popover-box" style="left: @(_sidebarCollapsed ? 64 : 12)px; bottom: 12px; width: 320px;"
+         @onclick:stopPropagation="true">
+        <div class="popover-header">
+            <div class="popover-header-lead">
+                <div class="popover-header-icon text-amber-600">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="popover-title-text">Change Password</div>
+                    <div class="popover-subtitle-text">Update your account login password</div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-icon btn-xs" style="padding: 1px 4px; border: none; background: transparent; color: var(--color-text-muted); cursor: pointer;"
+                    @onclick="CloseAllPopovers" title="Close">✕</button>
+        </div>
+
+        <div style="padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;">
+            @if (!string.IsNullOrEmpty(_passwordError))
+            {
+                <div class="alert alert-error text-xs" style="padding: 6px 10px; font-size: 11.5px; border-radius: var(--radius-sm); margin: 0;">
+                    @_passwordError
+                </div>
+            }
+
+            <div class="form-field">
+                <label class="form-label" style="font-size: 11.5px; margin-bottom: 3px; font-weight: 600;">Current password</label>
+                <input type="password" class="input input-sm w-full"
+                       placeholder="Enter current password"
+                       @bind="_currentPassword"
+                       autocomplete="current-password"
+                       autofocus />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" style="font-size: 11.5px; margin-bottom: 3px; font-weight: 600;">New password</label>
+                <input type="password" class="input input-sm w-full"
+                       placeholder="Min. 6 characters"
+                       @bind="_newPassword"
+                       autocomplete="new-password" />
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" style="font-size: 11.5px; margin-bottom: 3px; font-weight: 600;">Confirm new password</label>
+                <input type="password" class="input input-sm w-full"
+                       placeholder="Repeat new password"
+                       @bind="_confirmPassword"
+                       autocomplete="new-password" />
+            </div>
+        </div>
+
+        <div class="popover-footer-action flex items-center justify-between" style="padding: 8px 12px; border-top: 1px solid var(--color-border); background: #fafafa;">
+            <button type="button" class="btn btn-outline btn-xs" style="padding: 3px 10px; font-size: 11px;"
+                    @onclick="CloseAllPopovers">
+                Cancel
+            </button>
+            <button type="button" class="btn btn-primary btn-xs" style="padding: 3px 14px; font-size: 11px;"
+                    disabled="@_savingPassword"
+                    @onclick="HandleChangePasswordAsync">
+                @if (_savingPassword)
+                {
+                    <span class="spinner spinner-xs" style="width: 10px; height: 10px; border-width: 1.5px; margin-right: 4px;"></span>
+                    <span>Updating…</span>
+                }
+                else
+                {
+                    <span>Update Password</span>
+                }
+            </button>
         </div>
     </div>
 }
@@ -236,20 +385,353 @@
     private bool _sidebarCollapsed = false;
     private List<UserDto> _availableDelegations = new();
     private List<UserDto> _eligibleFallbackUsers = new();
-    private bool _showSwitchDropdown;
+    private double _lastMenuX;
+    private double _lastMenuY;
+
+    // Popover states
+    private bool _showSwitchPopover;
+    private string _switchSearchFilter = "";
+    private bool _showFallbackPopover;
+    private string _fallbackSearchFilter = "";
+    private bool _showChangePasswordPopover;
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private string? _passwordError;
+    private bool _savingPassword;
 
     // Leave & fallback state
     private bool _isOnLeave;
     private Guid? _currentFallbackUserId;
-    private bool _showDelegationModal;
-    private string _modalFallbackUserId = "";
-    private bool _modalIsOnLeave;
-    private string? _modalError;
+    private string? _currentFallbackUserName;
     private bool _savingDelegation;
 
     private void ToggleSidebar() => _sidebarCollapsed = !_sidebarCollapsed;
-    private void ToggleSwitchDropdown() => _showSwitchDropdown = !_showSwitchDropdown;
-    private void CloseSwitchDropdown() => _showSwitchDropdown = false;
+
+    private void OpenProfileContextMenu(MouseEventArgs e)
+    {
+        CloseAllPopovers();
+
+        if (ContextMenu.IsOpen)
+        {
+            ContextMenu.Close();
+            return;
+        }
+
+        _lastMenuX = _sidebarCollapsed ? 64 : 12;
+        _lastMenuY = e.ClientY;
+
+        ContextMenu.Show(_lastMenuX, _lastMenuY, RenderProfileContextMenu(), title: CurrentUser.FullName, isButton: false, customClass: "profile-context-menu");
+    }
+
+    private void CloseAllPopovers()
+    {
+        _showSwitchPopover = false;
+        _showFallbackPopover = false;
+        _showChangePasswordPopover = false;
+        _passwordError = null;
+    }
+
+    private void OpenChangePasswordPopover()
+    {
+        ContextMenu.Close();
+        _currentPassword = "";
+        _newPassword = "";
+        _confirmPassword = "";
+        _passwordError = null;
+        _showChangePasswordPopover = true;
+        _showSwitchPopover = false;
+        _showFallbackPopover = false;
+    }
+
+    private async Task HandleChangePasswordAsync()
+    {
+        if (_savingPassword) return;
+
+        if (string.IsNullOrWhiteSpace(_currentPassword))
+        {
+            _passwordError = "Current password is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < ChangePasswordCommandHandler.MinimumPasswordLength)
+        {
+            _passwordError = $"New password must be at least {ChangePasswordCommandHandler.MinimumPasswordLength} characters.";
+            return;
+        }
+
+        if (_newPassword != _confirmPassword)
+        {
+            _passwordError = "New password and confirmation do not match.";
+            return;
+        }
+
+        if (_currentPassword == _newPassword)
+        {
+            _passwordError = "New password must be different from current password.";
+            return;
+        }
+
+        _savingPassword = true;
+        _passwordError = null;
+
+        try
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            var result = await Mediator.Send(new ChangePasswordCommand(
+                realId,
+                _currentPassword,
+                _newPassword));
+
+            if (result.IsFailure)
+            {
+                _passwordError = result.Error.Message;
+                return;
+            }
+
+            _showChangePasswordPopover = false;
+            _currentPassword = "";
+            _newPassword = "";
+            _confirmPassword = "";
+            Toast.Show(ToastLevel.Success, "Password Updated", "Your password has been changed successfully.");
+        }
+        catch (Exception ex)
+        {
+            _passwordError = ex.Message;
+        }
+        finally
+        {
+            _savingPassword = false;
+        }
+    }
+
+    private void OpenSwitchPopover()
+    {
+        ContextMenu.Close();
+        _switchSearchFilter = "";
+        _showSwitchPopover = true;
+        _showFallbackPopover = false;
+    }
+
+    private async Task OpenFallbackPopoverAsync()
+    {
+        ContextMenu.Close();
+        _fallbackSearchFilter = "";
+        if (_eligibleFallbackUsers.Count == 0)
+        {
+            await LoadEligibleFallbackUsers();
+        }
+        _showFallbackPopover = true;
+        _showSwitchPopover = false;
+    }
+
+    private async Task LoadEligibleFallbackUsers()
+    {
+        var usersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
+        if (usersResult.IsSuccess)
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            _eligibleFallbackUsers = usersResult.Value.Where(u => u.Id != realId).OrderBy(u => u.FullName).ToList();
+        }
+    }
+
+    private async Task SelectFallbackColleagueAsync(UserDto colleague)
+    {
+        if (_savingDelegation) return;
+
+        _savingDelegation = true;
+        try
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            var result = await Mediator.Send(new UpdateUserFallbackCommand(realId, colleague.Id, _isOnLeave));
+            if (result.IsFailure)
+            {
+                Toast.Show(ToastLevel.Error, "Update Failed", result.Error.Message);
+                return;
+            }
+
+            _currentFallbackUserId = colleague.Id;
+            _currentFallbackUserName = colleague.FullName;
+            Toast.Show(ToastLevel.Success, "Fallback Assigned", $"{colleague.FullName} is designated as your fallback colleague.");
+        }
+        finally
+        {
+            _savingDelegation = false;
+        }
+    }
+
+    private async Task RemoveFallbackColleagueAsync()
+    {
+        if (_savingDelegation) return;
+
+        if (_isOnLeave)
+        {
+            Toast.Show(ToastLevel.Warning, "Action Blocked", "Please turn off 'On Leave' status before removing your fallback colleague.");
+            return;
+        }
+
+        _savingDelegation = true;
+        try
+        {
+            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+            var result = await Mediator.Send(new UpdateUserFallbackCommand(realId, null, false));
+            if (result.IsFailure)
+            {
+                Toast.Show(ToastLevel.Error, "Update Failed", result.Error.Message);
+                return;
+            }
+
+            _currentFallbackUserId = null;
+            _currentFallbackUserName = null;
+            Toast.Show(ToastLevel.Success, "Fallback Removed", "Fallback colleague designation has been cleared.");
+        }
+        finally
+        {
+            _savingDelegation = false;
+        }
+    }
+
+    private async Task ToggleLeaveStatusAsync()
+    {
+        if (_savingDelegation) return;
+
+        var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
+
+        // If trying to turn on leave, ensure a fallback user is designated
+        if (!_isOnLeave && !_currentFallbackUserId.HasValue)
+        {
+            ContextMenu.Close();
+            Toast.Show(ToastLevel.Warning, "Fallback Required", "Please assign a fallback colleague before marking yourself on leave.");
+            await OpenFallbackPopoverAsync();
+            return;
+        }
+
+        _savingDelegation = true;
+        try
+        {
+            var targetLeave = !_isOnLeave;
+            var result = await Mediator.Send(new UpdateUserFallbackCommand(realId, _currentFallbackUserId, targetLeave));
+            if (result.IsFailure)
+            {
+                Toast.Show(ToastLevel.Error, "Update Failed", result.Error.Message);
+                return;
+            }
+
+            _isOnLeave = targetLeave;
+            Toast.Show(ToastLevel.Success, "Status Updated", _isOnLeave ? "You are now marked as On Leave." : "You are now marked as Active.");
+
+            if (ContextMenu.IsOpen)
+            {
+                ContextMenu.Show(_lastMenuX, _lastMenuY, RenderProfileContextMenu(), title: CurrentUser.FullName, isButton: false, customClass: "profile-context-menu");
+            }
+            StateHasChanged();
+        }
+        finally
+        {
+            _savingDelegation = false;
+        }
+    }
+
+    private RenderFragment RenderProfileContextMenu() => @<text>
+        @if (!CurrentUser.IsFallbackPersonAct)
+        {
+            @* 1. Switch Account (opens popover box) *@
+            @if (_availableDelegations.Count > 0)
+            {
+                <button type="button" class="context-menu-item flex items-center justify-between" @onclick="OpenSwitchPopover">
+                    <div class="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-600">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <polyline points="17 11 19 13 23 9"/>
+                        </svg>
+                        <span>Switch Account</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <span class="cm-count-pill">@_availableDelegations.Count</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </div>
+                </button>
+            }
+            else
+            {
+                <div class="context-menu-item text-muted flex items-center justify-between" style="cursor:default;opacity:0.6;">
+                    <div class="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="8.5" cy="7" r="4"/>
+                            <polyline points="17 11 19 13 23 9"/>
+                        </svg>
+                        <span>Switch Account</span>
+                    </div>
+                    <span class="text-xs text-muted" style="font-size:10px;">0</span>
+                </div>
+            }
+
+            @* 2. On Leave (toggle) *@
+            <div class="context-menu-item flex items-center justify-between cursor-pointer" @onclick="ToggleLeaveStatusAsync" @onclick:stopPropagation="true">
+                <div class="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="@(_isOnLeave ? "text-amber-500" : "text-muted")">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    <div class="flex flex-col text-left">
+                        <span class="leading-tight font-medium">On Leave</span>
+                        <span class="text-muted" style="font-size:10px;">@(_isOnLeave ? "Out of office" : "Active")</span>
+                    </div>
+                </div>
+                <div class="cm-toggle-track @(_isOnLeave ? "active" : "")">
+                    <div class="cm-toggle-knob"></div>
+                </div>
+            </div>
+
+            @* 3. Assign Fallback User (opens popover box) *@
+            <button type="button" class="context-menu-item flex items-center justify-between" @onclick="OpenFallbackPopoverAsync">
+                <div class="flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-indigo-500">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <div class="flex flex-col text-left">
+                        <span class="leading-tight font-medium">Assign Fallback User</span>
+                        <span class="text-muted" style="font-size:10px;">@(!string.IsNullOrEmpty(_currentFallbackUserName) ? $"Current: {_currentFallbackUserName}" : "None assigned")</span>
+                    </div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-muted">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+        }
+
+        <div class="context-menu-divider"></div>
+
+        @* 4. Change Password *@
+        @if (!CurrentUser.IsFallbackPersonAct)
+        {
+            <button type="button" class="context-menu-item" @onclick="OpenChangePasswordPopover">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                <span>Change Password</span>
+            </button>
+        }
+
+        @* 5. Logout *@
+        <form method="post" action="/logout" style="margin:0;">
+            <AntiforgeryToken />
+            <button type="submit" class="context-menu-item text-danger">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>Logout</span>
+            </button>
+        </form>
+    </text>;
 
     protected override async Task OnInitializedAsync()
     {
@@ -301,62 +783,15 @@
         {
             _isOnLeave = userResult.Value.IsOnLeave;
             _currentFallbackUserId = userResult.Value.FallbackUserId;
-        }
-    }
-
-    private async Task OpenDelegationModal()
-    {
-        _modalError = null;
-        _modalFallbackUserId = _currentFallbackUserId?.ToString() ?? "";
-        _modalIsOnLeave = _isOnLeave;
-
-        var usersResult = await Mediator.Send(new ListUsersQuery(IncludeInactive: false));
-        if (usersResult.IsSuccess)
-        {
-            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
-            _eligibleFallbackUsers = usersResult.Value.Where(u => u.Id != realId).OrderBy(u => u.FullName).ToList();
-        }
-
-        _showDelegationModal = true;
-    }
-
-    private void CloseDelegationModal()
-    {
-        _showDelegationModal = false;
-        _modalError = null;
-    }
-
-    private async Task SaveDelegationSettings()
-    {
-        if (_savingDelegation) return;
-
-        Guid? selectedFallbackId = Guid.TryParse(_modalFallbackUserId, out var parsedId) ? parsedId : null;
-        if (_modalIsOnLeave && !selectedFallbackId.HasValue)
-        {
-            _modalError = "Please select a fallback colleague before marking yourself on leave.";
-            return;
-        }
-
-        _savingDelegation = true;
-        _modalError = null;
-        try
-        {
-            var realId = CurrentUser.RealActorUserId != Guid.Empty ? CurrentUser.RealActorUserId : CurrentUser.UserId;
-            var result = await Mediator.Send(new UpdateUserFallbackCommand(realId, selectedFallbackId, _modalIsOnLeave));
-            if (result.IsFailure)
+            if (_currentFallbackUserId.HasValue)
             {
-                _modalError = result.Error.Message;
-                return;
+                var fb = await Mediator.Send(new GetUserQuery(_currentFallbackUserId.Value));
+                _currentFallbackUserName = fb.IsSuccess ? fb.Value.FullName : null;
             }
-
-            _isOnLeave = _modalIsOnLeave;
-            _currentFallbackUserId = selectedFallbackId;
-            _showDelegationModal = false;
-            Toast.Show(ToastLevel.Success, "Delegation updated", _isOnLeave ? "You are marked as on leave." : "Your fallback settings have been saved.");
-        }
-        finally
-        {
-            _savingDelegation = false;
+            else
+            {
+                _currentFallbackUserName = null;
+            }
         }
     }
 

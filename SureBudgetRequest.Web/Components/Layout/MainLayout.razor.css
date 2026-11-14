@@ -48,89 +48,88 @@
     background: #fef3c7;
 }
 
-/* ── Switch Account Dropdown ────────────────────────────────────────────── */
-.switch-dropdown-wrap {
-    position: relative;
-    display: inline-block;
-    margin-right: 8px;
-}
-
-.switch-dropdown-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 998;
-    background: transparent;
-}
-
-.switch-dropdown-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    width: 240px;
-    background: #ffffff;
-    border: 1px solid var(--color-border, #e2e8f0);
-    border-radius: var(--radius-md, 8px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-    z-index: 999;
-    padding: 6px 0;
-}
-
-.switch-dropdown-header {
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-text-muted, #64748b);
-    border-bottom: 1px solid var(--color-border, #f1f5f9);
-    margin-bottom: 4px;
-}
-
-.switch-dropdown-list {
-    max-height: 260px;
+.sidebar-nav {
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
 }
 
-.switch-dropdown-item {
+/* ── Sidebar Bottom Profile Area ────────────────────────────────────────── */
+.sidebar-profile-wrap {
+    padding: 8px;
+    border-top: 1px solid var(--color-border, #e2e8f0);
+    position: relative;
+    flex-shrink: 0;
+    background: var(--color-bg-white, #ffffff);
+}
+
+.sidebar-profile-trigger {
+    width: 100%;
     display: flex;
     align-items: center;
-    width: 100%;
-    padding: 8px 12px;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: var(--radius-md, 8px);
     background: none;
     border: none;
-    text-align: left;
     cursor: pointer;
+    text-align: left;
     transition: background 150ms ease;
-    gap: 10px;
+    gap: 8px;
 }
 
-.switch-dropdown-item:hover {
-    background-color: var(--color-bg-row-alt, #f8fafc);
+.sidebar-profile-trigger:hover,
+.sidebar-profile-trigger.active {
+    background: var(--color-bg-row-alt, #f1f5f9);
 }
 
-.switch-avatar {
-    width: 28px;
-    height: 28px;
+.profile-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-flex;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    background: #e0e7ff;
-    color: #4338ca;
+    background: var(--color-primary, #2563eb);
+    color: #ffffff;
+    font-size: 13px;
     font-weight: 600;
-    font-size: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
-.switch-info {
-    flex: 1;
-    min-width: 0;
+.avatar-status-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+}
+
+.avatar-status-dot.status-active {
+    background: var(--color-success, #22c55e);
+}
+
+.avatar-status-dot.status-leave {
+    background: #f59e0b;
+}
+
+.profile-user-info {
     display: flex;
     flex-direction: column;
     line-height: 1.25;
+    min-width: 0;
+    flex: 1;
 }
 
-.switch-name {
+.profile-user-name {
     font-size: 13px;
     font-weight: 600;
     color: var(--color-text-dark, #1e293b);
@@ -139,16 +138,34 @@
     text-overflow: ellipsis;
 }
 
-.switch-role {
+.profile-user-role {
     font-size: 11px;
     color: var(--color-text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.switch-arrow {
+.profile-chevron {
     color: var(--color-text-muted, #94a3b8);
     flex-shrink: 0;
+    transition: transform 150ms ease;
 }
 
-.switch-dropdown-item:hover .switch-arrow {
-    color: var(--color-primary, #3b82f6);
+.sidebar-profile-trigger.active .profile-chevron {
+    transform: rotate(180deg);
+}
+
+/* ── Collapsed Sidebar Profile Styles ───────────────────────────────────── */
+.app-shell.sidebar-collapsed .sidebar-profile-wrap {
+    padding: 8px 4px;
+    display: flex;
+    justify-content: center;
+}
+
+.app-shell.sidebar-collapsed .sidebar-profile-trigger {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
 }
