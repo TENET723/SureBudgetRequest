@@ -178,34 +178,7 @@
 }
 
 
-@* ── Context Menu ── *@
-@if (_showContextMenu && _contextMenuTarget is not null)
-{
-    <div class="context-menu-backdrop"
-         @onclick="CloseContextMenu"
-         @onclick:stopPropagation="true"
-         @onclick:preventDefault="true"
-         @oncontextmenu="CloseContextMenu"
-         @oncontextmenu:preventDefault="true"
-         @oncontextmenu:stopPropagation="true">
-    </div>
-
-    <div @ref="_contextMenuRef" class="custom-context-menu"
-         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
-         @onclick:stopPropagation="true">
-        <div class="context-menu-header">
-            <span>@_contextMenuTarget.Name</span>
-        </div>
-
-        @if (_contextMenuTarget.IsActive)
-        {
-            <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); OpenAssign(target); }">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span>@(_contextMenuTarget.HeadUserId.HasValue ? "Change Department Head" : "Assign Department Head")</span>
-            </button>
-        }
-    </div>
-}
+@* ── Context Menu (handled via ContextMenuService) ── *@
 
 @code {
     private string? _errorMessage;
@@ -223,54 +196,35 @@
     private DepartmentDto? _assigningDept;
 
     // Context menu state
-    private bool _showContextMenu;
-    private double _contextMenuX;
-    private double _contextMenuY;
-    private double _menuClickX;
-    private double _menuClickY;
-    private bool _menuIsButton;
-    private bool _menuPendingPosition;
-    private ElementReference _contextMenuRef;
     private DepartmentDto? _contextMenuTarget;
 
     private void OpenContextMenu(MouseEventArgs e, DepartmentDto dept)
     {
         _contextMenuTarget = dept;
-        _menuClickX = e.ClientX;
-        _menuClickY = e.ClientY;
-        _contextMenuX = e.ClientX;
-        _contextMenuY = e.ClientY;
-        _menuIsButton = false;
-        _menuPendingPosition = true;
-        _showContextMenu = true;
+        ContextMenu.Show(e, RenderContextMenu(dept), title: dept.Name, isButton: false, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
     }
 
     private void OpenContextMenuFromButton(MouseEventArgs e, DepartmentDto dept)
     {
         _contextMenuTarget = dept;
-        _menuClickX = e.ClientX;
-        _menuClickY = e.ClientY;
-        _contextMenuX = e.ClientX;
-        _contextMenuY = e.ClientY;
-        _menuIsButton = true;
-        _menuPendingPosition = true;
-        _showContextMenu = true;
+        ContextMenu.Show(e, RenderContextMenu(dept), title: dept.Name, isButton: true, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
     }
 
     private void CloseContextMenu()
     {
-        _showContextMenu = false;
+        ContextMenu.Close();
         _contextMenuTarget = null;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_showContextMenu && _menuPendingPosition)
+    private RenderFragment RenderContextMenu(DepartmentDto target) => @<text>
+        @if (target.IsActive)
         {
-            _menuPendingPosition = false;
-            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
+            <button type="button" class="context-menu-item" @onclick="() => { CloseContextMenu(); OpenAssign(target); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>@(target.HeadUserId.HasValue ? "Change Department Head" : "Assign Department Head")</span>
+            </button>
         }
-    }
+    </text>;
 
     private string _formHeadUserId = "";
     private string? _formError;

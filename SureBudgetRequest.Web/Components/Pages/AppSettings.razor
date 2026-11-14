@@ -148,31 +148,7 @@
 }
 
 
-@* ── Context Menu ── *@
-@if (_showContextMenu && _contextMenuTarget is not null)
-{
-    <div class="context-menu-backdrop"
-         @onclick="CloseContextMenu"
-         @onclick:stopPropagation="true"
-         @onclick:preventDefault="true"
-         @oncontextmenu="CloseContextMenu"
-         @oncontextmenu:preventDefault="true"
-         @oncontextmenu:stopPropagation="true">
-    </div>
-
-    <div @ref="_contextMenuRef" class="custom-context-menu"
-         style="left: @(_contextMenuX)px; top: @(_contextMenuY)px;"
-         @onclick:stopPropagation="true">
-        <div class="context-menu-header">
-            <span>@_contextMenuTarget.Key</span>
-        </div>
-
-        <button type="button" class="context-menu-item" @onclick="() => { var target = _contextMenuTarget; CloseContextMenu(); OpenEdit(target); }">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            <span>Edit Setting</span>
-        </button>
-    </div>
-}
+@* ── Context Menu (handled globally via ContextMenuContainer in MainLayout) ── *@
 
 @code {
     private string? _errorMessage;
@@ -187,54 +163,32 @@
     private bool _saving;
 
     // Context menu state
-    private bool _showContextMenu;
-    private double _contextMenuX;
-    private double _contextMenuY;
-    private double _menuClickX;
-    private double _menuClickY;
-    private bool _menuIsButton;
-    private bool _menuPendingPosition;
-    private ElementReference _contextMenuRef;
     private AppSettingDto? _contextMenuTarget;
 
     private void OpenContextMenu(MouseEventArgs e, AppSettingDto setting)
     {
         _contextMenuTarget = setting;
-        _menuClickX = e.ClientX;
-        _menuClickY = e.ClientY;
-        _contextMenuX = e.ClientX;
-        _contextMenuY = e.ClientY;
-        _menuIsButton = false;
-        _menuPendingPosition = true;
-        _showContextMenu = true;
+        ContextMenu.Show(e, RenderContextMenu(setting), title: setting.Key, isButton: false, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
     }
 
     private void OpenContextMenuFromButton(MouseEventArgs e, AppSettingDto setting)
     {
         _contextMenuTarget = setting;
-        _menuClickX = e.ClientX;
-        _menuClickY = e.ClientY;
-        _contextMenuX = e.ClientX;
-        _contextMenuY = e.ClientY;
-        _menuIsButton = true;
-        _menuPendingPosition = true;
-        _showContextMenu = true;
+        ContextMenu.Show(e, RenderContextMenu(setting), title: setting.Key, isButton: true, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
     }
 
     private void CloseContextMenu()
     {
-        _showContextMenu = false;
+        ContextMenu.Close();
         _contextMenuTarget = null;
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_showContextMenu && _menuPendingPosition)
-        {
-            _menuPendingPosition = false;
-            await JS.InvokeVoidAsync("positionContextMenu", _contextMenuRef, _menuClickX, _menuClickY, _menuIsButton);
-        }
-    }
+    private RenderFragment RenderContextMenu(AppSettingDto target) => @<text>
+        <button type="button" class="context-menu-item" @onclick="() => { CloseContextMenu(); OpenEdit(target); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Edit Setting</span>
+        </button>
+    </text>;
 
     private string? _formError;
     private bool _isEditing;

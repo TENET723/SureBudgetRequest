@@ -1,0 +1,69 @@
+@using SureBudgetRequest.Web.Services
+@inject ContextMenuService ContextMenu
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (ContextMenu.IsOpen && ContextMenu.Content != null)
+{
+    @* Invisible full-screen backdrop to dismiss on click or right-click outside *@
+    <div class="context-menu-backdrop"
+         @onclick="ContextMenu.Close"
+         @onclick:stopPropagation="true"
+         @onclick:preventDefault="true"
+         @oncontextmenu="ContextMenu.Close"
+         @oncontextmenu:preventDefault="true"
+         @oncontextmenu:stopPropagation="true">
+    </div>
+
+    <div @ref="_menuRef"
+         class="custom-context-menu @ContextMenu.CustomClass"
+         style="left: @(ContextMenu.X)px; top: @(ContextMenu.Y)px;"
+         @onclick:stopPropagation="true">
+        @if (!string.IsNullOrEmpty(ContextMenu.Title))
+        {
+            <div class="context-menu-header">
+                <span>@ContextMenu.Title</span>
+            </div>
+        }
+        @ContextMenu.Content
+    </div>
+}
+
+@code {
+    private ElementReference _menuRef;
+    private bool _pendingPosition;
+
+    protected override void OnInitialized()
+    {
+        ContextMenu.OnChange += HandleChange;
+    }
+
+    private void HandleChange()
+    {
+        if (ContextMenu.IsOpen)
+        {
+            _pendingPosition = true;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (ContextMenu.IsOpen && _pendingPosition)
+        {
+            _pendingPosition = false;
+            try
+            {
+                await JS.InvokeVoidAsync("positionContextMenu", _menuRef, ContextMenu.X, ContextMenu.Y, ContextMenu.IsButton);
+            }
+            catch (JSDisconnectedException) { }
+            catch (InvalidOperationException) { }
+        }
+    }
+
+    public void Dispose()
+    {
+        ContextMenu.OnChange -= HandleChange;
+    }
+}
