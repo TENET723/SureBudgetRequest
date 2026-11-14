@@ -960,41 +960,6 @@ tr.menu-open .row-hover-btn-wrapper,
   white-space: nowrap;
 }
 
-.tag-tooltip-container {
-  position: relative;
-  display: inline-flex;
-}
-.tag-tooltip-popup {
-  display: none;
-  position: absolute;
-  bottom: calc(100% + 7px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1e293b;
-  color: #f8fafc;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  z-index: 100;
-  pointer-events: none;
-  flex-direction: column;
-  gap: 3px;
-}
-.tag-tooltip-popup::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 4px;
-  border-style: solid;
-  border-color: #1e293b transparent transparent transparent;
-}
-.tag-tooltip-container:hover .tag-tooltip-popup {
-  display: flex;
-}
 
 .context-menu-backdrop {
   position: fixed;
@@ -1076,6 +1041,93 @@ tr.menu-open .row-hover-btn-wrapper,
 @keyframes toastSlideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* Centralized macOS Tooltip Control */
+.custom-tooltip-portal {
+  position: fixed;
+  z-index: 1060;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  color: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 450;
+  line-height: 1.4;
+  padding: 5px 9px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45), 0 3px 6px -2px rgba(0, 0, 0, 0.25);
+  transition: opacity 0.12s cubic-bezier(0, 0, 0.2, 1), transform 0.12s cubic-bezier(0, 0, 0.2, 1);
+  opacity: 0;
+  transform: scale(0.96);
+  max-width: 360px;
+  word-break: break-word;
+}
+
+.custom-tooltip-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: block;
+}
+
+.tags-tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tag-tooltip-item {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #f1f5f9;
+}
+
+.custom-tooltip-portal.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.custom-tooltip-portal .tooltip-arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: rgba(15, 23, 42, 0.94);
+  transform: rotate(45deg);
+}
+
+.custom-tooltip-portal[data-placement="top"] .tooltip-arrow {
+  bottom: -4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.custom-tooltip-portal[data-placement="bottom"] .tooltip-arrow {
+  top: -4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.custom-tooltip-portal[data-placement="left"] .tooltip-arrow {
+  right: -4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.custom-tooltip-portal[data-placement="right"] .tooltip-arrow {
+  left: -4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.custom-tooltip-wrapper {
+  display: inline-flex;
+  vertical-align: middle;
+}
+.custom-tooltip-wrapper.d-block {
+  display: block;
+  width: 100%;
 }
 
 /* Inline + Tag button in table rows */
@@ -1758,12 +1810,6 @@ tr.menu-open .row-hover-btn-wrapper,
   height: 20px;
 }
 
-/* Datetime Hover Tooltip */
-.datetime-tooltip-trigger {
-  position: relative;
-  display: inline-block;
-}
-
 .ref-time {
   display: inline-flex;
   align-items: center;
@@ -1780,50 +1826,13 @@ tr.menu-open .row-hover-btn-wrapper,
   border-bottom-color: #2563eb;
 }
 
-.datetime-popup {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 0;
-  z-index: 1000;
-  background: #0f172a;
-  color: #f8fafc;
-  padding: 8px 12px;
-  border-radius: 7px;
-  font-size: 11.5px;
-  line-height: 1.45;
-  white-space: nowrap;
-  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.4), 0 4px 8px -2px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(2px);
-  transition: opacity 120ms ease, transform 120ms ease;
-}
-
-.datetime-popup::before {
-  content: "";
-  position: absolute;
-  top: -4px;
-  left: 16px;
-  width: 8px;
-  height: 8px;
-  background: #0f172a;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
-  transform: rotate(45deg);
-}
-
-.datetime-tooltip-trigger:hover .datetime-popup {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 .popup-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   justify-content: space-between;
-  padding: 2px 0;
+  padding: 1px 0;
+  line-height: 1.35;
 }
 
 .popup-label {

@@ -179,11 +179,8 @@
                     <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
                     <td class="text-sm col-ref-date">
                         <div class="font-semibold text-dark">@(r.Reference ?? ShortId(r.Id))</div>
-                        <div class="datetime-tooltip-trigger">
-                            <div class="ref-time">
-                                <span>@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : r.RequestDate.ToString("dd MMM yyyy"))</span>
-                            </div>
-                            <div class="datetime-popup">
+                        <Tooltip Placement="TooltipPlacement.Bottom">
+                            <Content>
                                 <div class="popup-row">
                                     <span class="popup-label">Submitted:</span>
                                     <span class="popup-val">@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : "Not submitted (Draft)")</span>
@@ -192,14 +189,21 @@
                                     <span class="popup-label">Request Date:</span>
                                     <span class="popup-val">@r.RequestDate.ToString("dd MMM yyyy")</span>
                                 </div>
-                            </div>
-                        </div>
+                            </Content>
+                            <ChildContent>
+                                <div class="ref-time">
+                                    <span>@(r.SubmittedAt.HasValue ? r.SubmittedAt.ToMyanmarTime() : r.RequestDate.ToString("dd MMM yyyy"))</span>
+                                </div>
+                            </ChildContent>
+                        </Tooltip>
                     </td>
                     <td class="text-sm col-requester font-medium">@RequesterName(r.RequesterId)</td>
                     <td class="col-reason">
                         @if (!string.IsNullOrWhiteSpace(r.Reasons))
                         {
-                            <span class="reason-clamp">@r.Reasons</span>
+                            <Tooltip Text="@r.Reasons" Placement="TooltipPlacement.Top" WrapperClass="d-block">
+                                <span class="reason-clamp">@r.Reasons</span>
+                            </Tooltip>
                         }
                         else
                         {
@@ -220,17 +224,21 @@
                                 @if (r.Tags.Count > 5)
                                 {
                                     var overflowCount = r.Tags.Count - 5;
-                                    <div class="tag-tooltip-container" @onclick:stopPropagation="true">
-                                        <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
-                                            +@overflowCount
-                                        </span>
-                                        <div class="tag-tooltip-popup">
-                                            @foreach (var ot in r.Tags.Skip(5))
-                                            {
-                                                <span>#@ot.Name</span>
-                                            }
-                                        </div>
-                                    </div>
+                                    <Tooltip Placement="TooltipPlacement.Top">
+                                        <Content>
+                                            <div class="tags-tooltip-list">
+                                                @foreach (var ot in r.Tags.Skip(5))
+                                                {
+                                                    <span class="tag-tooltip-item">#@ot.Name</span>
+                                                }
+                                            </div>
+                                        </Content>
+                                        <ChildContent>
+                                            <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                                +@overflowCount
+                                            </span>
+                                        </ChildContent>
+                                    </Tooltip>
                                 }
                             </div>
                         }

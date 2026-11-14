@@ -1,0 +1,84 @@
+@using SureBudgetRequest.Web.Services
+@inject TooltipService TooltipService
+@implements IDisposable
+
+<span class="custom-tooltip-wrapper @WrapperClass"
+      @onmouseenter="HandleMouseEnter"
+      @onmouseleave="HandleMouseLeave"
+      @onclick="HandleClick"
+      @attributes="AdditionalAttributes">
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? Content { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public TooltipPlacement Placement { get; set; } = TooltipPlacement.Top;
+    [Parameter] public string? CustomClass { get; set; }
+    [Parameter] public string? WrapperClass { get; set; }
+    [Parameter] public int DelayMs { get; set; } = 350;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private CancellationTokenSource? _cts;
+
+    private async Task HandleMouseEnter(MouseEventArgs e)
+    {
+        if (Disabled || (string.IsNullOrWhiteSpace(Text) && Content == null)) return;
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var token = _cts.Token;
+
+        var clientX = e.ClientX;
+        var clientY = e.ClientY;
+
+        if (DelayMs > 0)
+        {
+            try
+            {
+                await Task.Delay(DelayMs, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        if (Content != null)
+        {
+            TooltipService.Show(Content, clientX, clientY, Placement, CustomClass);
+        }
+        else if (!string.IsNullOrWhiteSpace(Text))
+        {
+            TooltipService.Show(Text!, clientX, clientY, Placement, CustomClass);
+        }
+    }
+
+    private void HandleMouseLeave(MouseEventArgs e)
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
+        TooltipService.Hide();
+    }
+
+    private void HandleClick(MouseEventArgs e)
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
+        TooltipService.Hide();
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = null;
+    }
+}

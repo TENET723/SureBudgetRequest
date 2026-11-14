@@ -129,6 +129,97 @@
                 }, { passive: true });
             }
         };
+
+        window.positionTooltip = function (el, anchorX, anchorY, placement, anchorW, anchorH) {
+            if (!el) return;
+            placement = placement || 'top';
+            anchorW = anchorW || 0;
+            anchorH = anchorH || 0;
+
+            var tw = el.offsetWidth || 120;
+            var th = el.offsetHeight || 32;
+            var winW = window.innerWidth;
+            var winH = window.innerHeight;
+
+            var targetX = anchorW > 0 ? (anchorX + anchorW / 2) : anchorX;
+            var targetY = anchorY;
+
+            var actualPlacement = placement;
+            var x = 0;
+            var y = 0;
+
+            if (placement === 'top') {
+                var proposedY = targetY - th - 8;
+                if (proposedY < 8) {
+                    actualPlacement = 'bottom';
+                    y = (anchorH > 0 ? anchorY + anchorH : targetY) + 8;
+                } else {
+                    y = proposedY;
+                }
+            } else if (placement === 'bottom') {
+                var proposedY = (anchorH > 0 ? anchorY + anchorH : targetY) + 8;
+                if (proposedY + th > winH - 8) {
+                    actualPlacement = 'top';
+                    y = targetY - th - 8;
+                } else {
+                    y = proposedY;
+                }
+            } else if (placement === 'left') {
+                var proposedX = targetX - tw - 8;
+                if (proposedX < 8) {
+                    actualPlacement = 'right';
+                    x = (anchorW > 0 ? anchorX + anchorW : targetX) + 8;
+                } else {
+                    x = proposedX;
+                }
+                y = targetY - (th / 2);
+            } else if (placement === 'right') {
+                var proposedX = (anchorW > 0 ? anchorX + anchorW : targetX) + 8;
+                if (proposedX + tw > winW - 8) {
+                    actualPlacement = 'left';
+                    x = targetX - tw - 8;
+                } else {
+                    x = proposedX;
+                }
+                y = targetY - (th / 2);
+            }
+
+            if (actualPlacement === 'top' || actualPlacement === 'bottom') {
+                x = targetX - (tw / 2);
+            }
+
+            var padding = 8;
+            if (x < padding) x = padding;
+            if (x + tw > winW - padding) x = winW - tw - padding;
+            if (y < padding) y = padding;
+            if (y + th > winH - padding) y = winH - th - padding;
+
+            el.style.left = Math.round(x) + 'px';
+            el.style.top = Math.round(y) + 'px';
+            el.setAttribute('data-placement', actualPlacement);
+
+            var arrow = el.querySelector('.tooltip-arrow');
+            if (arrow) {
+                if (actualPlacement === 'top' || actualPlacement === 'bottom') {
+                    var arrowLeft = targetX - x;
+                    arrowLeft = Math.max(10, Math.min(tw - 10, arrowLeft));
+                    arrow.style.left = Math.round(arrowLeft) + 'px';
+                    arrow.style.top = '';
+                } else {
+                    var arrowTop = targetY - y;
+                    arrowTop = Math.max(8, Math.min(th - 8, arrowTop));
+                    arrow.style.top = Math.round(arrowTop) + 'px';
+                    arrow.style.left = '';
+                }
+            }
+        };
+
+        window.addEventListener('pointerdown', function () {
+            var portals = document.querySelectorAll('.custom-tooltip-portal.visible');
+            for (var i = 0; i < portals.length; i++) {
+                portals[i].classList.remove('visible');
+            }
+        }, { passive: true, capture: true });
     </script>
 </body>
 

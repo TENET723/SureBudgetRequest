@@ -1,0 +1,80 @@
+@using SureBudgetRequest.Web.Services
+@inject TooltipService TooltipService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (TooltipService.IsVisible && (TooltipService.Content != null || !string.IsNullOrWhiteSpace(TooltipService.Text)))
+{
+    <div @ref="_tooltipRef"
+         class="custom-tooltip-portal @(_isPositioned ? "visible" : "") @TooltipService.CustomClass"
+         style="left: @(TooltipService.X)px; top: @(TooltipService.Y)px;"
+         data-placement="@TooltipService.Placement.ToString().ToLowerInvariant()">
+        @if (TooltipService.Content != null)
+        {
+            @TooltipService.Content
+        }
+        else
+        {
+            <span class="custom-tooltip-text">@TooltipService.Text</span>
+        }
+        <div class="tooltip-arrow"></div>
+    </div>
+}
+
+@code {
+    private ElementReference _tooltipRef;
+    private bool _pendingPosition;
+    private bool _isPositioned;
+
+    protected override void OnInitialized()
+    {
+        TooltipService.OnChange += HandleChange;
+        Nav.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (TooltipService.IsVisible)
+        {
+            TooltipService.Hide();
+        }
+    }
+
+    private void HandleChange()
+    {
+        if (TooltipService.IsVisible)
+        {
+            _pendingPosition = true;
+            _isPositioned = false;
+        }
+        else
+        {
+            _isPositioned = false;
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (TooltipService.IsVisible && _pendingPosition)
+        {
+            _pendingPosition = false;
+            try
+            {
+                await JS.InvokeVoidAsync("positionTooltip", _tooltipRef, TooltipService.X, TooltipService.Y, TooltipService.Placement.ToString().ToLowerInvariant(), TooltipService.AnchorW, TooltipService.AnchorH);
+                _isPositioned = true;
+                StateHasChanged();
+            }
+            catch (JSDisconnectedException) { }
+            catch (Exception) { }
+        }
+    }
+
+    public void Dispose()
+    {
+        TooltipService.OnChange -= HandleChange;
+        Nav.LocationChanged -= HandleLocationChanged;
+    }
+}
