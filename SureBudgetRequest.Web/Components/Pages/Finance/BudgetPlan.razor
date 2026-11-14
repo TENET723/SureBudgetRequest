@@ -103,7 +103,11 @@
                     </td>
                     <td class="text-end font-mono">@spent.ToString("N0")</td>
                     <td class="text-end font-mono @(remaining < 0 ? "text-danger" : "")">@remaining.ToString("N0")</td>
-                    <td class="text-end font-mono">@usedPct%</td>
+                    <td class="text-end font-mono">
+                        <Tooltip Text="@($"{spent:N0} of {limit:N0} MMK used")">
+                            <span>@usedPct%</span>
+                        </Tooltip>
+                    </td>
                     <td>
                         @if (m.IsCurrent)
                         {

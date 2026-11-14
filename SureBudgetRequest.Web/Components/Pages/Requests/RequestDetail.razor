@@ -817,7 +817,11 @@ else
                                         var paidLocal = p.PaidAt.ToMyanmarDateTime();
                                         <tr class="clickable-row" style="@(p.IsVoided ? "opacity: 0.6;" : "")">
                                             <td class="col-no">@payNo</td>
-                                            <td class="nowrap">@paidLocal.ToString("d/M/yyyy h:mm tt")</td>
+                                            <td class="nowrap">
+                                                <Tooltip Text="@paidLocal.ToString("dd MMM yyyy, hh:mm:ss tt")">
+                                                    <span>@paidLocal.ToString("d/M/yyyy h:mm tt")</span>
+                                                </Tooltip>
+                                            </td>
                                             <td class="text-end font-semibold tabular">
                                                 <span style="@(p.IsVoided ? "text-decoration: line-through;" : "")">@p.Amount.ToString("N2")</span>
                                                 @if (p.IsVoided)
@@ -878,13 +882,15 @@ else
                                                 {
                                                     <div class="row-hover-btn-wrapper">
                                                         <div class="row-hover-backdrop"></div>
-                                                        <button type="button" class="btn-three-dots btn-void-row" title="Void Payment"
-                                                                @onclick="() => OpenVoidPaymentModal(p)" disabled="@_actioning">
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                                <circle cx="12" cy="12" r="10"></circle>
-                                                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-                                                            </svg>
-                                                        </button>
+                                                        <Tooltip Text="Void Payment">
+                                                            <button type="button" class="btn-three-dots btn-void-row"
+                                                                    @onclick="() => OpenVoidPaymentModal(p)" disabled="@_actioning">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <circle cx="12" cy="12" r="10"></circle>
+                                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 }
                                             </td>
@@ -990,7 +996,11 @@ else
                                         usageNo++;
                                         <tr class="@(CanEditUsage ? "clickable-row" : "")" @onclick="() => { if (CanEditUsage) OpenEditUsageModal(u); }">
                                             <td class="col-no">@usageNo</td>
-                                            <td class="nowrap">@u.SpentOn.ToMyanmarDateTime().ToString("d/M/yyyy h:mm tt")</td>
+                                            <td class="nowrap">
+                                                <Tooltip Text="@u.SpentOn.ToMyanmarDateTime().ToString("dd MMM yyyy, hh:mm:ss tt")">
+                                                    <span>@u.SpentOn.ToMyanmarDateTime().ToString("d/M/yyyy h:mm tt")</span>
+                                                </Tooltip>
+                                            </td>
                                             <td class="text-end font-semibold tabular">@u.Amount.ToString("N2")</td>
                                             <td>@u.Description</td>
                                             <td @onclick:stopPropagation="true">
@@ -1015,15 +1025,17 @@ else
                                                 <td class="sticky-action-col" @onclick:stopPropagation="true">
                                                     <div class="row-hover-btn-wrapper">
                                                         <div class="row-hover-backdrop"></div>
-                                                        <button type="button" class="btn-three-dots btn-delete-row" title="Delete Usage"
-                                                                @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                                <polyline points="3 6 5 6 21 6"></polyline>
-                                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                                                            </svg>
-                                                        </button>
+                                                        <Tooltip Text="Delete Usage">
+                                                            <button type="button" class="btn-three-dots btn-delete-row"
+                                                                    @onclick="() => DoRemoveUsage(u.Id)" disabled="@_actioning">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                                </svg>
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 </td>
                                             }

@@ -1816,7 +1816,7 @@ tr.menu-open .row-hover-btn-wrapper,
   gap: 4px;
   color: #64748b;
   font-size: 11.5px;
-  cursor: help;
+  /*cursor: help;*/
   margin-top: 1px;
   border-bottom: 1px dotted #cbd5e1;
 }

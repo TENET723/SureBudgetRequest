@@ -134,7 +134,7 @@
     <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@Items"
                   IsLoading="@_loading"
-                  ColSpan="9">
+                  ColSpan="10">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable col-ref-date"
@@ -146,6 +146,7 @@
                     Requester @RenderSortIcon(BudgetRequestSortBy.Requester)
                 </th>
                 <th class="col-reason">Reason</th>
+                <th class="col-tags">Tags</th>
                 <th class="text-end col-requested" role="button"
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.OutstandingSince))"
                     title="Sort by how long the request has been waiting for payment">
@@ -172,7 +173,7 @@
                     <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
                     <td class="text-sm col-ref-date">
                         <div class="font-semibold text-dark">@(r.Reference ?? "—")</div>
-                        <Tooltip Placement="TooltipPlacement.Bottom">
+                        <Tooltip Placement="TooltipPlacement.Top">
                             <Content>
                                 <div class="popup-row">
                                     <span class="popup-label">Submitted:</span>
@@ -197,6 +198,45 @@
                             <Tooltip Text="@r.Reasons" Placement="TooltipPlacement.Top" WrapperClass="d-block">
                                 <span class="reason-clamp">@r.Reasons</span>
                             </Tooltip>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-xs">—</span>
+                        }
+                    </td>
+                    <td class="col-tags">
+                        @if (r.Tags != null && r.Tags.Count > 0)
+                        {
+                            <div class="flex items-center gap-1 flex-wrap">
+                                @foreach (var tag in r.Tags.Take(5))
+                                {
+                                <Tooltip Text="@($"#{tag.Name}")" Placement="TooltipPlacement.Top">
+                                        <span class="tag-badge-pill"
+                                              style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                            #@tag.Name
+                                        </span>
+                                    </Tooltip>
+                                }
+                                @if (r.Tags.Count > 5)
+                                {
+                                    var overflowCount = r.Tags.Count - 5;
+                                    <Tooltip Placement="TooltipPlacement.Top">
+                                        <Content>
+                                            <div class="tags-tooltip-list">
+                                                @foreach (var ot in r.Tags.Skip(5))
+                                                {
+                                                    <span class="tag-tooltip-item">#@ot.Name</span>
+                                                }
+                                            </div>
+                                        </Content>
+                                        <ChildContent>
+                                            <span class="tag-badge-pill" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; font-weight: 600; cursor: pointer;">
+                                                +@overflowCount
+                                            </span>
+                                        </ChildContent>
+                                    </Tooltip>
+                                }
+                            </div>
                         }
                         else
                         {

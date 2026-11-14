@@ -82,7 +82,7 @@
                     <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
                     <td class="text-sm col-ref-date">
                         <div class="font-semibold text-dark">@(r.Reference ?? "—")</div>
-                        <Tooltip Placement="TooltipPlacement.Bottom">
+                        <Tooltip Placement="TooltipPlacement.Top">
                             <Content>
                                 <div class="popup-row">
                                     <span class="popup-label">Submitted:</span>
@@ -118,10 +118,12 @@
                             <div class="flex items-center gap-1 flex-wrap">
                                 @foreach (var tag in r.Tags.Take(5))
                                 {
-                                    <span class="tag-badge-pill"
-                                          style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
-                                        #@tag.Name
-                                    </span>
+                                    <Tooltip Text="@($"#{tag.Name}")">
+                                        <span class="tag-badge-pill"
+                                              style="background-color: @(tag.ColorHex ?? "#6c757d"); color: @tag.EffectiveFontColor;">
+                                            #@tag.Name
+                                        </span>
+                                    </Tooltip>
                                 }
                                 @if (r.Tags.Count > 5)
                                 {
