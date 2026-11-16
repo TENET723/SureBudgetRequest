@@ -36,21 +36,25 @@
         @if (CurrentUser.IsLoaded)
         {
             <div class="sidebar-profile-wrap">
-                <button type="button" class="sidebar-profile-trigger @(ContextMenu.IsOpen ? "active" : "")"
+                <button type="button" class="sidebar-profile-trigger @(CurrentUser.IsFallbackPersonAct ? "delegated" : "") @(ContextMenu.IsOpen ? "active" : "")"
                         @onclick="OpenProfileContextMenu"
-                        title="@CurrentUser.FullName (@CurrentUser.Role)">
+                        title="@(CurrentUser.IsFallbackPersonAct ? $"Acting as {CurrentUser.FullName} (You: {CurrentUser.RealActorFullName})" : $"{CurrentUser.FullName} ({CurrentUser.Role})")">
                     <div class="profile-avatar-wrap">
-                        <div class="user-avatar">
+                        <div class="user-avatar" style="@(CurrentUser.IsFallbackPersonAct ? "background: #d97706;" : "")">
                             @(CurrentUser.FullName.Length > 0 ? CurrentUser.FullName[0].ToString().ToUpper() : "?")
                         </div>
-                        <span class="avatar-status-dot @(_isOnLeave ? "status-leave" : "status-active")"></span>
+                        <span class="avatar-status-dot @(CurrentUser.IsFallbackPersonAct ? "status-delegated" : (_isOnLeave ? "status-leave" : "status-active"))"></span>
                     </div>
                     @if (!_sidebarCollapsed)
                     {
                         <div class="profile-user-info">
                             <span class="profile-user-name">@CurrentUser.FullName</span>
                             <span class="profile-user-role">
-                                @if (_isOnLeave)
+                                @if (CurrentUser.IsFallbackPersonAct)
+                                {
+                                    <span class="text-amber-600 font-semibold" style="font-size: 10.5px;">Acting on behalf</span>
+                                }
+                                else if (_isOnLeave)
                                 {
                                     <span class="text-amber-600 font-semibold">On Leave</span>
                                 }
@@ -72,7 +76,7 @@
     </aside>
 
     <div class="main-area">
-        @if (CurrentUser.IsFallbackPersonAct)
+        @* @if (CurrentUser.IsFallbackPersonAct)
         {
             <div class="delegation-banner">
                 <div class="flex items-center gap-2">
@@ -93,7 +97,7 @@
                     </button>
                 </form>
             </div>
-        }
+        } *@
 
         <main class="page-content">
             @Body
@@ -421,7 +425,8 @@
         _lastMenuX = _sidebarCollapsed ? 64 : 12;
         _lastMenuY = e.ClientY;
 
-        ContextMenu.Show(_lastMenuX, _lastMenuY, RenderProfileContextMenu(), title: CurrentUser.FullName, isButton: false, customClass: "profile-context-menu");
+        var menuTitle = CurrentUser.IsFallbackPersonAct ? $"{CurrentUser.FullName} (Delegated)" : CurrentUser.FullName;
+        ContextMenu.Show(_lastMenuX, _lastMenuY, RenderProfileContextMenu(), title: menuTitle, isButton: false, customClass: "profile-context-menu");
     }
 
     private void CloseAllPopovers()
@@ -633,7 +638,43 @@
     }
 
     private RenderFragment RenderProfileContextMenu() => @<text>
-        @if (!CurrentUser.IsFallbackPersonAct)
+        @if (CurrentUser.IsFallbackPersonAct)
+        {
+            @* Delegated session indicator badge *@
+            <div style="padding: 8px 12px; background: #fffbeb; border-radius: var(--radius-sm); margin: 4px 6px 6px; border: 1px solid #fef3c7;">
+                <div class="flex items-center gap-1.5" style="color: #b45309; font-weight: 700; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>Acting on behalf</span>
+                </div>
+                
+                <div class="text-muted" style="font-size: 11px; margin-top: 1px;">
+                    Real account: <strong class="text-slate-700">@CurrentUser.RealActorFullName</strong>
+                </div>
+            </div>
+
+            @* Prominent switch back action *@
+            <form method="post" action="/account/switch-back" style="margin: 2px 0 6px;"
+                  onsubmit="var o=document.getElementById('switching-overlay');var t=document.getElementById('switching-overlay-text');if(t)t.textContent='Switching back to @CurrentUser.RealActorFullName…';if(o)o.style.display='flex';">
+                <AntiforgeryToken />
+                <button type="submit" class="context-menu-item flex items-center justify-between" style="font-weight: 600; color: #1d4ed8; background: #eff6ff; padding: 7px 12px; border-radius: var(--radius-sm); width: calc(100% - 12px); margin: 0 6px;">
+                    <div class="flex items-center gap-2">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 14 4 9 9 4"/>
+                            <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+                        </svg>
+                        <span>Switch Back to My Account</span>
+                    </div>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-blue-500">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </button>
+            </form>
+        }
+        else
         {
             @* 1. Switch Account (opens popover box) *@
             @if (_availableDelegations.Count > 0)
@@ -705,13 +746,10 @@
                     <polyline points="9 18 15 12 9 6"/>
                 </svg>
             </button>
-        }
 
-        <div class="context-menu-divider"></div>
+            <div class="context-menu-divider"></div>
 
-        @* 4. Change Password *@
-        @if (!CurrentUser.IsFallbackPersonAct)
-        {
+            @* 4. Change Password *@
             <button type="button" class="context-menu-item" @onclick="OpenChangePasswordPopover">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>

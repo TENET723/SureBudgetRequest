@@ -83,6 +83,16 @@
     background: var(--color-bg-row-alt, #f1f5f9);
 }
 
+.sidebar-profile-trigger.delegated {
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+}
+
+.sidebar-profile-trigger.delegated:hover,
+.sidebar-profile-trigger.delegated.active {
+    background: #fef3c7;
+}
+
 .profile-avatar-wrap {
     position: relative;
     flex-shrink: 0;
@@ -119,6 +129,11 @@
 
 .avatar-status-dot.status-leave {
     background: #f59e0b;
+}
+
+.avatar-status-dot.status-delegated {
+    background: #f59e0b;
+    box-shadow: 0 0 0 1px #d97706;
 }
 
 .profile-user-info {
