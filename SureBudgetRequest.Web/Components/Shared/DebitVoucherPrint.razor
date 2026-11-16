@@ -1,0 +1,235 @@
+@using SureBudgetRequest.Web.Services
+@inject DebitVoucherPrintService PrintService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<style>
+    /* Default: keep voucher hidden on screen */
+    .debit-voucher-print {
+        display: none !important;
+    }
+
+    @@media print {
+        @@page {
+            size: auto;
+            margin: 0;
+        }
+
+        html, body {
+            background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* Direct Ctrl+P or unauthorized print: hide everything so page is blank */
+        body:not(.is-printing-voucher) * {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+
+        /* Hide everything outside .debit-voucher-print when authorized via UI */
+        body.is-printing-voucher > *:not(.debit-voucher-print) {
+            display: none !important;
+            visibility: hidden !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print {
+            display: block !important;
+            visibility: visible !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 16px !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            box-sizing: border-box !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-header,
+        body.is-printing-voucher .debit-voucher-brand,
+        body.is-printing-voucher .debit-voucher-sig-line {
+            display: flex !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print strong,
+        body.is-printing-voucher .debit-voucher-print span {
+            display: inline !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print table {
+            display: table !important;
+            width: 100% !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print tr {
+            display: table-row !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print th,
+        body.is-printing-voucher .debit-voucher-print td {
+            display: table-cell !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-print img {
+            display: block !important;
+        }
+
+        body.is-printing-voucher .debit-voucher-watermark {
+            display: block !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) rotate(-24deg) !important;
+            font-size: 56px !important;
+            font-weight: 900 !important;
+            letter-spacing: 0.12em !important;
+            color: rgba(22, 163, 74, 0.22) !important;
+            border: 5px solid rgba(22, 163, 74, 0.26) !important;
+            border-radius: 10px !important;
+            padding: 6px 28px !important;
+            pointer-events: none !important;
+            text-transform: uppercase !important;
+            white-space: nowrap !important;
+            user-select: none !important;
+            z-index: 20 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+    }
+</style>
+
+@if (PrintService.CurrentVoucher is not null)
+{
+    var v = PrintService.CurrentVoucher;
+    <div class="debit-voucher-print">
+        <div class="debit-voucher-slip"
+             style="max-width: 650px; margin: 0 auto; border: 1.5px solid #111827; padding: 18px 22px; background: #ffffff; color: #111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; position: relative; overflow: hidden;">
+
+            @if (!string.IsNullOrWhiteSpace(v.Watermark))
+            {
+                <div class="debit-voucher-watermark">@v.Watermark</div>
+            }
+
+            @* ── Header (Logo, Title, Ref, Print Date) ── *@
+            <div class="debit-voucher-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #111827;">
+                <div class="debit-voucher-brand" style="display: flex; align-items: center; gap: 10px;">
+                            <img src="data:image/png;base64,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"
+                         style="width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; display: block;" alt="Logo" />
+                    <div>
+                        <div style="font-size: 15px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #111827; line-height: 1.15;">DEBIT VOUCHER</div>
+                        <div style="font-size: 9.5px; color: #4b5563; margin-top: 2px;">aSure Budget Internal Voucher</div>
+                    </div>
+                </div>
+                <div style="text-align: right; white-space: nowrap;">
+                    <div style="font-size: 11px; color: #374151; white-space: nowrap;">Ref: <strong style="font-family: monospace; font-size: 12px; color: #111827; display: inline;">@v.ReferenceNumber</strong></div>
+                    <div style="font-size: 9.5px; color: #6b7280; margin-top: 3px; white-space: nowrap;">Printed: @v.PrintDate.ToString("dd MMM yyyy, hh:mm tt")</div>
+                </div>
+            </div>
+
+            @* ── Details Grid Table ── *@
+            <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11.5px; border: 1px solid #111827;">
+                <tbody>
+                    <tr>
+                        <th style="width: 18%; border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Requester</th>
+                        <td style="width: 32%; border: 1px solid #d1d5db; padding: 6px 10px; color: #111827;"><strong>@v.RequesterName</strong></td>
+                        <th style="width: 20%; border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Submit Date</th>
+                        <td style="width: 30%; border: 1px solid #d1d5db; padding: 6px 10px; color: #111827;">@(v.SubmitDate?.ToString("dd MMM yyyy, hh:mm tt") ?? "—")</td>
+                    </tr>
+                    <tr>
+                        <th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Reason</th>
+                        <td colspan="3" style="border: 1px solid #d1d5db; padding: 6px 10px; color: #111827; line-height: 1.45; white-space: pre-wrap;">@v.Reason</td>
+                    </tr>
+                    <tr>
+                        <th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Amount</th>
+                        <td colspan="3" style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; color: #111827; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
+                            <span style="font-family: monospace; font-weight: 700; font-size: 13px; color: #111827; letter-spacing: 0.02em;">@v.Amount.ToString("N2") @v.CurrencyCode</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            @* ── Signatures Table (Prepared By & Approved By) ── *@
+            <table style="width: 100%; border-collapse: collapse; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e7eb; page-break-inside: avoid; break-inside: avoid;">
+                <tr>
+                    <td style="width: 44%; text-align: center; vertical-align: bottom;">
+                        <div class="debit-voucher-sig-line" style="height: 38px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; border-bottom: 1.5px solid #111827; font-style: italic; color: #111827; font-size: 11px;">
+                            @v.RequesterName
+                        </div>
+                        <div style="font-weight: 600; font-size: 11px; margin-top: 4px; color: #111827;">Prepared By</div>
+                        <div style="font-size: 9.5px; color: #6b7280; margin-top: 1px;">Requester</div>
+                    </td>
+                    <td style="width: 12%;"></td>
+                    <td style="width: 44%; text-align: center; vertical-align: bottom;">
+                        <div class="debit-voucher-sig-line" style="height: 38px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; border-bottom: 1.5px solid #111827; font-style: italic; color: #111827; font-size: 11px;">
+                            @(string.IsNullOrWhiteSpace(v.ApproverName) ? "Pending Approval" : v.ApproverName)
+                        </div>
+                        <div style="font-weight: 600; font-size: 11px; margin-top: 4px; color: #111827;">Approved By</div>
+                        <div style="font-size: 9.5px; color: #6b7280; margin-top: 1px;">@(v.ApproverRoleLabel ?? "Department Head / Finance")</div>
+                    </td>
+                </tr>
+            </table>
+
+        </div>
+    </div>
+}
+
+@code {
+    private bool _hasPendingPrint;
+
+    protected override void OnInitialized()
+    {
+        PrintService.OnPrintRequested += HandlePrintRequested;
+    }
+
+    private void HandlePrintRequested()
+    {
+        _hasPendingPrint = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("eval", @"
+                    window.addEventListener('afterprint', function() {
+                        document.body.classList.remove('is-printing-voucher');
+                    });
+                ");
+            }
+            catch { }
+        }
+
+        if (_hasPendingPrint)
+        {
+            _hasPendingPrint = false;
+            try
+            {
+                await JS.InvokeVoidAsync("eval", @"
+                    document.body.classList.add('is-printing-voucher');
+                    window.print();
+                    setTimeout(function() {
+                        document.body.classList.remove('is-printing-voucher');
+                    }, 1000);
+                ");
+            }
+            catch (JSDisconnectedException) { }
+            catch (Exception) { }
+        }
+    }
+
+    public void Dispose()
+    {
+        PrintService.OnPrintRequested -= HandlePrintRequested;
+    }
+}

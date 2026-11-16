@@ -5,6 +5,7 @@
 @inject BusyState Busy
 @inject IJSRuntime JS
 @inject IFileStorage FileStorage
+@inject DebitVoucherPrintService PrintService
 @using SureBudgetRequest.Application.Abstractions.Services
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequest
 @using SureBudgetRequest.Application.BudgetRequests.Commands.ApproveRequest
@@ -124,11 +125,26 @@ else
                 </div>
                 <span class="text-muted text-sm font-mono">@_request.Reference</span>
             </div>
-            <span class="badge badge-role">@StatusLabel(_request.Status)</span>
-            <MonthlyLimitBadge
-                MonthlyLimitAtSubmission="@_request.MonthlyLimitAtSubmission"
-                MonthlySpendBeforeAtSubmission="@_request.MonthlySpendBeforeAtSubmission"
-                RequestedAmountInMmkAtSubmission="@_request.RequestedAmountInMmkAtSubmission" />
+            <div class="flex items-center gap-2">
+                @if (CanPrintDebitVoucher)
+                {
+                    <button class="btn btn-primary btn-sm flex items-center gap-1.5 shadow-sm font-medium"
+                            @onclick="PrintDebitVoucher"
+                            title="Print Debit Voucher">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                        </svg>
+                        <span>Print Voucher</span>
+                    </button>
+                }
+                <span class="badge badge-role">@StatusLabel(_request.Status)</span>
+                <MonthlyLimitBadge
+                    MonthlyLimitAtSubmission="@_request.MonthlyLimitAtSubmission"
+                    MonthlySpendBeforeAtSubmission="@_request.MonthlySpendBeforeAtSubmission"
+                    RequestedAmountInMmkAtSubmission="@_request.RequestedAmountInMmkAtSubmission" />
+            </div>
         </div>
 
         @if (!string.IsNullOrEmpty(_actionError))
@@ -3499,6 +3515,92 @@ else
         _actioning = false;
         if (res.IsFailure) { _actionError = res.Error.Message; }
         else { _actionSuccess = "Usage removed."; await LoadRequest(); }
+    }
+
+    // ── Debit Voucher Print ───────────────────────────────────────────────────
+
+    private bool CanPrintDebitVoucher =>
+        _request is not null &&
+        _request.Status is RequestStatus.Approved
+                        or RequestStatus.PartiallyPaid
+                        or RequestStatus.Paid
+                        or RequestStatus.PendingReconciliation
+                        or RequestStatus.AwaitingRefund
+                        or RequestStatus.Reconciled
+                        or RequestStatus.AwaitingReimbursement;
+
+    private void PrintDebitVoucher()
+    {
+        if (_request is null || !CanPrintDebitVoucher) return;
+
+        var requesterName = _userNames.TryGetValue(_request.RequesterId, out var rn) ? rn : "—";
+        var amount = _request.ApprovedAmount > 0 ? _request.ApprovedAmount : _request.RequestedAmount;
+
+        var approvers = _request.ApprovalActions
+            .Where(a => a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved)
+            .OrderBy(a => a.ActionedAt)
+            .Select(a =>
+            {
+                var name = _userNames.TryGetValue(a.ApproverId, out var an) ? an : "System";
+                // if (a.FallbackUserId.HasValue && _userNames.TryGetValue(a.FallbackUserId.Value, out var fbn))
+                // {
+                //     name = $"{name} (acting: {fbn})";
+                // }
+                return name;
+            })
+            .Distinct()
+            .ToList();
+
+        string approverText;
+        if (approvers.Count > 0)
+        {
+            approverText = string.Join(", ", approvers);
+        }
+        else if (_request.Status is RequestStatus.Approved or RequestStatus.Paid or RequestStatus.PartiallyPaid or RequestStatus.PendingReconciliation or RequestStatus.Reconciled)
+        {
+            approverText = _userNames.TryGetValue(_request.DeptHeadIdAtSubmission, out var dhn) ? dhn : "Authorized";
+        }
+        else
+        {
+            approverText = "Pending Approval";
+        }
+
+        string? watermark = null;
+        if (_request.Status == RequestStatus.PartiallyPaid || (_request.TotalPaid > 0 && _request.TotalPaid < amount))
+        {
+            watermark = "PARTIAL PAID";
+        }
+        else if (_request.TotalPaid > 0 || _request.Status is RequestStatus.Paid
+                                                          or RequestStatus.PendingReconciliation
+                                                          or RequestStatus.AwaitingRefund
+                                                          or RequestStatus.Reconciled
+                                                          or RequestStatus.AwaitingReimbursement)
+        {
+            watermark = "PAID";
+        }
+
+        bool hasManagement = _request.ApprovalActions.Any(a =>
+            a.Stage == ApprovalStage.Management &&
+            (a.Decision == ApprovalDecision.Approved || a.Decision == ApprovalDecision.AutoApproved));
+
+        string approverRoleLabel = hasManagement
+            ? "Department Head / Management / Finance"
+            : "Department Head / Finance";
+
+        var model = new DebitVoucherPrintModel(
+            ReferenceNumber: _request.Reference ?? "—",
+            RequesterName: requesterName,
+            Reason: _request.Reasons ?? "—",
+            SubmitDate: _request.SubmittedAt ?? _request.CreatedAt,
+            PrintDate: DateTime.Now,
+            Amount: amount,
+            CurrencyCode: _request.CurrencyCode ?? "MMK",
+            ApproverName: approverText,
+            ApproverRoleLabel: approverRoleLabel,
+            Watermark: watermark
+        );
+
+        PrintService.RequestPrint(model);
     }
 
     // ── Modification History ──────────────────────────────────────────────────

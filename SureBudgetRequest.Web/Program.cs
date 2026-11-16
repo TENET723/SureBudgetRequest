@@ -118,6 +118,7 @@ builder.Services.AddScoped<ICurrentUser>(sp =>
 builder.Services.AddScoped<SureBudgetRequest.Web.Services.ToastService>();
 builder.Services.AddScoped<SureBudgetRequest.Web.Services.ContextMenuService>();
 builder.Services.AddScoped<SureBudgetRequest.Web.Services.TooltipService>();
+builder.Services.AddScoped<SureBudgetRequest.Web.Services.DebitVoucherPrintService>();
 // Circuit-scoped global busy signal for the full-screen LoadingOverlay.
 builder.Services.AddScoped<BusyState>();
 builder.Services.AddScoped<FilterStateService>();
