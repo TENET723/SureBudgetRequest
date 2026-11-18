@@ -801,7 +801,21 @@ else
                         @foreach (var a in _request.ApprovalActions.OrderBy(x => x.ActionedAt))
                         {
                             <div class="tl-item">
-                                <div class="tl-node @DecisionNodeClass(a.Decision)">@DecisionGlyph(a.Decision)</div>
+                                <div class="tl-node @DecisionNodeClass(a.Decision)">
+                                    @if (a.Stage == ApprovalStage.Accounting || a.Decision == ApprovalDecision.Categorized)
+                                    {
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Categorized by Accounting">
+                                            <path d="M5 22h14"/>
+                                            <path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4.73 13.73L3 17h18l-1.73-3.27Z"/>
+                                            <path d="M14 13V8.5C14 7.12 12.88 6 11.5 6h-1C9.12 6 8 7.12 8 8.5V13"/>
+                                            <rect x="8" y="2" width="8" height="4" rx="2"/>
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        @DecisionGlyph(a.Decision)
+                                    }
+                                </div>
                                 <div class="tl-body">
                                     <div class="tl-stage">
                                         <span class="tl-stage-name">@StageLabel(a.Stage.ToString())</span>
@@ -826,7 +840,19 @@ else
                         {
                             <div class="tl-item">
                                 <div class="tl-node tl-node-pending">
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                    @if (pendingStage.Value.Stage == "Accounting")
+                                    {
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" title="Awaiting Accounting Categorization">
+                                            <path d="M5 22h14"/>
+                                            <path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4.73 13.73L3 17h18l-1.73-3.27Z"/>
+                                            <path d="M14 13V8.5C14 7.12 12.88 6 11.5 6h-1C9.12 6 8 7.12 8 8.5V13"/>
+                                            <rect x="8" y="2" width="8" height="4" rx="2"/>
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                    }
                                 </div>
                                 <div class="tl-body">
                                     <div class="tl-stage">
@@ -1216,7 +1242,7 @@ else
 @if (_showFinanceApproveModal)
 {
     <div class="modal-backdrop">
-        <div class="modal">
+        <div class="modal" style="overflow:visible;">
             <div >
                 <div class="modal-header">
                     <h6 class="modal-title text-success">Approve Request</h6>
@@ -1632,7 +1658,7 @@ else
 @if (_showRefundModal && _request is not null)
 {
     <div class="modal-backdrop">
-        <div class="modal">
+        <div class="modal" >
             <div >
                 <div class="modal-header">
                     <h6 class="modal-title">Record Refund Received</h6>
@@ -3051,14 +3077,9 @@ else
                 return;
             }
 
-            var chosenCat = _accountingCategories.FirstOrDefault(c => c.Id == catId);
-            _request = _request with
-            {
-                AccountingCategoryId = catId,
-                AccountingCategoryName = chosenCat?.Name
-            };
             _showAccountingCategoryModal = false;
-            StateHasChanged();
+            _actionSuccess = "Accounting category assigned.";
+            await LoadRequest();
         }
         finally
         {
@@ -3884,6 +3905,8 @@ else
                 $"Awaiting approval by {(_userNames.TryGetValue(_request.DeptHeadIdAtSubmission, out var dh) ? dh : "the department head")}."),
             RequestStatus.PendingManagement => ("Management", "Awaiting approval by Management."),
             RequestStatus.PendingFinance => ("Finance", "Awaiting approval by Finance."),
+            RequestStatus.Approved when !_request.AccountingCategoryId.HasValue =>
+                ("Accounting", "Awaiting accounting categorization."),
             _ => null
         };
     }
@@ -3893,12 +3916,13 @@ else
         "DeptHead"   => "Dept Head",
         "Management" => "Management",
         "Finance"    => "Finance",
+        "Accounting" => "Accounting",
         _ => stage
     };
 
     private static string DecisionNodeClass(ApprovalDecision d) => d switch
     {
-        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "tl-node-approved",
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved or ApprovalDecision.Categorized => "tl-node-approved",
         ApprovalDecision.Rejected => "tl-node-rejected",
         ApprovalDecision.Revoked => "tl-node-sentback",
         _ => "tl-node-sentback"
@@ -3906,7 +3930,7 @@ else
 
     private static string DecisionGlyph(ApprovalDecision d) => d switch
     {
-        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "✓",
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved or ApprovalDecision.Categorized => "✓",
         ApprovalDecision.Rejected => "✕",
         ApprovalDecision.Revoked => "↺",
         _ => "↩"
@@ -3914,7 +3938,7 @@ else
 
     private static string DecisionBadgeClass(ApprovalDecision d) => d switch
     {
-        ApprovalDecision.Approved or ApprovalDecision.AutoApproved => "badge-active",
+        ApprovalDecision.Approved or ApprovalDecision.AutoApproved or ApprovalDecision.Categorized => "badge-active",
         ApprovalDecision.Rejected => "badge-rejected",
         ApprovalDecision.Revoked => "badge-warning",
         _ => "badge-warning"
@@ -3926,6 +3950,7 @@ else
         ApprovalDecision.AutoApproved => "AUTO-APPROVED",
         ApprovalDecision.Rejected     => "REJECTED",
         ApprovalDecision.Revoked      => "REVOKED",
+        ApprovalDecision.Categorized  => "CATEGORIZED",
         _ => "SENT BACK"
     };
 

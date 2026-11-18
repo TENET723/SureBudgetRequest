@@ -4,5 +4,6 @@ public enum ApprovalStage
 {
     DeptHead = 0,
     Management = 1,
-    Finance = 2
+    Finance = 2,
+    Accounting = 3
 }

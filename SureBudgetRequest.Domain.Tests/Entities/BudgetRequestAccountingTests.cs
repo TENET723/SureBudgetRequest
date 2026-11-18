@@ -56,6 +56,26 @@ public class BudgetRequestAccountingTests
     }
 
     [Fact]
+    public void SetAccountingCategory_WhenActorProvided_RecordsApprovalAction()
+    {
+        var request = CreateApprovedRequest();
+        var categoryId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var fallbackUserId = Guid.NewGuid();
+
+        var result = request.SetAccountingCategory(categoryId, actorId, "Office Supply", fallbackUserId);
+
+        result.IsSuccess.Should().BeTrue();
+        request.AccountingCategoryId.Should().Be(categoryId);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.Accounting &&
+            a.Decision == ApprovalDecision.Categorized &&
+            a.ApproverId == actorId &&
+            a.Comment == "Accounting Category: Office Supply" &&
+            a.FallbackUserId == fallbackUserId);
+    }
+
+    [Fact]
     public void RecordPrint_ShouldRecordTimestampAndUser()
     {
         var request = CreateApprovedRequest();

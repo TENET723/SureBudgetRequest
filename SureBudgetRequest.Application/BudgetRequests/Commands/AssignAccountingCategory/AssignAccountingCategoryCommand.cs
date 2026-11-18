@@ -51,7 +51,12 @@ public sealed class AssignAccountingCategoryCommandHandler
         if (!category.IsActive)
             return Result.Failure(AccountingCategoryErrors.Inactive(category.Name));
 
-        var result = budgetRequest.SetAccountingCategory(command.AccountingCategoryId);
+        var fallbackUserId = _currentUser.IsFallbackPersonAct ? _currentUser.RealActorUserId : (Guid?)null;
+        var result = budgetRequest.SetAccountingCategory(
+            command.AccountingCategoryId,
+            _currentUser.UserId,
+            category.Name,
+            fallbackUserId);
         if (!result.IsSuccess)
             return result;
 

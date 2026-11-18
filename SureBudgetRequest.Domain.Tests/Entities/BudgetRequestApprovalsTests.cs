@@ -320,7 +320,9 @@ public class BudgetRequestApprovalsTests
         var request = CreateSubmittedRequest(deptHeadId: headId);
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid());
+        request.SetAccountingCategory(Guid.NewGuid());
         request.Status.Should().Be(RequestStatus.Approved);
+        request.AccountingCategoryId.Should().NotBeNull();
 
         // Act
         var result = request.SendBack(Guid.NewGuid(), "Need price revision.");
@@ -329,6 +331,7 @@ public class BudgetRequestApprovalsTests
         result.IsSuccess.Should().BeTrue();
         request.Status.Should().Be(RequestStatus.SentBack);
         request.ApprovedAmount.Should().Be(0m);
+        request.AccountingCategoryId.Should().BeNull();
     }
 
     [Fact]

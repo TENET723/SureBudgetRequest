@@ -164,6 +164,7 @@ public partial class BudgetRequest
         Status = RequestStatus.SentBack;
         ApprovedAmount = 0;
         ReconciliationDeadline = null;
+        AccountingCategoryId = null;
         // CoaId intentionally preserved — used as a pre-fill hint for the next
         // Finance approval after the requester fixes and resubmits.
         return Result.Success();

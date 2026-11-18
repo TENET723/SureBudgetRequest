@@ -14,6 +14,7 @@ public class SearchBudgetRequestsQueryTests
     private readonly ICoaRepository _coaRepository = Substitute.For<ICoaRepository>();
     private readonly IWithdrawMethodRepository _withdrawMethodRepository = Substitute.For<IWithdrawMethodRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IAccountingCategoryRepository _accountingCategoryRepository = Substitute.For<IAccountingCategoryRepository>();
 
     private readonly SearchBudgetRequestsQueryHandler _handler;
 
@@ -27,7 +28,8 @@ public class SearchBudgetRequestsQueryTests
             _requestRepository,
             _coaRepository,
             _withdrawMethodRepository,
-            _userRepository);
+            _userRepository,
+            accountingCategoryRepository: _accountingCategoryRepository);
     }
 
     private BudgetRequest CreateRequest()
@@ -175,5 +177,44 @@ public class SearchBudgetRequestsQueryTests
         item.Tags!.Should().HaveCount(1);
         item.Tags![0].Name.Should().Be("DeptA-Tag");
         item.Tags[0].DepartmentId.Should().Be(_deptA);
+    }
+
+    [Fact]
+    public async Task Handle_WhenRequestHasAccountingCategory_ResolvesAccountingCategoryName()
+    {
+        // Arrange
+        var categoryId = Guid.NewGuid();
+        var category = new AccountingCategory("Hardware Expense");
+        typeof(AccountingCategory).GetProperty(nameof(AccountingCategory.Id))!.SetValue(category, categoryId);
+
+        _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<AccountingCategory> { category });
+
+        var headId = Guid.NewGuid();
+        var request = CreateRequest();
+        request.Submit(Guid.NewGuid(), 100_000m, 1_000_000m, 0m, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1), 1m, headId, "Head", "Req", false, 1);
+        request.ApproveBy(headId);
+        request.ApproveBy(Guid.NewGuid(), Guid.NewGuid());
+        request.SetAccountingCategory(categoryId);
+
+        _requestRepository.SearchAsync(
+            Arg.Any<Guid?>(), Arg.Any<Guid?>(), Arg.Any<RequestStatus?>(), Arg.Any<IReadOnlyCollection<RequestStatus>?>(),
+            Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<Guid?>(),
+            Arg.Any<bool?>(), Arg.Any<IReadOnlyCollection<BudgetRequestType>?>(), Arg.Any<decimal?>(), Arg.Any<decimal?>(),
+            Arg.Any<bool?>(), Arg.Any<string?>(), Arg.Any<bool?>(), Arg.Any<BudgetRequestSortBy>(), Arg.Any<bool>(),
+            Arg.Any<int>(), Arg.Any<int>(), Arg.Any<Guid?>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns((new List<BudgetRequest> { request }, 1));
+
+        var query = new SearchBudgetRequestsQuery();
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Items.Should().HaveCount(1);
+        var item = result.Value.Items[0];
+        item.AccountingCategoryId.Should().Be(categoryId);
+        item.AccountingCategoryName.Should().Be("Hardware Expense");
     }
 }

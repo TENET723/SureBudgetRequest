@@ -52,19 +52,22 @@ public sealed class SearchBudgetRequestsQueryHandler
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IUserRepository? _userRepository;
     private readonly IAppSettingRepository? _appSettingRepository;
+    private readonly IAccountingCategoryRepository? _accountingCategoryRepository;
 
     public SearchBudgetRequestsQueryHandler(
         IBudgetRequestRepository repository,
         ICoaRepository coaRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
         IUserRepository? userRepository = null,
-        IAppSettingRepository? appSettingRepository = null)
+        IAppSettingRepository? appSettingRepository = null,
+        IAccountingCategoryRepository? accountingCategoryRepository = null)
     {
         _repository = repository;
         _coaRepository = coaRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _userRepository = userRepository;
         _appSettingRepository = appSettingRepository;
+        _accountingCategoryRepository = accountingCategoryRepository;
     }
 
     public async Task<Result<PagedResult<BudgetRequestSummaryDto>>> Handle(
@@ -142,6 +145,26 @@ public sealed class SearchBudgetRequestsQueryHandler
                 .ToDictionary(m => m.Id);
         }
 
+        // Batch-resolve accounting categories for display.
+        var categoryIds = entities
+            .Select(e => e.AccountingCategoryId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToHashSet();
+
+        Dictionary<Guid, AccountingCategory> categoryLookup;
+        if (categoryIds.Count == 0 || _accountingCategoryRepository is null)
+        {
+            categoryLookup = new Dictionary<Guid, AccountingCategory>();
+        }
+        else
+        {
+            var allCategories = await _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken);
+            categoryLookup = allCategories
+                .Where(c => categoryIds.Contains(c.Id))
+                .ToDictionary(c => c.Id);
+        }
+
         User? viewer = null;
         if (request.ViewerUserId.HasValue && _userRepository is not null)
         {
@@ -158,6 +181,10 @@ public sealed class SearchBudgetRequestsQueryHandler
                 WithdrawMethod? method = null;
                 if (e.WithdrawMethodId.HasValue)
                     methodLookup.TryGetValue(e.WithdrawMethodId.Value, out method);
+
+                AccountingCategory? accCat = null;
+                if (e.AccountingCategoryId.HasValue)
+                    categoryLookup.TryGetValue(e.AccountingCategoryId.Value, out accCat);
 
                 List<RequestTagSummaryDto>? tagDtos = null;
                 if (e.Tags.Count > 0)
@@ -188,7 +215,7 @@ public sealed class SearchBudgetRequestsQueryHandler
                         .ToList();
                 }
 
-                return BudgetRequestSummaryDto.FromEntity(e, coa, method, tagDtos);
+                return BudgetRequestSummaryDto.FromEntity(e, coa, method, tagDtos, accCat);
             })
             .ToList();
 

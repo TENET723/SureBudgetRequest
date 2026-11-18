@@ -6,7 +6,11 @@ namespace SureBudgetRequest.Domain.Entities;
 
 public partial class BudgetRequest
 {
-    public Result SetAccountingCategory(Guid categoryId)
+    public Result SetAccountingCategory(
+        Guid categoryId,
+        Guid? actorId = null,
+        string? categoryName = null,
+        Guid? fallbackUserId = null)
     {
         if (categoryId == Guid.Empty)
             return Result.Failure("Accounting category is required.");
@@ -28,6 +32,23 @@ public partial class BudgetRequest
         }
 
         AccountingCategoryId = categoryId;
+
+        if (actorId.HasValue && actorId.Value != Guid.Empty)
+        {
+            var comment = !string.IsNullOrWhiteSpace(categoryName)
+                ? $"Accounting Category: {categoryName}"
+                : "Assigned accounting category";
+
+            _approvalActions.Add(new ApprovalAction(
+                Id,
+                ApprovalStage.Accounting,
+                ApprovalDecision.Categorized,
+                actorId.Value,
+                comment,
+                DateTime.UtcNow,
+                fallbackUserId));
+        }
+
         return Result.Success();
     }
 

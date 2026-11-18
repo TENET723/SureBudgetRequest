@@ -18,8 +18,11 @@ public class AssignAccountingCategoryCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly AssignAccountingCategoryCommandHandler _handler;
 
+    private readonly Guid _actorId = Guid.NewGuid();
+
     public AssignAccountingCategoryCommandHandlerTests()
     {
+        _currentUser.UserId.Returns(_actorId);
         _handler = new AssignAccountingCategoryCommandHandler(
             _budgetRequestRepository,
             _accountingCategoryRepository,
@@ -88,6 +91,11 @@ public class AssignAccountingCategoryCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         request.AccountingCategoryId.Should().Be(categoryId);
+        request.ApprovalActions.Should().Contain(a =>
+            a.Stage == ApprovalStage.Accounting &&
+            a.Decision == ApprovalDecision.Categorized &&
+            a.ApproverId == _currentUser.UserId &&
+            a.Comment == "Accounting Category: Marketing");
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
