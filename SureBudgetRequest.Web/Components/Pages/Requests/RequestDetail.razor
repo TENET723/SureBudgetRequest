@@ -142,7 +142,7 @@ else
                         <span>Print Voucher</span>
                     </button>
                 }
-                <span class="badge badge-role">@StatusLabel(_request.Status)</span>
+                <span class="chip @StatusChipClass(_request.Status)"><span class="dot"></span>@StatusLabel(_request.Status)</span>
                 <MonthlyLimitBadge
                     MonthlyLimitAtSubmission="@_request.MonthlyLimitAtSubmission"
                     MonthlySpendBeforeAtSubmission="@_request.MonthlySpendBeforeAtSubmission"
@@ -4046,6 +4046,22 @@ else
         BudgetRequestType.ProjectProposal => "bg-info text-dark",
         BudgetRequestType.Advance         => "bg-dark",
         _ => "bg-secondary"
+    };
+
+    private static string StatusChipClass(RequestStatus s) => s switch
+    {
+        RequestStatus.Draft                                   => "chip-draft",
+        RequestStatus.PendingDeptHead
+            or RequestStatus.PendingManagement
+            or RequestStatus.PendingFinance
+            or RequestStatus.PendingReconciliation
+            or RequestStatus.AwaitingRefund                   => "chip-pending",
+        RequestStatus.SentBack
+            or RequestStatus.AwaitingReimbursement            => "chip-sentback",
+        RequestStatus.Approved or RequestStatus.PartiallyPaid => "chip-approved",
+        RequestStatus.Paid or RequestStatus.Reconciled        => "chip-paid",
+        RequestStatus.Rejected or RequestStatus.Cancelled     => "chip-rejected",
+        _                                                     => "chip-draft"
     };
 
     private static string StatusBadge(RequestStatus s) => s switch
