@@ -48,6 +48,9 @@ public enum NotificationTrigger
     FinancePaidToRequester,
     PaymentVoidedToRequester,
 
+    // Accounting stage
+    AccountingCategorizedToRequester,
+
     // Sent back to the requester for revision — fired by any approval stage
     // (Dept Head, Management, or Finance).
     SentBackToRequester,

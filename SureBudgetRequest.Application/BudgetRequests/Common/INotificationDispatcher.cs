@@ -92,4 +92,14 @@ public interface INotificationDispatcher
         BudgetRequest request,
         string? actorName,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Notifies the requester that Accounting has assigned a category and they may now print the debit voucher.
+    /// Call AFTER <c>BudgetRequest.SetAccountingCategory</c>.
+    /// </summary>
+    Task DispatchAccountingCategorizedAsync(
+        BudgetRequest request,
+        string categoryName,
+        string? actorName,
+        CancellationToken cancellationToken);
 }

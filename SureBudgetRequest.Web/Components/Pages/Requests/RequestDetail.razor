@@ -3691,11 +3691,13 @@ else
 
     private bool CanPrintDebitVoucher =>
         _request is not null &&
-        _request.Status is RequestStatus.Paid
-                        or RequestStatus.PendingReconciliation
-                        or RequestStatus.AwaitingRefund
-                        or RequestStatus.Reconciled
-                        or RequestStatus.AwaitingReimbursement;
+        ((_request.Status == RequestStatus.Approved && _request.AccountingCategoryId.HasValue)
+         || _request.Status is RequestStatus.PartiallyPaid
+                            or RequestStatus.Paid
+                            or RequestStatus.PendingReconciliation
+                            or RequestStatus.AwaitingRefund
+                            or RequestStatus.Reconciled
+                            or RequestStatus.AwaitingReimbursement);
 
     private async Task PrintDebitVoucher()
     {

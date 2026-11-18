@@ -3,6 +3,7 @@ using NSubstitute;
 using SureBudgetRequest.Application.Abstractions;
 using SureBudgetRequest.Application.Abstractions.Repositories;
 using SureBudgetRequest.Application.BudgetRequests.Commands.AssignAccountingCategory;
+using SureBudgetRequest.Application.BudgetRequests.Common;
 using SureBudgetRequest.Domain.Entities;
 using SureBudgetRequest.Domain.Enums;
 using SureBudgetRequest.Domain.Errors;
@@ -15,6 +16,8 @@ public class AssignAccountingCategoryCommandHandlerTests
     private readonly IBudgetRequestRepository _budgetRequestRepository = Substitute.For<IBudgetRequestRepository>();
     private readonly IAccountingCategoryRepository _accountingCategoryRepository = Substitute.For<IAccountingCategoryRepository>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly INotificationDispatcher _dispatcher = Substitute.For<INotificationDispatcher>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly AssignAccountingCategoryCommandHandler _handler;
 
@@ -27,6 +30,8 @@ public class AssignAccountingCategoryCommandHandlerTests
             _budgetRequestRepository,
             _accountingCategoryRepository,
             _currentUser,
+            _userRepository,
+            _dispatcher,
             _unitOfWork);
     }
 
@@ -96,7 +101,68 @@ public class AssignAccountingCategoryCommandHandlerTests
             a.Decision == ApprovalDecision.Categorized &&
             a.ApproverId == _currentUser.UserId &&
             a.Comment == "Accounting Category: Marketing");
+        await _dispatcher.Received(1).DispatchAccountingCategorizedAsync(
+            request, "Marketing", Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenActorHasSlackUserId_DispatchesSlackMention()
+    {
+        // Arrange
+        _currentUser.Role.Returns(UserRole.Accounting);
+        var request = CreateApprovedRequest();
+        var categoryId = Guid.NewGuid();
+        var category = new AccountingCategory("Marketing");
+        typeof(AccountingCategory).GetProperty("Id")!.SetValue(category, categoryId);
+
+        var actor = new User("thinthin", "thin thin Acc", "thinthin@test.com", Guid.NewGuid(), UserRole.Accounting);
+        actor.SetSlackUserId("U_THIN_123");
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(actor);
+
+        _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>())
+            .Returns(request);
+        _accountingCategoryRepository.GetByIdAsync(categoryId, Arg.Any<CancellationToken>())
+            .Returns(category);
+
+        var command = new AssignAccountingCategoryCommand(request.Id, categoryId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await _dispatcher.Received(1).DispatchAccountingCategorizedAsync(
+            request, "Marketing", "<@U_THIN_123>", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenActorHasNoSlackUserId_DispatchesAtNameMention()
+    {
+        // Arrange
+        _currentUser.Role.Returns(UserRole.Accounting);
+        var request = CreateApprovedRequest();
+        var categoryId = Guid.NewGuid();
+        var category = new AccountingCategory("Marketing");
+        typeof(AccountingCategory).GetProperty("Id")!.SetValue(category, categoryId);
+
+        var actor = new User("thinthin", "thin thin Acc", "thinthin@test.com", Guid.NewGuid(), UserRole.Accounting);
+        _userRepository.GetByIdAsync(_actorId, Arg.Any<CancellationToken>()).Returns(actor);
+
+        _budgetRequestRepository.GetByIdAsync(request.Id, Arg.Any<CancellationToken>())
+            .Returns(request);
+        _accountingCategoryRepository.GetByIdAsync(categoryId, Arg.Any<CancellationToken>())
+            .Returns(category);
+
+        var command = new AssignAccountingCategoryCommand(request.Id, categoryId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await _dispatcher.Received(1).DispatchAccountingCategorizedAsync(
+            request, "Marketing", "@thin thin Acc", Arg.Any<CancellationToken>());
     }
 
     [Fact]

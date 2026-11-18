@@ -168,13 +168,18 @@ internal static class SlackMessageBuilder
             NotificationTrigger.RefundUndoneToRequester
                 => $"ID: {reference}: recorded refund was undone by {actor}. Advance returned to Awaiting Refund. 🔄",
 
+            NotificationTrigger.AccountingCategorizedToRequester
+                => $"ID: {reference} has been categorized as '{evt.Comment}' by {(actor == "—" ? actor : (actor.StartsWith("<@") || actor.StartsWith("@") ? actor : $"@{actor}"))}.\nNow print debit voucher and go to finance. {(mentions.Count > 0 ? mentionPrefix : (string.IsNullOrWhiteSpace(evt.RequesterName) ? string.Empty : $"@{evt.RequesterName} "))}🖨️",
+
             _ => $"ID: {reference} status updated."
         };
 
-        var message = $"{mentionPrefix}{line}";
+        var message = evt.Trigger == NotificationTrigger.AccountingCategorizedToRequester
+            ? line
+            : $"{mentionPrefix}{line}";
 
         // Comment only applies to rejection / send-back.
-        if (!string.IsNullOrWhiteSpace(evt.Comment))
+        if (!string.IsNullOrWhiteSpace(evt.Comment) && evt.Trigger != NotificationTrigger.AccountingCategorizedToRequester)
             message += $"\nComment: {evt.Comment}";
 
         return message;

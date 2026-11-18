@@ -647,4 +647,31 @@ public class NotificationDispatcherTests
                 e.ActorName == "Finance Dave"),
             Arg.Any<CancellationToken>());
     }
+
+    // =========================================================================
+    // 9. Accounting Categorization Dispatches
+    // =========================================================================
+
+    [Fact]
+    public async Task DispatchAccountingCategorizedAsync_ShouldNotifyRequesterWithCategory()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var requesterId = Guid.NewGuid();
+        var deptHeadId = Guid.NewGuid();
+        var request = CreateRequest(reqId, requesterId, deptHeadId);
+
+        // Act
+        await _sut.DispatchAccountingCategorizedAsync(request, "Office Equipment & Supplies", "Kio Sai", CancellationToken.None);
+
+        // Assert
+        await _notificationService.Received(1).SendAsync(
+            Arg.Is<NotificationEvent>(e =>
+                e.Trigger == NotificationTrigger.AccountingCategorizedToRequester &&
+                e.BudgetRequestId == reqId &&
+                e.RecipientUserIds.SequenceEqual(new[] { requesterId }) &&
+                e.ActorName == "Kio Sai" &&
+                e.Comment == "Office Equipment & Supplies"),
+            Arg.Any<CancellationToken>());
+    }
 }

@@ -306,6 +306,23 @@ internal sealed class NotificationDispatcher : INotificationDispatcher
             cancellationToken);
     }
 
+    public async Task DispatchAccountingCategorizedAsync(
+        BudgetRequest request,
+        string categoryName,
+        string? actorName,
+        CancellationToken cancellationToken)
+    {
+        await _notificationService.SendAsync(
+            new NotificationEvent(
+                NotificationTrigger.AccountingCategorizedToRequester,
+                request.Id,
+                new[] { request.RequesterId },
+                request.RequesterNameAtSubmission,
+                actorName,
+                Comment: categoryName),
+            cancellationToken);
+    }
+
     private async Task<IReadOnlyList<Guid>> GetUserIdsByRoleAsync(
         UserRole role, CancellationToken ct)
     {
