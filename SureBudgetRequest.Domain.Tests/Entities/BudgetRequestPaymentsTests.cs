@@ -32,7 +32,37 @@ public class BudgetRequestPaymentsTests
         var deadline = type == BudgetRequestType.Advance ? DateTime.UtcNow.AddDays(14) : (DateTime?)null;
         request.ApproveBy(Guid.NewGuid(), coaId, deadline);
 
+        request.SetAccountingCategory(Guid.NewGuid());
+
         return request;
+    }
+
+    [Fact]
+    public void RecordPayment_WithoutAccountingCategory_ShouldFail()
+    {
+        // Arrange
+        var reqId = Guid.NewGuid();
+        var headId = Guid.NewGuid();
+        var request = BudgetRequest.CreateDraft(
+            reqId, "Alice", BudgetRequestType.Standard, headId, "Bob Head",
+            DateTime.UtcNow.AddDays(2), 100_000m, "MMK", "Reasons", "Alice", "Job", Guid.NewGuid(),
+            false, null);
+
+        request.Submit(
+            Guid.NewGuid(), 500_000m, 10_000_000m, 0m,
+            DateTime.UtcNow, DateTime.UtcNow.AddMonths(1),
+            1m, headId, "Bob Head", "Alice", false, 1);
+
+        request.ApproveBy(headId);
+        request.ApproveBy(Guid.NewGuid(), Guid.NewGuid(), null);
+
+        // Act - attempt payment before assigning accounting category
+        var result = request.RecordPayment(100_000m, DateTime.UtcNow, Guid.NewGuid(), "REF", "Note");
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Be("An accounting category must be assigned before recording payments.");
+        request.Payments.Should().BeEmpty();
     }
 
     // =========================================================================

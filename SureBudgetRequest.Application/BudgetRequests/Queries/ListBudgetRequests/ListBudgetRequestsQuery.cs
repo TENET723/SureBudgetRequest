@@ -79,15 +79,18 @@ public sealed class ListBudgetRequestsQueryHandler
     private readonly IBudgetRequestRepository _repository;
     private readonly ICoaRepository _coaRepository;
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
+    private readonly IAccountingCategoryRepository _accountingCategoryRepository;
 
     public ListBudgetRequestsQueryHandler(
         IBudgetRequestRepository repository,
         ICoaRepository coaRepository,
-        IWithdrawMethodRepository withdrawMethodRepository)
+        IWithdrawMethodRepository withdrawMethodRepository,
+        IAccountingCategoryRepository accountingCategoryRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
+        _accountingCategoryRepository = accountingCategoryRepository;
     }
 
     public async Task<Result<IReadOnlyList<BudgetRequestSummaryDto>>> Handle(
@@ -160,6 +163,26 @@ public sealed class ListBudgetRequestsQueryHandler
                 .ToDictionary(m => m.Id);
         }
 
+        // Same batch-lookup pattern for accounting categories.
+        var accCatIds = entities
+            .Select(e => e.AccountingCategoryId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToHashSet();
+
+        Dictionary<Guid, AccountingCategory> accCatLookup;
+        if (accCatIds.Count == 0)
+        {
+            accCatLookup = new Dictionary<Guid, AccountingCategory>();
+        }
+        else
+        {
+            var allCategories = await _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken);
+            accCatLookup = allCategories
+                .Where(c => accCatIds.Contains(c.Id))
+                .ToDictionary(c => c.Id);
+        }
+
         var dtos = entities
             .Select(e =>
             {
@@ -171,7 +194,11 @@ public sealed class ListBudgetRequestsQueryHandler
                 if (e.WithdrawMethodId.HasValue)
                     methodLookup.TryGetValue(e.WithdrawMethodId.Value, out method);
 
-                return BudgetRequestSummaryDto.FromEntity(e, coa, method);
+                AccountingCategory? accCat = null;
+                if (e.AccountingCategoryId.HasValue)
+                    accCatLookup.TryGetValue(e.AccountingCategoryId.Value, out accCat);
+
+                return BudgetRequestSummaryDto.FromEntity(e, coa, method, tags: null, accountingCategory: accCat);
             })
             .ToList();
 

@@ -50,7 +50,7 @@
         <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@Items"
                   IsLoading="@_loading"
-                  ColSpan="7">
+                  ColSpan="8">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable col-ref-date"
@@ -67,6 +67,7 @@
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
                     Status @RenderSortIcon(BudgetRequestSortBy.Status)
                 </th>
+                <th class="col-coa">Accounting Category</th>
                 <th class="sticky-action-col"></th>
             </TableHeader>
             <RowTemplateWithIndex Context="ctx">
@@ -162,6 +163,16 @@
                                 <span class="chip chip-overlimit" title="Routed through Management">Over-limit</span>
                             }
                         </div>
+                    </td>
+                    <td class="text-sm col-coa">
+                        @if (!string.IsNullOrWhiteSpace(r.AccountingCategoryName))
+                        {
+                            <span class="font-medium text-sm">@r.AccountingCategoryName</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-sm">—</span>
+                        }
                     </td>
                     <td class="sticky-action-col" @onclick:stopPropagation="true">
                         <div class="row-hover-btn-wrapper">

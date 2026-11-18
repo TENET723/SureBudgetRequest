@@ -61,7 +61,10 @@ public sealed record BudgetRequestSummaryDto(
     // Optional free-text external references (voucher / transaction numbers).
     string? ExternalReferences = null,
     IReadOnlyList<RequestTagSummaryDto>? Tags = null,
-    Guid DeptHeadIdAtSubmission = default)
+    Guid DeptHeadIdAtSubmission = default,
+    Guid? AccountingCategoryId = null,
+    string? AccountingCategoryName = null,
+    DateTime? FirstPrintedAt = null)
 {
     public decimal RemainingBalance => ApprovedAmount - TotalPaid;
 
@@ -109,7 +112,8 @@ public sealed record BudgetRequestSummaryDto(
         BudgetRequest e,
         Coa? coa,
         WithdrawMethod? withdrawMethod,
-        IReadOnlyList<RequestTagSummaryDto>? tags) => new(
+        IReadOnlyList<RequestTagSummaryDto>? tags,
+        AccountingCategory? accountingCategory = null) => new(
         e.Id,
         e.Reference,
         e.RequesterId,
@@ -141,5 +145,8 @@ public sealed record BudgetRequestSummaryDto(
         e.ReimbursementAmount,
         e.ExternalReferences,
         tags,
-        e.DeptHeadIdAtSubmission);
+        e.DeptHeadIdAtSubmission,
+        e.AccountingCategoryId,
+        accountingCategory?.Name,
+        e.FirstPrintedAt);
 }

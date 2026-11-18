@@ -61,6 +61,42 @@ img { max-width: 100%; display: block; }
 button { font-family: var(--font-sans); }
 input, select, textarea { font-family: var(--font-sans); }
 
+/* Global Compact & Clean Scrollbar (macOS Style across entire project) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+  transition: background 150ms ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:horizontal:decrement,
+*::-webkit-scrollbar-button:horizontal:increment,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
 /* 3. Layout Shell */
 .app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--color-bg-page); }
 .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -1415,21 +1451,6 @@ tr.menu-open .row-hover-btn-wrapper,
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px 0;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
-}
-.popover-tag-list::-webkit-scrollbar {
-  width: 5px;
-}
-.popover-tag-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.popover-tag-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-.popover-tag-list::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }
 .popover-tag-item {
   display: flex;
@@ -1609,7 +1630,7 @@ tr.menu-open .row-hover-btn-wrapper,
   overflow: hidden;
 }
 
-/* Custom Thin macOS Scrollbar (No end buttons, compact & clean) */
+/* macOS Table Scroll Container */
 .macos-table-scroll {
   overflow-x: auto;
   overflow-y: hidden;
@@ -1617,35 +1638,8 @@ tr.menu-open .row-hover-btn-wrapper,
   -webkit-overflow-scrolling: touch;
 }
 
-.macos-table-scroll::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-
 .macos-table-scroll::-webkit-scrollbar-track {
-  background: transparent;
   margin: 0 4px;
-}
-
-.macos-table-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border-radius: 9999px;
-  transition: background 150ms ease;
-}
-
-.macos-table-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.6);
-}
-
-.macos-table-scroll::-webkit-scrollbar-button,
-.macos-table-scroll::-webkit-scrollbar-button:single-button,
-.macos-table-scroll::-webkit-scrollbar-button:horizontal:decrement,
-.macos-table-scroll::-webkit-scrollbar-button:horizontal:increment,
-.macos-table-scroll::-webkit-scrollbar-corner {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
 }
 
 .macos-table {

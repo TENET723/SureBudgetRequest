@@ -53,6 +53,7 @@ public class UndoReconciliationSubmitCommandHandlerTests
 
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid(), reconciliationDeadline: DateTime.UtcNow.AddDays(14));
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(500_000m, DateTime.UtcNow, Guid.NewGuid(), "ADV-PAY", "Disbursed");
 
         request.AddAdvanceUsage(DateTime.UtcNow, 400_000m, "Expenses", null, requester.Id, DateTime.UtcNow);

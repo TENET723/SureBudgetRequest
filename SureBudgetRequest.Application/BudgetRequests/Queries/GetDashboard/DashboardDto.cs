@@ -21,6 +21,7 @@ public sealed record DashboardDto(
     SettlementQueueDto? SettlementQueue,
     FinanceMetricsDto? FinanceMetrics,
     StuckRequestsDto? StuckRequests,
+    CategorizationQueueDto? CategorizationQueue,
     // Lookup table so cards can show requester names without extra round-trips.
     IReadOnlyDictionary<Guid, string> RequesterNames);
 
@@ -62,5 +63,9 @@ public sealed record FinanceMetricsDto(
     decimal OutstandingTotalMmk);   // sum of RemainingBalance converted to MMK at the submission-time rate
 
 public sealed record StuckRequestsDto(
+    int TotalCount,
+    IReadOnlyList<BudgetRequestSummaryDto> TopItems);
+
+public sealed record CategorizationQueueDto(
     int TotalCount,
     IReadOnlyList<BudgetRequestSummaryDto> TopItems);

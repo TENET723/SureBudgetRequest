@@ -51,6 +51,7 @@ public class VoidPaymentCommandHandlerTests
 
         request.ApproveBy(headId);
         request.ApproveBy(financeId, coaId: Guid.NewGuid());
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(100_000m, DateTime.UtcNow, financeId, "REF-1", "Full payment");
 
         return (request, request.Payments.Single());

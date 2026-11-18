@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<Vendor> Vendors => Set<Vendor>();
     public DbSet<VendorPaymentAccount> VendorPaymentAccounts => Set<VendorPaymentAccount>();
     public DbSet<BudgetCategory> BudgetCategories => Set<BudgetCategory>();
+    public DbSet<AccountingCategory> AccountingCategories => Set<AccountingCategory>();
     public DbSet<AppSetting> AppSettings => Set<AppSetting>();
     public DbSet<BudgetRequestModification> BudgetRequestModifications => Set<BudgetRequestModification>();
     public DbSet<DepartmentMonthlyBudget> DepartmentMonthlyBudgets => Set<DepartmentMonthlyBudget>();

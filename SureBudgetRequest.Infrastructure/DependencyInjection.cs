@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddScoped<IBankAccountRepository, BankAccountRepository>();
         services.AddScoped<IVendorRepository, VendorRepository>();
         services.AddScoped<IBudgetCategoryRepository, BudgetCategoryRepository>();
+        services.AddScoped<IAccountingCategoryRepository, AccountingCategoryRepository>();
         services.AddScoped<IAppSettingRepository, AppSettingRepository>();
         services.AddScoped<IBudgetRequestModificationRepository, BudgetRequestModificationRepository>();
         services.AddScoped<IDepartmentMonthlyBudgetRepository, DepartmentMonthlyBudgetRepository>();

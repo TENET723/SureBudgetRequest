@@ -435,6 +435,7 @@ public class NotificationDispatcherTests
 
         request.ApproveBy(deptHeadId);
         request.ApproveBy(financeId, coaId: Guid.NewGuid());
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(100_000m, DateTime.UtcNow, financeId, "TRX-12345", "Full Payment");
         request.Status.Should().Be(RequestStatus.Paid);
 

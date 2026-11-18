@@ -45,6 +45,7 @@ public class RecordRefundCommandHandlerTests
 
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid(), reconciliationDeadline: DateTime.UtcNow.AddDays(14));
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(advanceAmount, DateTime.UtcNow, Guid.NewGuid(), "ADV-PAY", "Disbursed");
 
         // Record partial usage

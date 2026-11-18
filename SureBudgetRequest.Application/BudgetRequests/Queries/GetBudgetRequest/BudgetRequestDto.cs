@@ -73,7 +73,11 @@ public sealed record BudgetRequestDto(
     string? ExternalReferences = null,
     Guid? VendorId = null,
     string? VendorName = null,
-    bool VendorHasAttachment = false)
+    bool VendorHasAttachment = false,
+    Guid? AccountingCategoryId = null,
+    string? AccountingCategoryName = null,
+    DateTime? FirstPrintedAt = null,
+    Guid? FirstPrintedByUserId = null)
 {
     /// <summary>Total advance usage self-reported so far.</summary>
     public decimal TotalUsageRecorded => AdvanceUsages.Sum(u => u.Amount);
@@ -101,7 +105,8 @@ public sealed record BudgetRequestDto(
         Coa? coa = null,
         WithdrawMethod? withdrawMethod = null,
         BudgetCategory? budgetCategory = null,
-        Vendor? vendor = null) => new(
+        Vendor? vendor = null,
+        AccountingCategory? accountingCategory = null) => new(
         e.Id,
         e.RequesterId,
         e.Reference,
@@ -153,7 +158,11 @@ public sealed record BudgetRequestDto(
         e.ExternalReferences,
         e.VendorId,
         vendor?.Name,
-        vendor?.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment) ?? false);
+        vendor?.PaymentAccounts.Any(a => a.IsActive && a.HasAttachment) ?? false,
+        e.AccountingCategoryId,
+        accountingCategory?.Name,
+        e.FirstPrintedAt,
+        e.FirstPrintedByUserId);
 }
 
 public sealed record AdvanceUsageDto(

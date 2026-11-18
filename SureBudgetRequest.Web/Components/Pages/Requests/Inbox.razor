@@ -206,7 +206,7 @@
         <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@Items"
                   IsLoading="@_loading"
-                  ColSpan="@(_view == "overdue" ? 8 : 7)">
+                  ColSpan="@(_view == "overdue" ? 10 : 9)">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable col-ref-date"
@@ -227,6 +227,7 @@
                     @onclick="@(() => SortByColumn(BudgetRequestSortBy.Status))">
                     Status @RenderSortIcon(BudgetRequestSortBy.Status)
                 </th>
+                <th class="col-coa">Accounting Category</th>
                 @if (_view == "overdue")
                 {
                     <th role="button" class="sortable"
@@ -334,6 +335,16 @@
                                 <span class="chip chip-overlimit" title="Routed through Management">Over-limit</span>
                             }
                         </div>
+                    </td>
+                    <td class="text-sm col-coa">
+                        @if (!string.IsNullOrWhiteSpace(r.AccountingCategoryName))
+                        {
+                            <span class="font-medium text-sm">@r.AccountingCategoryName</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-sm">—</span>
+                        }
                     </td>
                     @if (_view == "overdue")
                     {

@@ -121,6 +121,18 @@ public partial class BudgetRequest
     /// </summary>
     public Guid? VendorId { get; private set; }
 
+    /// <summary>
+    /// Accounting category assigned after approval. Required before recording payments.
+    /// Locked permanently once the voucher is printed.
+    /// </summary>
+    public Guid? AccountingCategoryId { get; private set; }
+
+    /// <summary>
+    /// Timestamp when the voucher was first printed for audit. Once set, the accounting category cannot be changed.
+    /// </summary>
+    public DateTime? FirstPrintedAt { get; private set; }
+    public Guid? FirstPrintedByUserId { get; private set; }
+
     // === Advance withdrawal — reconciliation phase ===
     // All the fields below stay at their defaults for non-advance requests.
     // Reconciliation has three outcomes: usage == advance → Reconciled; usage <

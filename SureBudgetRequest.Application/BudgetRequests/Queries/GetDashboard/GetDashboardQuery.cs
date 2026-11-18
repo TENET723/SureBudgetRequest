@@ -73,15 +73,18 @@ public sealed class GetDashboardQueryHandler
     private readonly IBudgetRequestRepository _budgetRequestRepository;
     private readonly IUserRepository _userRepository;
     private readonly ICurrentUser _currentUser;
+    private readonly IAccountingCategoryRepository _accountingCategoryRepository;
 
     public GetDashboardQueryHandler(
         IBudgetRequestRepository budgetRequestRepository,
         IUserRepository userRepository,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IAccountingCategoryRepository accountingCategoryRepository)
     {
         _budgetRequestRepository = budgetRequestRepository;
         _userRepository = userRepository;
         _currentUser = currentUser;
+        _accountingCategoryRepository = accountingCategoryRepository;
     }
 
     public async Task<Result<DashboardDto>> Handle(
@@ -94,6 +97,9 @@ public sealed class GetDashboardQueryHandler
         var userId = _currentUser.UserId;
         var role = _currentUser.Role;
         var departmentId = _currentUser.DepartmentId;
+
+        var allCategories = (await _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken: ct))
+            .ToDictionary(c => c.Id);
 
         // === Employee section (every role gets this) =========================
 
@@ -109,15 +115,15 @@ public sealed class GetDashboardQueryHandler
         var employee = new EmployeeSectionDto(
             ActionRequired: myActionRequired
                 .OrderByDescending(r => r.CreatedAt)
-                .Select(r => MapToSummaryDto(r, role, departmentId))
+                .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                 .ToList(),
             InFlight: myInFlight
                 .OrderByDescending(r => r.SubmittedAt ?? r.CreatedAt)
-                .Select(r => MapToSummaryDto(r, role, departmentId))
+                .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                 .ToList(),
             RecentlyCompleted: myCompleted
                 .OrderByDescending(r => r.FinalizedAt ?? r.CreatedAt)
-                .Select(r => MapToSummaryDto(r, role, departmentId))
+                .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                 .ToList());
 
         // === "Pending my approval" =========================================
@@ -159,7 +165,7 @@ public sealed class GetDashboardQueryHandler
             myApprovalQueue = new ApprovalQueueDto(
                 TotalCount: distinctItems.Count,
                 TopItems: distinctItems
-                    .Select(r => MapToSummaryDto(r, role, departmentId))
+                    .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                     .ToList());
         }
 
@@ -180,7 +186,7 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingPayment.Count,
                 TopItems: awaitingPayment
                     .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt) // oldest first
-                    .Select(r => MapToSummaryDto(r, role, departmentId))
+                    .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                     .ToList());
 
             // Advances awaiting refund / reimbursement — one combined "to settle"
@@ -193,7 +199,7 @@ public sealed class GetDashboardQueryHandler
                 TotalCount: awaitingSettlement.Count,
                 TopItems: awaitingSettlement
                     .OrderBy(r => r.ReconciliationDeadline ?? r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
-                    .Select(r => MapToSummaryDto(r, role, departmentId))
+                    .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                     .ToList());
 
             // Metric: count waiting for Finance review
@@ -228,7 +234,27 @@ public sealed class GetDashboardQueryHandler
             stuckRequests = new StuckRequestsDto(
                 TotalCount: stuck.Count,
                 TopItems: stuck
-                    .Select(r => MapToSummaryDto(r, role, departmentId))
+                    .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
+                    .ToList());
+        }
+
+        // === Accounting: to-categorize queue ===============================
+        // Approved requests awaiting accounting categorization.
+        CategorizationQueueDto? categorizationQueue = null;
+        if (role == UserRole.Accounting)
+        {
+            var approvedAll = await _budgetRequestRepository.ListAsync(
+                status: RequestStatus.Approved, cancellationToken: ct);
+
+            var toCategorize = approvedAll
+                .Where(r => r.AccountingCategoryId == null)
+                .OrderBy(r => r.FinalizedAt ?? r.SubmittedAt ?? r.CreatedAt)
+                .ToList();
+
+            categorizationQueue = new CategorizationQueueDto(
+                TotalCount: toCategorize.Count,
+                TopItems: toCategorize
+                    .Select(r => MapToSummaryDto(r, role, departmentId, allCategories))
                     .ToList());
         }
 
@@ -244,6 +270,7 @@ public sealed class GetDashboardQueryHandler
         if (paymentQueue is not null) AddIds(allRequesterIds, paymentQueue.TopItems);
         if (settlementQueue is not null) AddIds(allRequesterIds, settlementQueue.TopItems);
         if (stuckRequests is not null) AddIds(allRequesterIds, stuckRequests.TopItems);
+        if (categorizationQueue is not null) AddIds(allRequesterIds, categorizationQueue.TopItems);
 
         var requesterNames = new Dictionary<Guid, string>();
         if (allRequesterIds.Count > 0)
@@ -263,6 +290,7 @@ public sealed class GetDashboardQueryHandler
             SettlementQueue: settlementQueue,
             FinanceMetrics: financeMetrics,
             StuckRequests: stuckRequests,
+            CategorizationQueue: categorizationQueue,
             RequesterNames: requesterNames);
 
         return Result.Success(dashboard);
@@ -289,7 +317,8 @@ public sealed class GetDashboardQueryHandler
     private static BudgetRequestSummaryDto MapToSummaryDto(
         BudgetRequest e,
         UserRole viewerRole,
-        Guid viewerDepartmentId)
+        Guid viewerDepartmentId,
+        IReadOnlyDictionary<Guid, AccountingCategory> categoryLookup)
     {
         List<RequestTagSummaryDto>? tagDtos = null;
         if (e.Tags is { Count: > 0 })
@@ -307,6 +336,10 @@ public sealed class GetDashboardQueryHandler
                 .ToList();
         }
 
-        return BudgetRequestSummaryDto.FromEntity(e, coa: null, withdrawMethod: null, tags: tagDtos);
+        AccountingCategory? accCat = null;
+        if (e.AccountingCategoryId.HasValue)
+            categoryLookup.TryGetValue(e.AccountingCategoryId.Value, out accCat);
+
+        return BudgetRequestSummaryDto.FromEntity(e, coa: null, withdrawMethod: null, tags: tagDtos, accountingCategory: accCat);
     }
 }

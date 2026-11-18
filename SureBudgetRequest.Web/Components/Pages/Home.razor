@@ -13,6 +13,8 @@
 @using SureBudgetRequest.Application.BudgetRequests.Commands.UndoSubmit
 @using SureBudgetRequest.Application.Coas.Queries
 @using SureBudgetRequest.Application.Tags.Models
+@using SureBudgetRequest.Application.AccountingCategories.Queries
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AssignAccountingCategory
 @using SureBudgetRequest.Domain.Common
 
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetDashboard
@@ -60,7 +62,7 @@
         <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@((IReadOnlyList<BudgetRequestSummaryDto>?)null)"
                   IsLoading="true"
-                  ColSpan="7">
+                  ColSpan="8">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th>Reference</th>
@@ -68,6 +70,7 @@
                 <th>Reason</th>
                 <th>Tags</th>
                 <th>Status</th>
+                <th class="col-coa">Accounting Category</th>
                 <th class="sticky-action-col"></th>
             </TableHeader>
         </AppTable>
@@ -94,6 +97,16 @@
             @if (ShowApprove)
             {
                 <button class="dash-tab @(_activeTab == "approve" ? "active" : "")" @onclick='() => SetTab("approve")'>To Approve</button>
+            }
+            @if (ShowCategorize)
+            {
+                <button class="dash-tab @(_activeTab == "categorize" ? "active" : "")" @onclick='() => SetTab("categorize")'>
+                    To Categorize
+                    @if (_data.CategorizationQueue!.TotalCount > 0)
+                    {
+                        <span class="topbar-count-badge ml-1">@_data.CategorizationQueue.TotalCount</span>
+                    }
+                </button>
             }
             @if (ShowPay)
             {
@@ -147,7 +160,7 @@
         <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@paged"
                   IsLoading="@_loading"
-                  ColSpan="7">
+                  ColSpan="8">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable col-ref-date" style="cursor:pointer"
@@ -164,6 +177,7 @@
                     @onclick='() => SortByColumn("status")'>
                     Status @SortIndicator("status")
                 </th>
+                <th class="col-coa">Accounting Category</th>
                 <th class="sticky-action-col"></th>
             </TableHeader>
             <RowTemplateWithIndex Context="ctx">
@@ -253,6 +267,16 @@
                         <div class="status-chip-group">
                             <span class="chip @StatusChipClass(r.Status)"><span class="dot"></span>@StatusLabel(r.Status)</span>
                         </div>
+                    </td>
+                    <td class="col-coa">
+                        @if (!string.IsNullOrWhiteSpace(r.AccountingCategoryName))
+                        {
+                            <span class="font-medium text-sm">@r.AccountingCategoryName</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-sm">—</span>
+                        }
                     </td>
                     <td class="sticky-action-col" @onclick:stopPropagation="true">
                         <div class="row-hover-btn-wrapper">
@@ -353,6 +377,53 @@
             This will return the request to <strong>Awaiting Refund</strong> until the refund payment is confirmed again.
         </div>
     </ConfirmDialog>
+}
+
+@* ── Quick Assign Accounting Category modal ── *@
+@if (_categorizingRequest is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_categorizingRequest.AccountingCategoryId.HasValue ? "Change Accounting Category" : "Assign Accounting Category")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="CloseQuickCategorize"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_categorizeError))
+                    {
+                        <div class="alert alert-error mb-3">@_categorizeError</div>
+                    }
+                    <div class="mb-3 text-sm">
+                        <div class="text-muted">Reference:</div>
+                        <div class="font-semibold">@(_categorizingRequest.Reference ?? ShortId(_categorizingRequest.Id))</div>
+                    </div>
+                    <div class="mb-3 text-sm">
+                        <div class="text-muted">Approved Amount:</div>
+                        <div class="font-semibold">@_categorizingRequest.ApprovedAmount.ToString("N2") @_categorizingRequest.CurrencyCode</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label text-sm font-semibold">Accounting Category <span class="text-danger">*</span></label>
+                        <select class="select w-full" @bind="_selectedCategoryId">
+                            <option value="">Select a category...</option>
+                            @foreach (var c in _accountingCategories.Where(x => x.IsActive || x.Id == _categorizingRequest.AccountingCategoryId))
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                        <div class="form-hint">Required before finance can release payment.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseQuickCategorize" disabled="@_savingCategorize">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveQuickCategorize" disabled="@(_savingCategorize || string.IsNullOrEmpty(_selectedCategoryId))">
+                        @if (_savingCategorize) { <span class="spinner spinner-sm mr-1"></span> }
+                        Save Category
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @* ── Context Menu (handled globally via ContextMenuContainer in MainLayout) ── *@
@@ -540,6 +611,9 @@
         _data?.MyApprovalQueue is not null &&
         (CurrentUser.Role != UserRole.Finance || CurrentUser.IsFinanceApprover);
 
+    private bool ShowCategorize =>
+        CurrentUser.Role == UserRole.Accounting && _data?.CategorizationQueue is not null;
+
     private bool ShowPay => _data?.PaymentQueue is not null;   // Finance + Accounting
 
     private bool ShowSettle =>
@@ -610,12 +684,13 @@
     {
         if (_data is null) return;
 
-        if (ShowApprove && _data.MyApprovalQueue!.TotalCount > 0)      _activeTab = "approve";
-        else if (ShowPay && _data.PaymentQueue!.TotalCount > 0)        _activeTab = "pay";
-        else if (ShowSettle && _data.SettlementQueue!.TotalCount > 0)  _activeTab = "settle";
-        else if (ShowStuck && _data.StuckRequests!.TotalCount > 0)     _activeTab = "stuck";
-        else if (_data.Employee.ActionRequired.Count > 0)              _activeTab = "actions";
-        else                                                           _activeTab = "inflight";
+        if (ShowApprove && _data.MyApprovalQueue!.TotalCount > 0)             _activeTab = "approve";
+        else if (ShowCategorize && _data.CategorizationQueue!.TotalCount > 0) _activeTab = "categorize";
+        else if (ShowPay && _data.PaymentQueue!.TotalCount > 0)               _activeTab = "pay";
+        else if (ShowSettle && _data.SettlementQueue!.TotalCount > 0)                                   _activeTab = "settle";
+        else if (ShowStuck && _data.StuckRequests!.TotalCount > 0)                                      _activeTab = "stuck";
+        else if (_data.Employee.ActionRequired.Count > 0)                                               _activeTab = "actions";
+        else                                                                                            _activeTab = "inflight";
     }
 
     private void SetTab(string tab)
@@ -697,8 +772,9 @@
         var empty = (IReadOnlyList<BudgetRequestSummaryDto>)Array.Empty<BudgetRequestSummaryDto>();
         return _activeTab switch
         {
-            "approve"   => _data.MyApprovalQueue?.TopItems ?? empty,
-            "pay"       => _data.PaymentQueue?.TopItems ?? empty,
+            "approve"    => _data.MyApprovalQueue?.TopItems ?? empty,
+            "categorize" => _data.CategorizationQueue?.TopItems ?? empty,
+            "pay"        => _data.PaymentQueue?.TopItems ?? empty,
             "settle"    => _data.SettlementQueue?.TopItems ?? empty,
             "actions"   => _data.Employee.ActionRequired,
             "inflight"  => _data.Employee.InFlight,
@@ -732,6 +808,13 @@
                 "pay", "dash-stat-icon-pay", QueueSubtitle(q.TopItems));
         }
 
+        if (ShowCategorize && CurrentUser.Role is UserRole.Accounting or UserRole.Admin)
+        {
+            var q = _data.CategorizationQueue!;
+            yield return new("To Categorize", q.TotalCount.ToString(),
+                "action", "dash-stat-icon-action", "Approved, awaiting category");
+        }
+
         if (_data.FinanceMetrics is not null)
         {
             yield return new("Outstanding (MMK)", FormatCompact(_data.FinanceMetrics.OutstandingTotalMmk),
@@ -748,7 +831,9 @@
             "action", "dash-stat-icon-action", "Drafts & sent-back requests");
 
         // Fill remaining slots up to 4 with the user's own pipeline.
-        var used = (ShowApprove ? 1 : 0) + (ShowPay ? 1 : 0)
+        var used = (ShowApprove ? 1 : 0)
+                 + (ShowCategorize && CurrentUser.Role is UserRole.Accounting or UserRole.Admin ? 1 : 0)
+                 + (ShowPay ? 1 : 0)
                  + (_data.FinanceMetrics is not null ? 1 : 0) + (ShowStuck ? 1 : 0) + 1;
 
         if (used < 4)
@@ -1066,6 +1151,14 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
             <span>Open in New Tab</span>
         </button>
+
+        @if (CanCategorize && !target.FirstPrintedAt.HasValue && (target.Status is RequestStatus.Approved or RequestStatus.PartiallyPaid or RequestStatus.Paid || _activeTab == "categorize"))
+        {
+            <button type="button" class="context-menu-item" @onclick="() => { CloseContextMenu(); _ = OpenQuickCategorize(target); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 10h16M4 14h10M4 18h7"/></svg>
+                <span>@(target.AccountingCategoryId.HasValue ? "Change Accounting Category" : "Assign Accounting Category")</span>
+            </button>
+        }
 
         <div class="context-menu-divider"></div>
 
@@ -1963,6 +2056,68 @@
     }
 
     // ── Tag Popover & Toast ──────────────────────────────────────────────────
+    private bool CanCategorize => CurrentUser.Role == UserRole.Accounting;
+
+    private BudgetRequestSummaryDto? _categorizingRequest;
+    private string? _selectedCategoryId;
+    private string? _categorizeError;
+    private bool _savingCategorize;
+    private List<AccountingCategoryDto> _accountingCategories = new();
+
+    private async Task OpenQuickCategorize(BudgetRequestSummaryDto target)
+    {
+        _categorizingRequest = target;
+        _selectedCategoryId = target.AccountingCategoryId?.ToString() ?? "";
+        _categorizeError = null;
+
+        if (_accountingCategories.Count == 0)
+        {
+            var res = await Mediator.Send(new ListAccountingCategoriesQuery(IncludeInactive: true));
+            if (res.IsSuccess)
+            {
+                _accountingCategories = res.Value.ToList();
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void CloseQuickCategorize()
+    {
+        _categorizingRequest = null;
+        _categorizeError = null;
+    }
+
+    private async Task SaveQuickCategorize()
+    {
+        if (_categorizingRequest is null || string.IsNullOrEmpty(_selectedCategoryId)) return;
+        if (!Guid.TryParse(_selectedCategoryId, out var catId)) return;
+
+        _savingCategorize = true;
+        _categorizeError = null;
+        try
+        {
+            var res = await Mediator.Send(new AssignAccountingCategoryCommand(_categorizingRequest.Id, catId));
+            if (!res.IsSuccess)
+            {
+                _categorizeError = res.Error.Message;
+                return;
+            }
+
+            var refName = _categorizingRequest.Reference ?? "Request";
+            _categorizingRequest = null;
+            ShowToast($"Accounting category assigned to {refName}.");
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            _categorizeError = ex.Message;
+        }
+        finally
+        {
+            _savingCategorize = false;
+        }
+    }
+
     private bool _showTagPopover;
     private BudgetRequestSummaryDto? _tagPopoverTarget;
     private double _tagPopoverX;

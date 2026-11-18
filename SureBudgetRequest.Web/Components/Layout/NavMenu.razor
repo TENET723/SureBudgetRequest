@@ -75,6 +75,16 @@
                 </div>
             }
 
+            @if (CurrentUser.Role == UserRole.Accounting)
+            {
+                <div class="nav-item">
+                    <NavLink class="nav-link" href="accounting-categories" title="Accounting Categories">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        @if (!Collapsed) { <span>Accounting Categories</span> }
+                    </NavLink>
+                </div>
+            }
+
             @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
             {
                 <div class="nav-item">

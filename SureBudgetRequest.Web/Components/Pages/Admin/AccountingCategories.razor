@@ -1,0 +1,414 @@
+@page "/accounting-categories"
+@inject IMediator Mediator
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Nav
+
+@using SureBudgetRequest.Application.AccountingCategories.Queries
+@using SureBudgetRequest.Application.AccountingCategories.Commands.CreateAccountingCategory
+@using SureBudgetRequest.Application.AccountingCategories.Commands.UpdateAccountingCategory
+@using SureBudgetRequest.Application.AccountingCategories.Commands.DeactivateAccountingCategory
+@using SureBudgetRequest.Application.AccountingCategories.Commands.ReactivateAccountingCategory
+@using SureBudgetRequest.Domain.Enums
+@using SureBudgetRequest.Web.Components.Shared
+
+<PageTitle>Accounting Categories</PageTitle>
+
+<div class="page-wrap">
+    <div class="flex items-center justify-between mb-4">
+        <h5>Accounting Categories</h5>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ New Category</button>
+        }
+    </div>
+
+    <div class="flex items-center gap-2 mb-2">
+        <label class="toggle" title="Show inactive">
+            <input type="checkbox" @bind="_showInactive" @bind:after="LoadData" />
+            <span class="toggle-track"></span>
+            <span class="toggle-thumb"></span>
+        </label>
+        <span class="text-sm text-muted">Show inactive</span>
+    </div>
+
+    <div class="mb-4">
+        <ListSearchBox @bind-Value="_search" @bind-Value:after="ApplyFilter"
+                       Placeholder="Search category name..." Width="280px" />
+    </div>
+
+    @{
+        var page = _page;
+        var pageSize = _pageSize;
+        var paged = _filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        var totalPages = (int)Math.Ceiling(_filtered.Count / (double)pageSize);
+        if (totalPages < 1) totalPages = 1;
+    }
+
+    <AppTable TItem="AccountingCategoryDto"
+              Items="@paged"
+              IsLoading="@_loading"
+              ColSpan="4">
+        <TableHeader>
+            <th class="sticky-no-col font-bold">NO.</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th class="sticky-action-col"></th>
+        </TableHeader>
+        <RowTemplateWithIndex Context="ctx">
+            @{
+                var c = ctx.Item;
+                var i = ctx.Index;
+                var rowNo = (page - 1) * pageSize + i + 1;
+            }
+            <tr class="clickable-row @(!c.IsActive ? "text-muted" : "") @(_contextMenuTarget?.Id == c.Id ? "menu-open" : "")"
+                @onclick="() => { if (CanManage) OpenEdit(c); }"
+                @oncontextmenu="e => { if (CanManage) OpenContextMenu(e, c); }"
+                @oncontextmenu:preventDefault="true">
+                <td class="sticky-no-col text-muted text-sm text-center">@rowNo</td>
+                <td><strong>@c.Name</strong></td>
+                <td @onclick:stopPropagation="true">
+                    @if (c.IsActive)
+                    {
+                        @if (CanManage)
+                        {
+                            <button class="badge badge-active" @onclick="() => ConfirmDeactivate(c)" title="Click to deactivate">Active</button>
+                        }
+                        else
+                        {
+                            <span class="badge badge-active">Active</span>
+                        }
+                    }
+                    else
+                    {
+                        @if (CanManage)
+                        {
+                            <button class="badge badge-inactive" @onclick="() => DoReactivate(c)" title="Click to activate" disabled="@_saving">Inactive</button>
+                        }
+                        else
+                        {
+                            <span class="badge badge-inactive">Inactive</span>
+                        }
+                    }
+                </td>
+                <td class="sticky-action-col" @onclick:stopPropagation="true">
+                    @if (CanManage)
+                    {
+                        <div class="row-hover-btn-wrapper">
+                            <div class="row-hover-backdrop"></div>
+                            <button type="button" class="btn-three-dots" title="Quick actions"
+                                    @onclick="e => OpenContextMenuFromButton(e, c)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="5" r="2"/>
+                                    <circle cx="12" cy="12" r="2"/>
+                                    <circle cx="12" cy="19" r="2"/>
+                                </svg>
+                            </button>
+                        </div>
+                    }
+                </td>
+            </tr>
+        </RowTemplateWithIndex>
+        <EmptyContent>
+            @if (!string.IsNullOrWhiteSpace(_search))
+            {
+                <span>No accounting categories match your search.</span>
+            }
+            else
+            {
+                <span>No accounting categories found.</span>
+            }
+        </EmptyContent>
+        <PaginationContent>
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <span class="text-sm text-muted">@_filtered.Count category(ies)</span>
+                <div class="flex items-center gap-2">
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page <= 1)"
+                            @onclick="() => _page--">‹ Prev</button>
+                    <span class="text-sm text-muted">Page @(page) of @totalPages</span>
+                    <button class="btn btn-outline btn-sm"
+                            disabled="@(page >= totalPages)"
+                            @onclick="() => _page++">Next ›</button>
+
+                    <div class="flex items-center gap-2 ml-3">
+                        <span class="text-sm text-muted">Per page</span>
+                        <select class="select select-sm" style="width:auto; height: 30px;" @bind="_pageSize" @bind:after="() => _page = 1">
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </PaginationContent>
+    </AppTable>
+</div>
+
+@* ── Create / Edit Modal ────────────────────────────────────────────────────── *@
+@if (_showForm)
+{
+    <div class="modal-backdrop">
+        <div class="modal">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">@(_editingId.HasValue ? "Edit Accounting Category" : "New Accounting Category")</h6>
+                    <button class="btn btn-icon modal-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="alert alert-error">@_formError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold">Name</label>
+                        <input class="input" @bind="_formName"
+                               placeholder="e.g. Office Supply, Subscription, Marketing Expense" maxlength="200" />
+                        <div class="form-hint">Unique name used for categorizing budget requests.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="CloseForm" disabled="@_saving">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveCategory" disabled="@_saving">
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
+                        @(_editingId.HasValue ? "Save Changes" : "Create Category")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Deactivate Confirmation Modal ─────────────────────────────────────────── *@
+@if (_confirmDeactivateCategory is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Deactivate Category?</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _confirmDeactivateCategory = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-sm">
+                        Are you sure you want to deactivate <strong>@_confirmDeactivateCategory.Name</strong>?
+                        Existing requests retaining this category will remain unchanged, but it cannot be assigned to new tickets.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _confirmDeactivateCategory = null" disabled="@_saving">Cancel</button>
+                    <button class="btn btn-danger btn-sm" @onclick="DoDeactivate" disabled="@_saving">
+                        @if (_saving) { <span class="spinner spinner-sm mr-1"></span> }
+                        Deactivate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _saving;
+    private bool _showInactive;
+    private string _search = "";
+    private int _page = 1;
+    private int _pageSize = 20;
+
+    private List<AccountingCategoryDto> _all = new();
+    private List<AccountingCategoryDto> _filtered = new();
+
+    private bool _showForm;
+    private Guid? _editingId;
+    private string _formName = "";
+    private string? _formError;
+
+    private AccountingCategoryDto? _confirmDeactivateCategory;
+    private AccountingCategoryDto? _contextMenuTarget;
+
+    private bool CanManage => CurrentUser.Role == UserRole.Accounting;
+
+    private void OpenContextMenu(MouseEventArgs e, AccountingCategoryDto cat)
+    {
+        _contextMenuTarget = cat;
+        ContextMenu.Show(e, RenderContextMenu(cat), title: cat.Name, isButton: false, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
+    }
+
+    private void OpenContextMenuFromButton(MouseEventArgs e, AccountingCategoryDto cat)
+    {
+        _contextMenuTarget = cat;
+        ContextMenu.Show(e, RenderContextMenu(cat), title: cat.Name, isButton: true, onClose: () => { _contextMenuTarget = null; StateHasChanged(); });
+    }
+
+    private void CloseContextMenu()
+    {
+        ContextMenu.Close();
+        _contextMenuTarget = null;
+    }
+
+    private RenderFragment RenderContextMenu(AccountingCategoryDto target) => @<text>
+        <button type="button" class="context-menu-item" @onclick="() => { CloseContextMenu(); OpenEdit(target); }">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Edit Category</span>
+        </button>
+
+        <div class="context-menu-divider"></div>
+
+        @if (target.IsActive)
+        {
+            <button type="button" class="context-menu-item text-danger" @onclick="() => { CloseContextMenu(); ConfirmDeactivate(target); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>Deactivate</span>
+            </button>
+        }
+        else
+        {
+            <button type="button" class="context-menu-item text-success" @onclick="() => { CloseContextMenu(); _ = DoReactivate(target); }">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Reactivate</span>
+            </button>
+        }
+    </text>;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser.Role != UserRole.Accounting)
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        try
+        {
+            var res = await Mediator.Send(new ListAccountingCategoriesQuery(_showInactive));
+            if (res.IsSuccess)
+            {
+                _all = res.Value.ToList();
+                ApplyFilter();
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilter()
+    {
+        var q = _all.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var term = _search.Trim().ToLowerInvariant();
+            q = q.Where(c => c.Name.ToLowerInvariant().Contains(term));
+        }
+        _filtered = q.ToList();
+        _page = 1;
+    }
+
+    private void OpenCreate()
+    {
+        _editingId = null;
+        _formName = "";
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void OpenEdit(AccountingCategoryDto c)
+    {
+        _editingId = c.Id;
+        _formName = c.Name;
+        _formError = null;
+        _showForm = true;
+    }
+
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private async Task SaveCategory()
+    {
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _formError = "Category name is required.";
+            return;
+        }
+
+        _saving = true;
+        _formError = null;
+        try
+        {
+            if (_editingId.HasValue)
+            {
+                var res = await Mediator.Send(new UpdateAccountingCategoryCommand(_editingId.Value, _formName));
+                if (!res.IsSuccess)
+                {
+                    _formError = res.Error.Message;
+                    return;
+                }
+            }
+            else
+            {
+                var res = await Mediator.Send(new CreateAccountingCategoryCommand(_formName));
+                if (!res.IsSuccess)
+                {
+                    _formError = res.Error.Message;
+                    return;
+                }
+            }
+
+            _showForm = false;
+            await LoadData();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void ConfirmDeactivate(AccountingCategoryDto c)
+    {
+        _confirmDeactivateCategory = c;
+    }
+
+    private async Task DoDeactivate()
+    {
+        if (_confirmDeactivateCategory is null) return;
+        _saving = true;
+        try
+        {
+            var res = await Mediator.Send(new DeactivateAccountingCategoryCommand(_confirmDeactivateCategory.Id));
+            if (res.IsSuccess)
+            {
+                _confirmDeactivateCategory = null;
+                await LoadData();
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task DoReactivate(AccountingCategoryDto c)
+    {
+        _saving = true;
+        try
+        {
+            var res = await Mediator.Send(new ReactivateAccountingCategoryCommand(c.Id));
+            if (res.IsSuccess)
+            {
+                await LoadData();
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

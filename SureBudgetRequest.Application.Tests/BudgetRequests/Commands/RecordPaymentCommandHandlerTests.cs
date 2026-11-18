@@ -46,6 +46,7 @@ public class RecordPaymentCommandHandlerTests
 
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid()); // Approved
+        request.SetAccountingCategory(Guid.NewGuid());
 
         return request;
     }

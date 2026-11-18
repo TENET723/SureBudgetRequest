@@ -37,6 +37,7 @@ public class RemoveAdvanceUsageCommandHandlerTests
 
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid(), reconciliationDeadline: DateTime.UtcNow.AddDays(14));
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(amount, DateTime.UtcNow, Guid.NewGuid(), "ADV-PAY", "Disbursed");
 
         return request;

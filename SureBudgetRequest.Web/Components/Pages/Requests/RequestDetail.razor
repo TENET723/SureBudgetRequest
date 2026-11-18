@@ -35,6 +35,9 @@
 @using SureBudgetRequest.Application.BudgetRequests.Queries.GetBudgetRequestHistory
 @using SureBudgetRequest.Application.BudgetRequests.Common
 @using SureBudgetRequest.Application.Coas.Queries
+@using SureBudgetRequest.Application.AccountingCategories.Queries
+@using SureBudgetRequest.Application.BudgetRequests.Commands.AssignAccountingCategory
+@using SureBudgetRequest.Application.BudgetRequests.Commands.RecordBudgetRequestPrint
 @using SureBudgetRequest.Application.BankAccounts.Queries
 @using SureBudgetRequest.Application.Users.Queries
 @using SureBudgetRequest.Application.AppSettings.Queries
@@ -284,6 +287,43 @@ else
                         <div>
                             <div class="text-sm text-muted">Budget Category</div>
                             <div>@_request.BudgetCategoryName</div>
+                        </div>
+                    }
+                    @if (_request.Status is not RequestStatus.Draft and not RequestStatus.PendingDeptHead and not RequestStatus.PendingManagement and not RequestStatus.PendingFinance and not RequestStatus.Rejected and not RequestStatus.Cancelled and not RequestStatus.SentBack)
+                    {
+                        <div>
+                            <div class="text-sm text-muted mb-0.5">Accounting Category</div>
+                            @if (!string.IsNullOrWhiteSpace(_request.AccountingCategoryName))
+                            {
+                                <div class="flex items-center gap-2">
+                                    <strong>@_request.AccountingCategoryName</strong>
+                                    @if (_request.FirstPrintedAt.HasValue)
+                                    {
+                                        <span class="badge badge-outline text-xs" title="Locked after voucher was printed on @_request.FirstPrintedAt.Value.ToMyanmarTime()">
+                                            🔒 Locked
+                                        </span>
+                                    }
+                                    else if (CanManageAccountingCategory)
+                                    {
+                                        <button type="button" class="btn btn-link btn-xs p-0 text-muted" @onclick="OpenAccountingCategoryModal" title="Change Category">
+                                            Edit
+                                        </button>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                @if (CanManageAccountingCategory)
+                                {
+                                    <button type="button" class="btn btn-outline btn-xs" @onclick="OpenAccountingCategoryModal">
+                                        + Assign Category
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            }
                         </div>
                     }
                     @if (_request.SubmittedAt.HasValue)
@@ -715,7 +755,16 @@ else
                         @* Record Payment (Finance) *@
                         @if (actions.Contains("recordpayment"))
                         {
-                            <button class="btn btn-success btn-sm" @onclick="OpenPaymentModal">Record Payment</button>
+                            @if (!_request.AccountingCategoryId.HasValue)
+                            {
+                                <Tooltip Text="Accounting category must be assigned before recording payments" Placement="TooltipPlacement.Top">
+                                    <button class="btn btn-success btn-sm opacity-50" disabled>Record Payment</button>
+                                </Tooltip>
+                            }
+                            else
+                            {
+                                <button class="btn btn-success btn-sm" @onclick="OpenPaymentModal">Record Payment</button>
+                            }
                         }
 
                         @* Undo Submit (Requester) *@
@@ -1678,6 +1727,45 @@ else
     </div>
 }
 
+@* ── Accounting Category Modal ────────────────────────────────────────────── *@
+@if (_showAccountingCategoryModal && _request is not null)
+{
+    <div class="modal-backdrop">
+        <div class="modal modal-sm">
+            <div>
+                <div class="modal-header">
+                    <h6 class="modal-title">Assign Accounting Category</h6>
+                    <button class="btn btn-icon modal-close" @onclick="() => _showAccountingCategoryModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(_accountingCategoryError))
+                    {
+                        <div class="alert alert-error mb-2">@_accountingCategoryError</div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label text-sm font-semibold">Accounting Category</label>
+                        <select class="select w-full" @bind="_selectedAccountingCategoryId">
+                            <option value="">Select a category...</option>
+                            @foreach (var c in _accountingCategories.Where(x => x.IsActive || x.Id == _request.AccountingCategoryId))
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                        <div class="form-hint">Required before finance can record payments. Locked after voucher is printed.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline btn-sm" @onclick="() => _showAccountingCategoryModal = false" disabled="@_actioning">Cancel</button>
+                    <button class="btn btn-primary btn-sm" @onclick="SaveAccountingCategory" disabled="@(_actioning || string.IsNullOrEmpty(_selectedAccountingCategoryId))">
+                        @if (_actioning) { <span class="spinner spinner-sm mr-1"></span> }
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @* ── Modification History Modal ─────────────────────────────────────────────── *@
 @if (_showHistoryModal)
 {
@@ -2513,12 +2601,13 @@ else
         "inbox"       => ("requests/inbox",          "Inbox"),
         "mine"        => ("requests/mine",           "My Requests"),
         "outstanding" => ("requests/outstanding",    "Outstanding Payments"),
+        "accounting"  => ("/",                       "Dashboard"),
         "reports"     => ("reports/budget-requests", "Reports"),
         "home"        => ("/",                       "Dashboard"),
         _ => CurrentUser.Role switch
         {
             UserRole.Employee when !CurrentUser.IsDepartmentHead => ("requests/mine", "My Requests"),
-            UserRole.Accounting => ("reports/budget-requests", "Reports"),
+            UserRole.Accounting => ("/", "Dashboard"),
             _                   => ("requests/inbox",          "Inbox"),
         }
     };
@@ -2912,6 +3001,12 @@ else
             {
                 _vendor = null;
             }
+
+            var catRes = await Mediator.Send(new ListAccountingCategoriesQuery(IncludeInactive: true));
+            if (catRes.IsSuccess)
+            {
+                _accountingCategories = catRes.Value.ToList();
+            }
         }
             var tagsRes = await Mediator.Send(new GetRequestTagsQuery(Id, CurrentUser.UserId));
             if (tagsRes.IsSuccess)
@@ -2921,6 +3016,54 @@ else
             var configRes = await Mediator.Send(new GetAppSettingByKeyQuery(TagVisibilityConfig.SettingKey));
             _tagVisibilityConfig = TagVisibilityConfig.FromJson(configRes.Value?.Value);
         _loading = false;
+    }
+
+    // ── Accounting Category Management ───────────────────────────────────────
+    private bool _showAccountingCategoryModal;
+    private string? _accountingCategoryError;
+    private string? _selectedAccountingCategoryId;
+    private List<AccountingCategoryDto> _accountingCategories = new();
+
+    private bool CanManageAccountingCategory =>
+        CurrentUser.Role == UserRole.Accounting;
+
+    private void OpenAccountingCategoryModal()
+    {
+        if (_request is null || _request.FirstPrintedAt.HasValue) return;
+        _accountingCategoryError = null;
+        _selectedAccountingCategoryId = _request.AccountingCategoryId?.ToString() ?? "";
+        _showAccountingCategoryModal = true;
+    }
+
+    private async Task SaveAccountingCategory()
+    {
+        if (_request is null || string.IsNullOrEmpty(_selectedAccountingCategoryId)) return;
+        if (!Guid.TryParse(_selectedAccountingCategoryId, out var catId)) return;
+
+        _actioning = true;
+        _accountingCategoryError = null;
+        try
+        {
+            var res = await Mediator.Send(new AssignAccountingCategoryCommand(_request.Id, catId));
+            if (!res.IsSuccess)
+            {
+                _accountingCategoryError = res.Error.Message;
+                return;
+            }
+
+            var chosenCat = _accountingCategories.FirstOrDefault(c => c.Id == catId);
+            _request = _request with
+            {
+                AccountingCategoryId = catId,
+                AccountingCategoryName = chosenCat?.Name
+            };
+            _showAccountingCategoryModal = false;
+            StateHasChanged();
+        }
+        finally
+        {
+            _actioning = false;
+        }
     }
 
     private List<string> GetAvailableActions()
@@ -3131,6 +3274,12 @@ else
 
     private async Task OpenPaymentModal()
     {
+        if (_request?.AccountingCategoryId is null)
+        {
+            _actionError = "An accounting category must be assigned before recording payments.";
+            return;
+        }
+
         _paymentAmount = _request?.RemainingBalance ?? 0m;
         _paymentDate = DateTime.UtcNow.ToMyanmarDateTime();
         _paymentRef = null;
@@ -3521,17 +3670,30 @@ else
 
     private bool CanPrintDebitVoucher =>
         _request is not null &&
-        _request.Status is RequestStatus.Approved
-                        or RequestStatus.PartiallyPaid
-                        or RequestStatus.Paid
+        _request.Status is RequestStatus.Paid
                         or RequestStatus.PendingReconciliation
                         or RequestStatus.AwaitingRefund
                         or RequestStatus.Reconciled
                         or RequestStatus.AwaitingReimbursement;
 
-    private void PrintDebitVoucher()
+    private async Task PrintDebitVoucher()
     {
         if (_request is null || !CanPrintDebitVoucher) return;
+
+        // Record first print if not already printed
+        if (!_request.FirstPrintedAt.HasValue)
+        {
+            var printRes = await Mediator.Send(new RecordBudgetRequestPrintCommand(_request.Id));
+            if (printRes.IsSuccess)
+            {
+                _request = _request with
+                {
+                    FirstPrintedAt = DateTime.UtcNow,
+                    FirstPrintedByUserId = CurrentUser.UserId
+                };
+                StateHasChanged();
+            }
+        }
 
         var requesterName = _userNames.TryGetValue(_request.RequesterId, out var rn) ? rn : "—";
         var amount = _request.ApprovedAmount > 0 ? _request.ApprovedAmount : _request.RequestedAmount;

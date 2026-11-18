@@ -339,6 +339,7 @@ public class BudgetRequestApprovalsTests
         var request = CreateSubmittedRequest(deptHeadId: headId);
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid());
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(100_000m, DateTime.UtcNow, Guid.NewGuid(), reference: "REF1", note: "Paid");
         request.Status.Should().Be(RequestStatus.Paid);
 
@@ -499,6 +500,7 @@ public class BudgetRequestApprovalsTests
         var request = CreateSubmittedRequest(amount: 100_000m, deptLimit: 500_000m, deptHeadId: headId);
         request.ApproveBy(headId);
         request.ApproveBy(financeId, coaId: coaId);
+        request.SetAccountingCategory(Guid.NewGuid());
         request.RecordPayment(100_000m, DateTime.UtcNow, financeId, "REF-1", null, null);
         request.Status.Should().Be(RequestStatus.Paid);
 

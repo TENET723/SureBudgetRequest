@@ -25,6 +25,37 @@ namespace SureBudgetRequest.Infrastructure.Migrations
             modelBuilder.HasSequence("budget_request_ref_seq")
                 .StartsAt(10000L);
 
+            modelBuilder.Entity("SureBudgetRequest.Domain.Entities.AccountingCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_accounting_categories");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_accounting_categories_name");
+
+                    b.ToTable("accounting_categories", (string)null);
+                });
+
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.AdvanceUsage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -287,6 +318,10 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("AccountingCategoryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("accounting_category_id");
+
                     b.Property<bool>("AllowsPartialPayment")
                         .HasColumnType("boolean")
                         .HasColumnName("allows_partial_payment");
@@ -343,6 +378,14 @@ namespace SureBudgetRequest.Infrastructure.Migrations
                     b.Property<DateTime?>("FinalizedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finalized_at");
+
+                    b.Property<DateTime?>("FirstPrintedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_printed_at");
+
+                    b.Property<Guid?>("FirstPrintedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("first_printed_by_user_id");
 
                     b.Property<decimal?>("ManualExchangeRate")
                         .HasColumnType("numeric")
@@ -472,6 +515,9 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_budget_requests");
+
+                    b.HasIndex("AccountingCategoryId")
+                        .HasDatabaseName("ix_budget_requests_accounting_category_id");
 
                     b.HasIndex("BudgetCategoryId")
                         .HasDatabaseName("ix_budget_requests_budget_category_id");
@@ -1306,6 +1352,12 @@ namespace SureBudgetRequest.Infrastructure.Migrations
 
             modelBuilder.Entity("SureBudgetRequest.Domain.Entities.BudgetRequest", b =>
                 {
+                    b.HasOne("SureBudgetRequest.Domain.Entities.AccountingCategory", null)
+                        .WithMany()
+                        .HasForeignKey("AccountingCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_budget_requests_accounting_categories_accounting_category_id");
+
                     b.HasOne("SureBudgetRequest.Domain.Entities.BudgetCategory", null)
                         .WithMany()
                         .HasForeignKey("BudgetCategoryId")

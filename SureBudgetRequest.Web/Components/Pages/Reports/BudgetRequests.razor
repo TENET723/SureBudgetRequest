@@ -82,7 +82,7 @@
         <AppTable TItem="BudgetRequestSummaryDto"
                   Items="@_result?.Items"
                   IsLoading="@_loading"
-                  ColSpan="11">
+                  ColSpan="12">
             <TableHeader>
                 <th class="sticky-no-col font-bold">NO.</th>
                 <th role="button" class="sortable col-ref-date"
@@ -103,6 +103,7 @@
                     Status @RenderSortIcon(BudgetRequestSortBy.Status)
                 </th>
                 <th class="col-coa">COA</th>
+                <th class="col-coa">Accounting Category</th>
                 <th class="col-withdraw">Withdraw</th>
                 <th class="sticky-action-col"></th>
             </TableHeader>
@@ -214,6 +215,16 @@
                         else
                         {
                             <span class="text-muted">—</span>
+                        }
+                    </td>
+                    <td class="text-sm col-coa">
+                        @if (!string.IsNullOrWhiteSpace(r.AccountingCategoryName))
+                        {
+                            <span class="font-medium text-sm">@r.AccountingCategoryName</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted text-sm">—</span>
                         }
                     </td>
                     <td class="text-sm col-withdraw">

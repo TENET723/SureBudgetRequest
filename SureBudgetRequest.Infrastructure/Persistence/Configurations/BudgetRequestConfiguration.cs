@@ -132,6 +132,17 @@ public class BudgetRequestConfiguration : IEntityTypeConfiguration<BudgetRequest
                .OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(r => r.VendorId);
 
+        // ── Accounting Category FK & Print Lock ────────────────────────────────
+        builder.Property(r => r.AccountingCategoryId);
+        builder.HasOne<AccountingCategory>()
+               .WithMany()
+               .HasForeignKey(r => r.AccountingCategoryId)
+               .OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(r => r.AccountingCategoryId);
+
+        builder.Property(r => r.FirstPrintedAt);
+        builder.Property(r => r.FirstPrintedByUserId);
+
         // ── Indexes ───────────────────────────────────────────────────────────
         builder.HasIndex(r => r.RequesterId);
         builder.HasIndex(r => r.Status);

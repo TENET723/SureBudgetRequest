@@ -42,6 +42,8 @@ public class ExtendReconciliationDeadlineCommandHandlerTests
         request.ApproveBy(headId);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid(), reconciliationDeadline: initialDeadline);
 
+        request.SetAccountingCategory(Guid.NewGuid());
+
         // Record full payment to transition into PendingReconciliation
         request.RecordPayment(500_000m, DateTime.UtcNow, Guid.NewGuid(), "ADV-01", "Disbursed");
 

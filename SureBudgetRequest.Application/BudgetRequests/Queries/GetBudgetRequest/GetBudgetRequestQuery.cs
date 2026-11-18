@@ -16,19 +16,22 @@ public sealed class GetBudgetRequestQueryHandler
     private readonly IWithdrawMethodRepository _withdrawMethodRepository;
     private readonly IBudgetCategoryRepository _budgetCategoryRepository;
     private readonly IVendorRepository _vendorRepository;
+    private readonly IAccountingCategoryRepository _accountingCategoryRepository;
 
     public GetBudgetRequestQueryHandler(
         IBudgetRequestRepository repository,
         ICoaRepository coaRepository,
         IWithdrawMethodRepository withdrawMethodRepository,
         IBudgetCategoryRepository budgetCategoryRepository,
-        IVendorRepository vendorRepository)
+        IVendorRepository vendorRepository,
+        IAccountingCategoryRepository accountingCategoryRepository)
     {
         _repository = repository;
         _coaRepository = coaRepository;
         _withdrawMethodRepository = withdrawMethodRepository;
         _budgetCategoryRepository = budgetCategoryRepository;
         _vendorRepository = vendorRepository;
+        _accountingCategoryRepository = accountingCategoryRepository;
     }
 
     public async Task<Result<BudgetRequestDto>> Handle(
@@ -63,6 +66,13 @@ public sealed class GetBudgetRequestQueryHandler
             vendor = await _vendorRepository.GetByIdAsync(entity.VendorId.Value, cancellationToken);
         }
 
-        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod, budgetCategory, vendor));
+        // Resolve accounting category for display (null when unset).
+        AccountingCategory? accountingCategory = null;
+        if (entity.AccountingCategoryId.HasValue)
+        {
+            accountingCategory = await _accountingCategoryRepository.GetByIdAsync(entity.AccountingCategoryId.Value, cancellationToken);
+        }
+
+        return Result.Success(BudgetRequestDto.FromEntity(entity, coa, withdrawMethod, budgetCategory, vendor, accountingCategory));
     }
 }

@@ -25,6 +25,9 @@ public partial class BudgetRequest
         if (Status is not RequestStatus.Approved and not RequestStatus.PartiallyPaid)
             return Result.Failure($"Cannot record payments while status is '{Status}'.");
 
+        if (!AccountingCategoryId.HasValue || AccountingCategoryId.Value == Guid.Empty)
+            return Result.Failure("An accounting category must be assigned before recording payments.");
+
         var financeApproval = ApprovalActions
             .Where(a => a.Stage == ApprovalStage.Finance && a.Decision == ApprovalDecision.Approved)
             .OrderByDescending(a => a.ActionedAt)

@@ -90,4 +90,13 @@ public static class BudgetRequestErrors
 
     public static readonly Error CannotUndoSubmit = 
         Error.Validation("BudgetRequest.CannotUndoSubmit", "Cannot undo submission because a reviewer has already taken action or the request is not in an undoable state.");
+
+    public static readonly Error AccountingCategoryRequiredBeforePayment =
+        Error.Validation("BudgetRequest.AccountingCategoryRequiredBeforePayment", "An accounting category must be assigned before recording payments.");
+
+    public static readonly Error AccountingCategoryLockedAfterPrint =
+        Error.Validation("BudgetRequest.AccountingCategoryLockedAfterPrint", "Accounting category cannot be modified after the voucher has been printed.");
+
+    public static readonly Error OnlyAccountingCanCategorize =
+        Error.Forbidden("BudgetRequest.OnlyAccountingCanCategorize", "Only Accounting can assign an accounting category.");
 }

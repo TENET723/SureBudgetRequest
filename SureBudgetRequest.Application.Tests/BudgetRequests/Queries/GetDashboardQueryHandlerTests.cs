@@ -14,6 +14,7 @@ public class GetDashboardQueryHandlerTests
     private readonly IBudgetRequestRepository _requestRepository = Substitute.For<IBudgetRequestRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly ICurrentUser _currentUser = Substitute.For<ICurrentUser>();
+    private readonly IAccountingCategoryRepository _accountingCategoryRepository = Substitute.For<IAccountingCategoryRepository>();
 
     private readonly GetDashboardQueryHandler _handler;
 
@@ -28,10 +29,14 @@ public class GetDashboardQueryHandlerTests
         _currentUser.Role.Returns(UserRole.Management);
         _currentUser.IsDepartmentHead.Returns(true);
 
+        _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<AccountingCategory>());
+
         _handler = new GetDashboardQueryHandler(
             _requestRepository,
             _userRepository,
-            _currentUser);
+            _currentUser,
+            _accountingCategoryRepository);
     }
 
     private static BudgetRequest CreateSubmittedRequest(Guid requesterId, Guid deptHeadId)
@@ -125,5 +130,76 @@ public class GetDashboardQueryHandlerTests
         result.Value!.MyApprovalQueue.Should().NotBeNull();
         result.Value.MyApprovalQueue!.TotalCount.Should().Be(0);
         result.Value.MyApprovalQueue.TopItems.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_WhenRoleIsAccounting_ReturnsApprovedUncategorizedInCategorizationQueue()
+    {
+        // Arrange
+        _currentUser.Role.Returns(UserRole.Accounting);
+
+        var uncategorizedRequest = CreateSubmittedRequest(Guid.NewGuid(), _userId);
+        uncategorizedRequest.ApproveBy(_userId);
+        uncategorizedRequest.ApproveBy(Guid.NewGuid(), Guid.NewGuid(), null);
+
+        var catId = Guid.NewGuid();
+        var category = new AccountingCategory("Office Supply");
+        typeof(AccountingCategory).GetProperty("Id")!.SetValue(category, catId);
+
+        var categorizedRequest = CreateSubmittedRequest(Guid.NewGuid(), _userId);
+        categorizedRequest.ApproveBy(_userId);
+        categorizedRequest.ApproveBy(Guid.NewGuid(), Guid.NewGuid(), null);
+        categorizedRequest.SetAccountingCategory(catId);
+
+        _accountingCategoryRepository.ListAsync(includeInactive: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<AccountingCategory> { category });
+
+        _requestRepository.ListAsync(
+            status: RequestStatus.Approved,
+            cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<BudgetRequest> { uncategorizedRequest, categorizedRequest });
+
+        // Payment queue gets both approved requests
+        _requestRepository.ListAsync(
+            statuses: Arg.Any<IReadOnlyCollection<RequestStatus>>(),
+            cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<BudgetRequest> { categorizedRequest });
+
+        _userRepository.ListAsync(includeInactive: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<User>());
+
+        // Act
+        var result = await _handler.Handle(new GetDashboardQuery(), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.CategorizationQueue.Should().NotBeNull();
+        result.Value.CategorizationQueue!.TotalCount.Should().Be(1);
+        result.Value.CategorizationQueue.TopItems.First().Id.Should().Be(uncategorizedRequest.Id);
+
+        // Verify category name is resolved
+        var paymentItem = result.Value.PaymentQueue!.TopItems.First(i => i.Id == categorizedRequest.Id);
+        paymentItem.AccountingCategoryName.Should().Be("Office Supply");
+    }
+
+    [Theory]
+    [InlineData(UserRole.Admin)]
+    [InlineData(UserRole.Finance)]
+    [InlineData(UserRole.Employee)]
+    [InlineData(UserRole.Management)]
+    [InlineData(UserRole.Support)]
+    public async Task Handle_WhenRoleIsNotAccounting_CategorizationQueueIsNull(UserRole role)
+    {
+        // Arrange
+        _currentUser.Role.Returns(role);
+        _userRepository.ListAsync(includeInactive: true, cancellationToken: Arg.Any<CancellationToken>())
+            .Returns(new List<User>());
+
+        // Act
+        var result = await _handler.Handle(new GetDashboardQuery(), CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.CategorizationQueue.Should().BeNull();
     }
 }

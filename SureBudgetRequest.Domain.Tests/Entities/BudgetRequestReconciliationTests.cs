@@ -27,6 +27,8 @@ public class BudgetRequestReconciliationTests
         var deadline = DateTime.UtcNow.AddDays(14);
         request.ApproveBy(Guid.NewGuid(), coaId: Guid.NewGuid(), reconciliationDeadline: deadline);
 
+        request.SetAccountingCategory(Guid.NewGuid());
+
         // Record full disbursement
         request.RecordPayment(amount, DateTime.UtcNow, Guid.NewGuid(), "ADV-PAY", "Disbursed");
 
