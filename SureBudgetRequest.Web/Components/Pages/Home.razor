@@ -383,7 +383,7 @@
 @if (_categorizingRequest is not null)
 {
     <div class="modal-backdrop">
-        <div class="modal modal-sm">
+        <div class="modal modal-sm" style="overflow:visible;">
             <div>
                 <div class="modal-header">
                     <h6 class="modal-title">@(_categorizingRequest.AccountingCategoryId.HasValue ? "Change Accounting Category" : "Assign Accounting Category")</h6>
@@ -404,13 +404,12 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label text-sm font-semibold">Accounting Category <span class="text-danger">*</span></label>
-                        <select class="select w-full" @bind="_selectedCategoryId">
-                            <option value="">Select a category...</option>
-                            @foreach (var c in _accountingCategories.Where(x => x.IsActive || x.Id == _categorizingRequest.AccountingCategoryId))
-                            {
-                                <option value="@c.Id">@c.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_accountingCategories.Where(x => x.IsActive || x.Id == _categorizingRequest.AccountingCategoryId).ToList()"
+                                  @bind-Value="_selectedCategoryId"
+                                  ValueSelector="c => c.Id.ToString()"
+                                  TextSelector="c => c.Name"
+                                  Searchable="true"
+                                  Placeholder="Select a category..." />
                         <div class="form-hint">Required before finance can release payment.</div>
                     </div>
                 </div>

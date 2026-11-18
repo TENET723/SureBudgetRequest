@@ -79,6 +79,7 @@ public class BudgetRequestAccountingTests
     public void RecordPrint_ShouldRecordTimestampAndUser()
     {
         var request = CreateApprovedRequest();
+        request.SetAccountingCategory(Guid.NewGuid()).IsSuccess.Should().BeTrue();
         var userId = Guid.NewGuid();
 
         var result = request.RecordPrint(userId);
@@ -95,6 +96,31 @@ public class BudgetRequestAccountingTests
         result2.IsSuccess.Should().BeTrue();
         request.FirstPrintedAt.Should().Be(originalPrintTime);
         request.FirstPrintedByUserId.Should().Be(userId);
+    }
+
+    [Fact]
+    public void RecordPrint_WhenNotApproved_ShouldFail()
+    {
+        var request = BudgetRequest.CreateDraft(
+            Guid.NewGuid(), "Alice", BudgetRequestType.Standard, Guid.NewGuid(), "Bob Head",
+            DateTime.UtcNow.AddDays(2), 100_000m, "MMK", "Reasons", "Alice", "Job", Guid.NewGuid(),
+            false, null);
+
+        var result = request.RecordPrint(Guid.NewGuid());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Be("Ticket can only be printed after it is approved.");
+    }
+
+    [Fact]
+    public void RecordPrint_WhenNoAccountingCategory_ShouldFail()
+    {
+        var request = CreateApprovedRequest();
+
+        var result = request.RecordPrint(Guid.NewGuid());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Be("Ticket can only be printed after an accounting category has been assigned.");
     }
 
     [Fact]

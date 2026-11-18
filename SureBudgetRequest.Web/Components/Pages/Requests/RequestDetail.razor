@@ -1757,7 +1757,7 @@ else
 @if (_showAccountingCategoryModal && _request is not null)
 {
     <div class="modal-backdrop">
-        <div class="modal modal-sm">
+        <div class="modal modal-sm" style="overflow:visible;">
             <div>
                 <div class="modal-header">
                     <h6 class="modal-title">Assign Accounting Category</h6>
@@ -1770,13 +1770,12 @@ else
                     }
                     <div class="mb-3">
                         <label class="form-label text-sm font-semibold">Accounting Category</label>
-                        <select class="select w-full" @bind="_selectedAccountingCategoryId">
-                            <option value="">Select a category...</option>
-                            @foreach (var c in _accountingCategories.Where(x => x.IsActive || x.Id == _request.AccountingCategoryId))
-                            {
-                                <option value="@c.Id">@c.Name</option>
-                            }
-                        </select>
+                        <Dropdown Items="_accountingCategories.Where(x => x.IsActive || x.Id == _request.AccountingCategoryId).ToList()"
+                                  @bind-Value="_selectedAccountingCategoryId"
+                                  ValueSelector="c => c.Id.ToString()"
+                                  TextSelector="c => c.Name"
+                                  Searchable="true"
+                                  Placeholder="Select a category..." />
                         <div class="form-hint">Required before finance can record payments. Locked after voucher is printed.</div>
                     </div>
                 </div>
@@ -3691,13 +3690,14 @@ else
 
     private bool CanPrintDebitVoucher =>
         _request is not null &&
-        ((_request.Status == RequestStatus.Approved && _request.AccountingCategoryId.HasValue)
-         || _request.Status is RequestStatus.PartiallyPaid
-                            or RequestStatus.Paid
-                            or RequestStatus.PendingReconciliation
-                            or RequestStatus.AwaitingRefund
-                            or RequestStatus.Reconciled
-                            or RequestStatus.AwaitingReimbursement);
+        _request.AccountingCategoryId.HasValue &&
+        _request.Status is RequestStatus.Approved
+                        or RequestStatus.PartiallyPaid
+                        or RequestStatus.Paid
+                        or RequestStatus.PendingReconciliation
+                        or RequestStatus.AwaitingRefund
+                        or RequestStatus.Reconciled
+                        or RequestStatus.AwaitingReimbursement;
 
     private async Task PrintDebitVoucher()
     {
@@ -3772,6 +3772,58 @@ else
             ? "Department Head / Management / Finance"
             : "Department Head / Finance";
 
+        var categoryName = _request.AccountingCategoryName;
+        string? accountingUserName = null;
+        var categorizeAction = _request.ApprovalActions
+            .LastOrDefault(a => a.Stage == ApprovalStage.Accounting && a.Decision == ApprovalDecision.Categorized);
+        if (categorizeAction is not null && _userNames.TryGetValue(categorizeAction.ApproverId, out var accName))
+        {
+            accountingUserName = accName;
+        }
+
+        var stages = new[] { ApprovalStage.DeptHead, ApprovalStage.Management, ApprovalStage.Finance, ApprovalStage.Accounting };
+        var approvalSteps = new List<DebitVoucherApprovalStep>();
+
+        foreach (var stage in stages)
+        {
+            var lastAction = _request.ApprovalActions
+                .Where(a => a.Stage == stage &&
+                            (a.Decision == ApprovalDecision.Approved ||
+                             a.Decision == ApprovalDecision.AutoApproved ||
+                             a.Decision == ApprovalDecision.Categorized))
+                .OrderBy(a => a.ActionedAt)
+                .LastOrDefault();
+
+            if (lastAction is null) continue;
+
+            var actor = _userNames.TryGetValue(lastAction.ApproverId, out var an) ? an : "System";
+            if (lastAction.FallbackUserId.HasValue && _userNames.TryGetValue(lastAction.FallbackUserId.Value, out var fbn))
+            {
+                actor += $" (acting: {fbn})";
+            }
+
+            string? comment = null;
+            if (lastAction.Stage == ApprovalStage.Accounting)
+            {
+                comment = !string.IsNullOrWhiteSpace(_request.AccountingCategoryName)
+                    ? $"\"Accounting Category: {_request.AccountingCategoryName}\""
+                    : (!string.IsNullOrWhiteSpace(lastAction.Comment) ? $"\"{lastAction.Comment}\"" : null);
+            }
+            else if (!string.IsNullOrWhiteSpace(lastAction.Comment))
+            {
+                comment = $"\"{lastAction.Comment}\"";
+            }
+
+            approvalSteps.Add(new DebitVoucherApprovalStep(
+                StageName: StageLabel(lastAction.Stage.ToString()),
+                DecisionLabel: DecisionLabel(lastAction.Decision),
+                ApproverText: actor,
+                ActionedAtText: lastAction.ActionedAt.ToMyanmarTime(),
+                Comment: comment,
+                IsAccounting: lastAction.Stage == ApprovalStage.Accounting
+            ));
+        }
+
         var model = new DebitVoucherPrintModel(
             ReferenceNumber: _request.Reference ?? "—",
             RequesterName: requesterName,
@@ -3782,7 +3834,10 @@ else
             CurrencyCode: _request.CurrencyCode ?? "MMK",
             ApproverName: approverText,
             ApproverRoleLabel: approverRoleLabel,
-            Watermark: watermark
+            Watermark: null,
+            AccountingCategoryName: categoryName,
+            AccountingUserName: accountingUserName,
+            ApprovalSteps: approvalSteps
         );
 
         PrintService.RequestPrint(model);

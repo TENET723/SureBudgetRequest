@@ -57,6 +57,22 @@ public partial class BudgetRequest
         if (userId == Guid.Empty)
             return Result.Failure("User ID is required to record print.");
 
+        if (Status is RequestStatus.Draft
+            or RequestStatus.PendingDeptHead
+            or RequestStatus.PendingManagement
+            or RequestStatus.PendingFinance
+            or RequestStatus.Rejected
+            or RequestStatus.Cancelled
+            or RequestStatus.SentBack)
+        {
+            return Result.Failure("Ticket can only be printed after it is approved.");
+        }
+
+        if (!AccountingCategoryId.HasValue)
+        {
+            return Result.Failure("Ticket can only be printed after an accounting category has been assigned.");
+        }
+
         if (!FirstPrintedAt.HasValue)
         {
             FirstPrintedAt = DateTime.UtcNow;

@@ -12,7 +12,7 @@
     @@media print {
         @@page {
             size: auto;
-            margin: 0;
+            margin: 12mm 15mm;
         }
 
         html, body {
@@ -47,62 +47,389 @@
             top: 0 !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 16px !important;
+            padding: 0 !important;
             background: #ffffff !important;
-            color: #111827 !important;
+            color: #102a43 !important;
             box-sizing: border-box !important;
         }
 
-        body.is-printing-voucher .debit-voucher-header,
-        body.is-printing-voucher .debit-voucher-brand,
-        body.is-printing-voucher .debit-voucher-sig-line {
-            display: flex !important;
-        }
-
-        body.is-printing-voucher .debit-voucher-print strong,
-        body.is-printing-voucher .debit-voucher-print span {
-            display: inline !important;
-        }
-
-        body.is-printing-voucher .debit-voucher-print table {
-            display: table !important;
+        body.is-printing-voucher .debit-voucher-slip {
+            border: 1.5px solid #102a43 !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
             width: 100% !important;
+            padding: 18px 22px !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
 
-        body.is-printing-voucher .debit-voucher-print tr {
-            display: table-row !important;
+        body.is-printing-voucher .particulars-table .reason-cell {
+            height: 120px !important;
         }
+    }
 
-        body.is-printing-voucher .debit-voucher-print th,
-        body.is-printing-voucher .debit-voucher-print td {
-            display: table-cell !important;
-        }
+    /* Voucher Slip Typography & Elements */
+    .debit-voucher-slip {
+        max-width: 720px;
+        margin: 0 auto;
+        background: #ffffff;
+        color: #102a43;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        padding: 22px 26px;
+        border: 1px solid #94a3b8;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        box-sizing: border-box;
+        position: relative;
+    }
 
-        body.is-printing-voucher .debit-voucher-print img {
-            display: block !important;
-        }
+    .voucher-top-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        padding-bottom: 4px;
+    }
 
-        body.is-printing-voucher .debit-voucher-watermark {
-            display: block !important;
-            position: absolute !important;
-            top: 50% !important;
-            left: 50% !important;
-            transform: translate(-50%, -50%) rotate(-24deg) !important;
-            font-size: 56px !important;
-            font-weight: 900 !important;
-            letter-spacing: 0.12em !important;
-            color: rgba(22, 163, 74, 0.22) !important;
-            border: 5px solid rgba(22, 163, 74, 0.26) !important;
-            border-radius: 10px !important;
-            padding: 6px 28px !important;
-            pointer-events: none !important;
-            text-transform: uppercase !important;
-            white-space: nowrap !important;
-            user-select: none !important;
-            z-index: 20 !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
+    .voucher-sub-title {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #486581;
+        margin-bottom: 3px;
+    }
+
+    .voucher-main-title {
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: 0.03em;
+        color: #102a43;
+        line-height: 1;
+    }
+
+    .voucher-ref-meta {
+        text-align: right;
+    }
+
+    .voucher-ref-text {
+        font-size: 13px;
+        font-weight: 800;
+        color: #102a43;
+    }
+
+    .voucher-printed-date {
+        font-size: 10.5px;
+        color: #486581;
+        /* margin-top: 3px; */
+    }
+
+    .header-rule {
+        height: 2.5px;
+        background: #102a43;
+        width: 100%;
+        margin-top: 6px;
+        margin-bottom: 14px;
+    }
+
+    .meta-box-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #cbd5e1;
+        margin-bottom: 14px;
+    }
+
+    .meta-box-cell {
+        padding: 8px 14px;
+        width: 50%;
+        vertical-align: middle;
+    }
+
+    .meta-box-cell:first-child {
+        border-right: 1px solid #cbd5e1;
+    }
+
+    .meta-label {
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #627d98;
+        margin-bottom: 3px;
+    }
+
+    .meta-val {
+        font-size: 13px;
+        font-weight: 800;
+        color: #102a43;
+        letter-spacing: 0.02em;
+    }
+
+    .voucher-section-title {
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #102a43;
+        margin-bottom: 6px;
+    }
+
+    .particulars-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #102a43;
+        margin-bottom: 14px;
+    }
+
+    .particulars-table th {
+        background: #102a43;
+        color: #ffffff;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 7px 12px;
+    }
+
+    .particulars-table td {
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #102a43;
+    }
+
+    .particulars-table .reason-cell {
+        line-height: 1.5;
+        height: 100px;
+        vertical-align: top;
+        white-space: pre-wrap;
+    }
+
+    .particulars-table .amount-cell {
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13.5px;
+        font-weight: 800;
+        white-space: nowrap;
+        width: 145px;
+        vertical-align: top;
+        border-left: 1px solid #cbd5e1;
+    }
+
+    .total-row {
+        background: #f0f4f8;
+        border-top: 1.5px solid #102a43;
+    }
+
+    .total-row td {
+        padding: 7px 14px;
+    }
+
+    .total-label {
+        text-align: right;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #486581;
+    }
+
+    .total-val {
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 13.5px;
+        font-weight: 900;
+        color: #102a43;
+        white-space: nowrap;
+    }
+
+    /* Approval & Accounting Flow (Date/Time on Left Side of Icon) */
+    .approval-timeline-card {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 14px 16px;
+        background: #ffffff;
+        margin-bottom: 16px;
+    }
+
+    .print-tl {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .print-tl-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    /* Left Column: Date & Time */
+    .print-tl-time {
+        width: 140px;
+        text-align: right;
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 600;
+        color: #486581;
+        padding-top: 3px;
+        white-space: nowrap;
+    }
+
+    /* Center Column: Node + Connecting Line */
+    .print-tl-node-col {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 24px;
+        flex-shrink: 0;
+    }
+
+    .print-tl-node {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 800;
+        color: white;
+        z-index: 2;
+        background: #10b981;
+    }
+
+    .print-tl-node-col::after {
+        content: "";
+        position: absolute;
+        top: 24px;
+        bottom: -16px;
+        width: 2px;
+        background: #cbd5e1;
+        left: 11px;
+        z-index: 1;
+    }
+
+    .print-tl-item:last-child .print-tl-node-col::after {
+        display: none;
+    }
+
+    /* Right Column: Stage, Badge, Actor, Comment */
+    .print-tl-body {
+        flex: 1;
+        min-width: 0;
+        padding-top: 1px;
+    }
+
+    .print-tl-stage {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        line-height: 1.2;
+    }
+
+    .print-tl-stage-name {
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #102a43;
+    }
+
+    .badge-status {
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        padding: 1px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .print-tl-actor {
+        font-size: 11.5px;
+        color: #102a43;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+
+    .print-tl-acting {
+        color: #64748b;
+        font-weight: normal;
+    }
+
+    .print-tl-comment {
+        font-size: 11px;
+        color: #1e293b;
+        font-style: italic;
+        margin-top: 2px;
+    }
+
+    /* 2-Column Signatures */
+    .auth-box-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #cbd5e1;
+    }
+
+    .auth-header-row th {
+        background: #f0f4f8;
+        color: #102a43;
+        font-size: 10.5px;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 6px 14px;
+        text-align: left;
+        border-bottom: 1px solid #cbd5e1;
+        width: 50%;
+    }
+
+    .auth-header-row th:first-child {
+        border-right: 1px solid #cbd5e1;
+    }
+
+    .auth-content-cell {
+        padding: 10px 14px 10px 14px;
+        height: 95px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .auth-cell-td:first-child {
+        border-right: 1px solid #cbd5e1;
+    }
+
+    .user-name-title {
+        font-weight: 800;
+        font-size: 12px;
+        color: #102a43;
+    }
+
+    .user-role-sub {
+        font-size: 10px;
+        color: #627d98;
+        margin-top: 2px;
+    }
+
+    .sign-area {
+        margin-top: auto;
+        padding-top: 12px;
+    }
+
+    .sign-line {
+        border-bottom: 1.5px solid #486581;
+        width: 100%;
+        margin-bottom: 4px;
+    }
+
+    .sign-text {
+        font-size: 9.5px;
+        color: #486581;
+        display: flex;
+        justify-content: space-between;
     }
 </style>
 
@@ -110,71 +437,148 @@
 {
     var v = PrintService.CurrentVoucher;
     <div class="debit-voucher-print">
-        <div class="debit-voucher-slip"
-             style="max-width: 650px; margin: 0 auto; border: 1.5px solid #111827; padding: 18px 22px; background: #ffffff; color: #111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; position: relative; overflow: hidden;">
+        <div class="debit-voucher-slip">
 
-            @if (!string.IsNullOrWhiteSpace(v.Watermark))
-            {
-                <div class="debit-voucher-watermark">@v.Watermark</div>
-            }
-
-            @* ── Header (Logo, Title, Ref, Print Date) ── *@
-            <div class="debit-voucher-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #111827;">
-                <div class="debit-voucher-brand" style="display: flex; align-items: center; gap: 10px;">
-                            <img src="data:image/png;base64,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"
-                         style="width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; display: block;" alt="Logo" />
-                    <div>
-                        <div style="font-size: 15px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: #111827; line-height: 1.15;">DEBIT VOUCHER</div>
-                        <div style="font-size: 9.5px; color: #4b5563; margin-top: 2px;">aSure Budget Internal Voucher</div>
-                    </div>
+            @* ── 1. Top Header ── *@
+            <div class="voucher-top-header">
+                <div>
+                    <div class="voucher-sub-title">ASURE BUDGET INTERNAL VOUCHER</div>
+                    <div class="voucher-main-title">DEBIT VOUCHER</div>
                 </div>
-                <div style="text-align: right; white-space: nowrap;">
-                    <div style="font-size: 11px; color: #374151; white-space: nowrap;">Ref: <strong style="font-family: monospace; font-size: 12px; color: #111827; display: inline;">@v.ReferenceNumber</strong></div>
-                    <div style="font-size: 9.5px; color: #6b7280; margin-top: 3px; white-space: nowrap;">Printed: @v.PrintDate.ToString("dd MMM yyyy, hh:mm tt")</div>
+                <div class="voucher-ref-meta">
+                    @* <div class="voucher-ref-text">Ref: @v.ReferenceNumber</div> *@
+                    <div class="voucher-printed-date">Printed: @v.PrintDate.ToString("dd MMM yyyy, hh:mm tt")</div>
                 </div>
             </div>
 
-            @* ── Details Grid Table ── *@
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 11.5px; border: 1px solid #111827;">
+            <div class="header-rule"></div>
+
+            @* ── 2. Meta 2-Column Box (Accounting Category & Voucher Reference) ── *@
+            <table class="meta-box-table">
+                <tr>
+                    <td class="meta-box-cell">
+                        <div class="meta-label">ACCOUNTING CATEGORY</div>
+                        <div class="meta-val">@(string.IsNullOrWhiteSpace(v.AccountingCategoryName) ? "—" : v.AccountingCategoryName.ToUpperInvariant())</div>
+                    </td>
+                    <td class="meta-box-cell" style="text-align: right;">
+                        <div class="meta-label">VOUCHER REFERENCE</div>
+                        <div class="meta-val">@v.ReferenceNumber</div>
+                    </td>
+                </tr>
+            </table>
+
+            @* ── 3. Voucher Particulars Table ── *@
+            <div class="voucher-section-title">VOUCHER PARTICULARS</div>
+            <table class="particulars-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: left;">REASON</th>
+                        <th style="text-align: right; width: 145px;">AMOUNT</th>
+                    </tr>
+                </thead>
                 <tbody>
                     <tr>
-                        <th style="width: 18%; border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Requester</th>
-                        <td style="width: 32%; border: 1px solid #d1d5db; padding: 6px 10px; color: #111827;"><strong>@v.RequesterName</strong></td>
-                        <th style="width: 20%; border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Submit Date</th>
-                        <td style="width: 30%; border: 1px solid #d1d5db; padding: 6px 10px; color: #111827;">@(v.SubmitDate?.ToString("dd MMM yyyy, hh:mm tt") ?? "—")</td>
-                    </tr>
-                    <tr>
-                        <th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Reason</th>
-                        <td colspan="3" style="border: 1px solid #d1d5db; padding: 6px 10px; color: #111827; line-height: 1.45; white-space: pre-wrap;">@v.Reason</td>
-                    </tr>
-                    <tr>
-                        <th style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; text-align: left; font-weight: 600; color: #4b5563; -webkit-print-color-adjust: exact; print-color-adjust: exact;">Amount</th>
-                        <td colspan="3" style="border: 1px solid #d1d5db; background-color: #f9fafb; padding: 6px 10px; color: #111827; -webkit-print-color-adjust: exact; print-color-adjust: exact;">
-                            <span style="font-family: monospace; font-weight: 700; font-size: 13px; color: #111827; letter-spacing: 0.02em;">@v.Amount.ToString("N2") @v.CurrencyCode</span>
+                        <td class="reason-cell">@v.Reason</td>
+                        <td class="amount-cell">
+                            @v.Amount.ToString("N2") @v.CurrencyCode
                         </td>
+                    </tr>
+                    <tr class="total-row">
+                        <td class="total-label">TOTAL AMOUNT</td>
+                        <td class="total-val">@v.Amount.ToString("N2") @v.CurrencyCode</td>
                     </tr>
                 </tbody>
             </table>
 
-            @* ── Signatures Table (Prepared By & Approved By) ── *@
-            <table style="width: 100%; border-collapse: collapse; margin-top: 24px; padding-top: 18px; border-top: 1px solid #e5e7eb; page-break-inside: avoid; break-inside: avoid;">
-                <tr>
-                    <td style="width: 44%; text-align: center; vertical-align: bottom;">
-                        <div class="debit-voucher-sig-line" style="height: 38px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; border-bottom: 1.5px solid #111827; font-style: italic; color: #111827; font-size: 11px;">
-                            @v.RequesterName
-                        </div>
-                        <div style="font-weight: 600; font-size: 11px; margin-top: 4px; color: #111827;">Prepared By</div>
-                        <div style="font-size: 9.5px; color: #6b7280; margin-top: 1px;">Requester</div>
-                    </td>
-                    <td style="width: 12%;"></td>
-                    <td style="width: 44%; text-align: center; vertical-align: bottom;">
-                        <div class="debit-voucher-sig-line" style="height: 38px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; border-bottom: 1.5px solid #111827; font-style: italic; color: #111827; font-size: 11px;">
-                            @(string.IsNullOrWhiteSpace(v.ApproverName) ? "Pending Approval" : v.ApproverName)
-                        </div>
-                        <div style="font-weight: 600; font-size: 11px; margin-top: 4px; color: #111827;">Approved By</div>
-                        <div style="font-size: 9.5px; color: #6b7280; margin-top: 1px;">@(v.ApproverRoleLabel ?? "Department Head / Finance")</div>
-                    </td>
-                </tr>
+            @* ── 4. Approval & Accounting Flow (Date/Time on Left Side of Icon) ── *@
+            @if (v.ApprovalSteps is not null && v.ApprovalSteps.Count > 0)
+            {
+                <div class="voucher-section-title">APPROVAL &amp; ACCOUNTING FLOW</div>
+                <div class="approval-timeline-card">
+                    <div class="print-tl">
+                        @foreach (var step in v.ApprovalSteps)
+                        {
+                            <div class="print-tl-item">
+                                <div class="print-tl-time">
+                                    @step.ActionedAtText
+                                </div>
+                                <div class="print-tl-node-col">
+                                    <div class="print-tl-node">
+                                        @if (step.IsAccounting)
+                                        {
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M5 22h14"/>
+                                                <path d="M19.27 13.73A2.5 2.5 0 0 0 17.5 13h-11A2.5 2.5 0 0 0 4.73 13.73L3 17h18l-1.73-3.27Z"/>
+                                                <path d="M14 13V8.5C14 7.12 12.88 6 11.5 6h-1C9.12 6 8 7.12 8 8.5V13"/>
+                                                <rect x="8" y="2" width="8" height="4" rx="2"/>
+                                            </svg>
+                                        }
+                                        else
+                                        {
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="20 6 9 17 4 12"></polyline>
+                                            </svg>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="print-tl-body">
+                                    <div class="print-tl-stage">
+                                        <span class="print-tl-stage-name">@step.StageName</span>
+                                        <span class="badge-status">@step.DecisionLabel</span>
+                                    </div>
+                                    <div class="print-tl-actor">
+                                        @step.ApproverText
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(step.Comment))
+                                    {
+                                        <div class="print-tl-comment">
+                                            @step.Comment
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* ── 5. Authorization & Signatures (2 Columns: Requester & Finance Payer) ── *@
+            <div class="voucher-section-title">AUTHORIZATION &amp; SIGNATURES</div>
+            <table class="auth-box-table">
+                <thead>
+                    <tr class="auth-header-row">
+                        <th>REQUESTER</th>
+                        <th>FINANCE PAYER</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="auth-cell-td" style="width: 50%;">
+                            <div class="auth-content-cell">
+                                <div></div>
+                                <div class="sign-area">
+                                    <div class="sign-line"></div>
+                                    <div class="sign-text">
+                                        <span>Signature</span>
+                                        <span>Date: ____ / ____ / ________</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="auth-cell-td" style="width: 50%;">
+                            <div class="auth-content-cell">
+                                <div></div>
+                                <div class="sign-area">
+                                    <div class="sign-line"></div>
+                                    <div class="sign-text">
+                                        <span>Signature</span>
+                                        <span>Date: ____ / ____ / ________</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
             </table>
 
         </div>
@@ -223,8 +627,10 @@
                     }, 1000);
                 ");
             }
-            catch (JSDisconnectedException) { }
-            catch (Exception) { }
+            catch
+            {
+                await JS.InvokeVoidAsync("eval", "document.body.classList.remove('is-printing-voucher');");
+            }
         }
     }
 
