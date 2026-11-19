@@ -749,6 +749,11 @@
     </div>
 }
 
+@if (_selectedRequestId.HasValue)
+{
+    <RequestDetailModal RequestId="_selectedRequestId.Value" OnClose="CloseDetailModal" OnRequestUpdated="HandleRequestUpdated" />
+}
+
 @code {
     // ── Filter state ─────────────────────────────────────────────────────────
     private string _search = "";
@@ -1649,10 +1654,22 @@
         }
     </text>;
 
+    private Guid? _selectedRequestId;
+
     private void NavigateToDetail(Guid id)
     {
         CloseContextMenu();
-        Nav.NavigateTo($"requests/{id}?from=reports");
+        _selectedRequestId = id;
+    }
+
+    private void CloseDetailModal()
+    {
+        _selectedRequestId = null;
+    }
+
+    private async Task HandleRequestUpdated()
+    {
+        await RunQueryAsync();
     }
 
     private async Task OpenInNewTab(Guid id)

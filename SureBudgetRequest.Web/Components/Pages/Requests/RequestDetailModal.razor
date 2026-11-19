@@ -1,0 +1,50 @@
+@using SureBudgetRequest.Application.BudgetRequests.Common
+
+<div class="rd-modal-backdrop" @onclick="HandleBackdropClick">
+    <div class="rd-modal-dialog" @onclick:stopPropagation="true">
+        <div class="rd-modal-header">
+            <div class="rd-modal-title-area">
+                <span class="rd-modal-title">Budget Request</span>
+            </div>
+            <button type="button" class="btn btn-icon rd-modal-close-btn" @onclick="HandleClose" title="Close (Esc)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="rd-modal-body">
+            <RequestDetail Id="RequestId" IsModal="true" OnClose="HandleClose" OnRequestUpdated="HandleDetailUpdated" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid RequestId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnRequestUpdated { get; set; }
+
+    private bool _hasMutated = false;
+
+    private void HandleDetailUpdated()
+    {
+        _hasMutated = true;
+    }
+
+    private async Task HandleClose()
+    {
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+        if (_hasMutated && OnRequestUpdated.HasDelegate)
+        {
+            await OnRequestUpdated.InvokeAsync();
+        }
+    }
+
+    private async Task HandleBackdropClick()
+    {
+        await HandleClose();
+    }
+}

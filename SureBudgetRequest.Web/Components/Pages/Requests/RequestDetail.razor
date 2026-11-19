@@ -121,7 +121,10 @@ else
         @* ── Header ── *@
         <div class="flex items-start justify-content-between mb-4">
             <div>
-                <a href="@BackTarget.Url" class="text-muted text-sm">← Back to @BackTarget.Label</a>
+                @if (!IsModal)
+                {
+                    <a href="@BackTarget.Url" class="text-muted text-sm">← Back to @BackTarget.Label</a>
+                }
                 <div class="flex items-center gap-2 mt-1">
                     <h5>Budget Request</h5>
                     <button class="btn btn-outline btn-xs" @onclick="OpenHistory">History</button>
@@ -2612,6 +2615,9 @@ else
 
 @code {
     [Parameter] public Guid Id { get; set; }
+    [Parameter] public bool IsModal { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnRequestUpdated { get; set; }
 
     [SupplyParameterFromQuery(Name = "from")] public string? From { get; set; }
 
@@ -2988,7 +2994,24 @@ else
     // Lowercase noun for the request's cumulative-cap cadence at submission,
 
 
-    protected override async Task OnInitializedAsync() => await LoadRequest();
+    private Guid _lastLoadedId;
+    private bool _initialLoadDone = false;
+    protected override async Task OnInitializedAsync()
+    {
+        _lastLoadedId = Id;
+        _initialLoadDone = false;
+        await LoadRequest();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id != _lastLoadedId && Id != Guid.Empty)
+        {
+            _lastLoadedId = Id;
+            _initialLoadDone = false;
+            await LoadRequest();
+        }
+    }
 
     private async Task LoadRequest()
     {
@@ -3041,6 +3064,16 @@ else
             var configRes = await Mediator.Send(new GetAppSettingByKeyQuery(TagVisibilityConfig.SettingKey));
             _tagVisibilityConfig = TagVisibilityConfig.FromJson(configRes.Value?.Value);
         _loading = false;
+        if (!_initialLoadDone)
+        {
+            _initialLoadDone = true;
+            return;
+        }
+
+        if (OnRequestUpdated.HasDelegate)
+        {
+            await OnRequestUpdated.InvokeAsync();
+        }
     }
 
     // ── Accounting Category Management ───────────────────────────────────────

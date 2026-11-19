@@ -600,6 +600,11 @@
     </div>
 }
 
+@if (_selectedRequestId.HasValue)
+{
+    <RequestDetailModal RequestId="_selectedRequestId.Value" OnClose="CloseDetailModal" OnRequestUpdated="HandleRequestUpdated" />
+}
+
 @code {
     // The four request types, in enum order, for the Type multi-select.
     private static readonly BudgetRequestType[] AllTypes =
@@ -1343,10 +1348,22 @@
         }
     </text>;
 
+    private Guid? _selectedRequestId;
+
     private void NavigateToDetail(Guid id)
     {
         CloseContextMenu();
-        Nav.NavigateTo($"requests/{id}?from=inbox");
+        _selectedRequestId = id;
+    }
+
+    private void CloseDetailModal()
+    {
+        _selectedRequestId = null;
+    }
+
+    private async Task HandleRequestUpdated()
+    {
+        await LoadPageAsync(_currentPage);
     }
 
     private void NavigateToEdit(Guid id)

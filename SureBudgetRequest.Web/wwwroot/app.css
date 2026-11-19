@@ -100,7 +100,7 @@ input, select, textarea { font-family: var(--font-sans); }
 /* 3. Layout Shell */
 .app-shell { display: flex; height: 100vh; overflow: hidden; background: var(--color-bg-page); }
 .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-.page-content { flex: 1; overflow-y: auto; padding: var(--space-6) var(--space-8); background: var(--color-bg-page); }
+.page-content { flex: 1; overflow-y: auto; padding: var(--space-6) var(--space-4); background: var(--color-bg-page); }
 .page-wrap { /*max-width: 1200px;*/ }
 .page-header { margin-bottom: var(--space-6); }
 .page-header h4, .page-header h5 { margin-bottom: 4px; }
