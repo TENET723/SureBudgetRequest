@@ -120,8 +120,22 @@
 .nav-group-header.collapsed svg {
     transform: rotate(-90deg);
 }
+.nav-group-items {
+    display: block;
+    max-height: 500px;
+    overflow: hidden;
+    opacity: 1;
+    transform: translateY(0);
+    transition: max-height 220ms cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 180ms ease,
+                transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
 .nav-group-items.collapsed {
-    display: none;
+    display: block;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
 }
 .menu-separater {
     height: 1px;
@@ -260,6 +274,12 @@
     opacity: 0;
     transform: translateX(-8px);
     pointer-events: none;
+}
+.nav-menu-root.collapsed .nav-group-items {
+    max-height: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
 }
 
 /* ── Empty Search Message ────────────────────────────────────────────────── */

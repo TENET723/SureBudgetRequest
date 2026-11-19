@@ -186,7 +186,6 @@ input, select, textarea { font-family: var(--font-sans); }
 .nav-group-header:hover { color: var(--color-text-dark); }
 .nav-group-header svg { transition: transform 150ms; flex-shrink: 0; }
 .nav-group-header.collapsed svg { transform: rotate(-90deg); }
-.nav-group-items.collapsed { display: none; }
 .nav-home { padding: var(--space-2) var(--space-2) var(--space-1); }
 .nav-item { padding: 2px var(--space-2); }
 .nav-item ::deep .nav-link,
