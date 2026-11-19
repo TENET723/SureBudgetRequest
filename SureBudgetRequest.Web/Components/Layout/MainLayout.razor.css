@@ -2,14 +2,15 @@
 
 /* Expanded sidebar */
 .sidebar {
-    width: 215px;
-    min-width: 215px;
+    width: 228px;
+    min-width: 228px;
     height: 100vh;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    transition: width 200ms ease, min-width 200ms ease;
+    transition: width 180ms cubic-bezier(0.4, 0, 0.2, 1), min-width 180ms cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    white-space: nowrap;
 }
 
 /* Collapsed sidebar */
@@ -51,7 +52,32 @@
 .sidebar-nav {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+.app-shell.sidebar-collapsed .sidebar-nav {
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.app-shell.sidebar-collapsed .sidebar-nav::-webkit-scrollbar {
+    display: none;
 }
 
 /* ── Sidebar Bottom Profile Area ────────────────────────────────────────── */
@@ -136,51 +162,111 @@
     box-shadow: 0 0 0 1px #d97706;
 }
 
+.brand-logo {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    text-decoration: none;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 160ms cubic-bezier(0.4, 0, 0.2, 1), transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-block;
+}
+
+.sidebar-toggle {
+    color: var(--color-text-muted);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    flex-shrink: 0;
+    transition: color 140ms ease, background 140ms ease;
+}
+.sidebar-toggle:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
 .profile-user-info {
     display: flex;
     flex-direction: column;
     line-height: 1.25;
     min-width: 0;
     flex: 1;
-}
-
-.profile-user-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-dark, #1e293b);
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.profile-user-role {
-    font-size: 11px;
-    color: var(--color-text-muted, #64748b);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 160ms cubic-bezier(0.4, 0, 0.2, 1), transform 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .profile-chevron {
     color: var(--color-text-muted, #94a3b8);
     flex-shrink: 0;
-    transition: transform 150ms ease;
+    transition: transform 150ms ease, opacity 160ms ease;
 }
 
 .sidebar-profile-trigger.active .profile-chevron {
     transform: rotate(180deg);
 }
 
-/* ── Collapsed Sidebar Profile Styles ───────────────────────────────────── */
+/* ── Collapsed Sidebar Header & Profile Styles ─────────────────────────── */
+.app-shell.sidebar-collapsed .nav-brand {
+    justify-content: center;
+    padding: 0;
+}
+
+.app-shell.sidebar-collapsed .brand-logo {
+    opacity: 0;
+    transform: translateX(-8px);
+    pointer-events: none;
+    width: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+    margin: 0 auto;
+}
+
+.app-shell.sidebar-collapsed .profile-user-info {
+    opacity: 0;
+    transform: translateX(-8px);
+    pointer-events: none;
+    width: 0;
+    min-width: 0;
+    flex: 0 0 0px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.app-shell.sidebar-collapsed .profile-chevron {
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+}
+
 .app-shell.sidebar-collapsed .sidebar-profile-wrap {
-    padding: 8px 4px;
+    padding: 8px 10px;
     display: flex;
     justify-content: center;
 }
 
 .app-shell.sidebar-collapsed .sidebar-profile-trigger {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     justify-content: center;
+    gap: 0;
 }

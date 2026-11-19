@@ -1,272 +1,385 @@
 @inject ICurrentUser CurrentUser
 
-
-@if(CurrentUser.Role != UserRole.Support)
-{
-    <div class="nav-home nav-item">
-        <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Home">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6.5L8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.5" /><path d="M6 15v-4h4v4" stroke="currentColor" stroke-width="1.5" /></svg>
-            @if (!Collapsed)
+<div class="nav-menu-root @(Collapsed ? "collapsed" : "")">
+    <!-- Search Box -->
+    <div class="nav-search-wrap">
+        <div class="nav-search-box" @onclick="HandleSearchBoxClick" title="Search menu">
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text"
+                   class="nav-search-input"
+                   placeholder="Search menu..."
+                   @bind="_searchQuery"
+                   @bind:event="oninput" />
+            @if (!string.IsNullOrWhiteSpace(_searchQuery))
             {
-                <span>Home</span>
-            }
-        </NavLink>
-    </div>
-}
-
-
-@* Budget Requests section — hidden for Support *@
-@if (CurrentUser.Role != UserRole.Support)
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Budget Requests</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
-            <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="requests/mine" title="My Requests">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="13" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>My Requests</span> }
-                </NavLink>
-            </div>
-
-            @if (CurrentUser.IsDepartmentHead || (CurrentUser.Role is not UserRole.Employee and not UserRole.Accounting && !(CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover)))
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="requests/inbox" title="Inbox">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="8" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.5" /><path d="M1 8l3-5h8l3 5" stroke="currentColor" stroke-width="1.5" /><path d="M5 11h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
-                        @if (!Collapsed)
-                        {
-                            <span>Inbox</span>
-                        }
-                    </NavLink>
-                </div>
-            }
-
-            <div class="nav-item">
-                <NavLink class="nav-link" href="tags" title="Tags">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
-                    @if (!Collapsed) { <span>Tags</span> }
-                </NavLink>
-            </div>
-
-            <div class="nav-item">
-                <NavLink class="nav-link" href="vendors" title="Vendors">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Vendors</span> }
-                </NavLink>
-            </div>
-
-            @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="requests/outstanding" title="Outstanding Payments">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14" stroke="currentColor" stroke-width="1.5"/><path d="M4 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        @if (!Collapsed) { <span>Outstanding Payments</span> }
-                    </NavLink>
-                </div>
-            }
-
-            @if (CurrentUser.Role == UserRole.Accounting)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="accounting-categories" title="Accounting Categories">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        @if (!Collapsed) { <span>Accounting Categories</span> }
-                    </NavLink>
-                </div>
-            }
-
-            @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
-            {
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="coas" title="Chart Of Accounts">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        @if (!Collapsed) { <span>Chart Of Accounts</span> }
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="withdraw-methods" title="Withdraw Methods">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V4M5 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                        @if (!Collapsed) { <span>Withdraw Methods</span> }
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="bank-accounts" title="Bank Accounts">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7h12M2 13h12M8 2L2 7h12L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7v6M8 7v6M12 7v6" stroke="currentColor" stroke-width="1.5"/></svg>
-                        @if (!Collapsed) { <span>Bank Accounts</span> }
-                    </NavLink>
-                </div>
-                <div class="nav-item">
-                    <NavLink class="nav-link" href="app-settings" title="App Settings">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 8c0-.4 0-.8-.1-1.1l1.4-1.1-1.5-2.6-1.7.7A5.5 5.5 0 0 0 9 3.1V1.5H7v1.6a5.5 5.5 0 0 0-1.6.8L3.7 3.2 2.2 5.8l1.4 1.1C3.5 7.2 3.5 7.6 3.5 8s0 .8.1 1.1L2.2 10.2l1.5 2.6 1.7-.7a5.5 5.5 0 0 0 1.6.8v1.6H9v-1.6a5.5 5.5 0 0 0 1.6-.8l1.7.7 1.5-2.6-1.4-1.1c.1-.3.1-.7.1-1.1Z" stroke="currentColor" stroke-width="1.5"/></svg>
-                        @if (!Collapsed) { <span>App Settings</span> }
-                    </NavLink>
-                </div>
+                <button class="nav-search-clear" @onclick="ClearSearch" type="button" title="Clear">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
             }
         </div>
     </div>
-}
 
-@* Reports — hidden for Support and standard Employee (unless Dept Head) *@
-@if (CurrentUser.Role != UserRole.Support && (CurrentUser.Role != UserRole.Employee || CurrentUser.IsDepartmentHead))
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Reports</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
+    @if (CurrentUser.Role != UserRole.Support && Matches("Home"))
+    {
+        <div class="nav-home nav-item">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Home">
+                <div class="nav-icon-wrap">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6.5L8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.5" /><path d="M6 15v-4h4v4" stroke="currentColor" stroke-width="1.5" /></svg>
+                </div>
+                <span class="nav-label">Home</span>
+            </NavLink>
+        </div>
+    }
+
+    @* Budget Requests section — hidden for Support *@
+    @if (CurrentUser.Role != UserRole.Support && ShouldShowGroup("My Requests", "Inbox", "Tags", "Vendors", "Outstanding Payments", "Accounting Categories", "Chart Of Accounts", "Withdraw Methods", "Bank Accounts", "App Settings"))
+    {
+        <div class="nav-group">
+            <div class="nav-group-header-wrap">
+                <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.parentElement.nextElementSibling.classList.toggle('collapsed')">
+                    <span class="nav-group-title">Budget Requests</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+            </div>
             <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="reports/budget-requests" title="Budget Requests">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="10" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="6" y="6" width="3" height="8" rx="0.5" fill="currentColor"/><rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
-                    @if (!Collapsed) { <span>Budget Requests</span> }
-                </NavLink>
+            <div class="nav-group-items">
+                @if (Matches("My Requests"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="requests/mine" title="My Requests">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="13" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">My Requests</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if ((CurrentUser.IsDepartmentHead || (CurrentUser.Role is not UserRole.Employee and not UserRole.Accounting && !(CurrentUser.Role == UserRole.Finance && !CurrentUser.IsFinanceApprover))) && Matches("Inbox"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="requests/inbox" title="Inbox">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="8" width="14" height="6" rx="1" stroke="currentColor" stroke-width="1.5" /><path d="M1 8l3-5h8l3 5" stroke="currentColor" stroke-width="1.5" /><path d="M5 11h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" /></svg>
+                                <span class="nav-badge-dot-corner"></span>
+                            </div>
+                            <span class="nav-label">Inbox</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if (Matches("Tags"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="tags" title="Tags">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
+                            </div>
+                            <span class="nav-label">Tags</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if (Matches("Vendors"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="vendors" title="Vendors">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Vendors</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if ((CurrentUser.Role is UserRole.Finance or UserRole.Admin or UserRole.Accounting) && Matches("Outstanding Payments"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="requests/outstanding" title="Outstanding Payments">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14" stroke="currentColor" stroke-width="1.5"/><path d="M4 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Outstanding Payments</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if (CurrentUser.Role == UserRole.Accounting && Matches("Accounting Categories"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="accounting-categories" title="Accounting Categories">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5 6h6M5 9h6M5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Accounting Categories</span>
+                        </NavLink>
+                    </div>
+                }
+
+                @if (CurrentUser.Role is UserRole.Finance or UserRole.Admin)
+                {
+                    @if (Matches("Chart Of Accounts"))
+                    {
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="coas" title="Chart Of Accounts">
+                                <div class="nav-icon-wrap">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                </div>
+                                <span class="nav-label">Chart Of Accounts</span>
+                            </NavLink>
+                        </div>
+                    }
+                    @if (Matches("Withdraw Methods"))
+                    {
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="withdraw-methods" title="Withdraw Methods">
+                                <div class="nav-icon-wrap">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 12V4M5 7l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                </div>
+                                <span class="nav-label">Withdraw Methods</span>
+                            </NavLink>
+                        </div>
+                    }
+                    @if (Matches("Bank Accounts"))
+                    {
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="bank-accounts" title="Bank Accounts">
+                                <div class="nav-icon-wrap">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7h12M2 13h12M8 2L2 7h12L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 7v6M8 7v6M12 7v6" stroke="currentColor" stroke-width="1.5"/></svg>
+                                </div>
+                                <span class="nav-label">Bank Accounts</span>
+                            </NavLink>
+                        </div>
+                    }
+                    @if (Matches("App Settings"))
+                    {
+                        <div class="nav-item">
+                            <NavLink class="nav-link" href="app-settings" title="App Settings">
+                                <div class="nav-icon-wrap">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.5"/><path d="M13.5 8c0-.4 0-.8-.1-1.1l1.4-1.1-1.5-2.6-1.7.7A5.5 5.5 0 0 0 9 3.1V1.5H7v1.6a5.5 5.5 0 0 0-1.6.8L3.7 3.2 2.2 5.8l1.4 1.1C3.5 7.2 3.5 7.6 3.5 8s0 .8.1 1.1L2.2 10.2l1.5 2.6 1.7-.7a5.5 5.5 0 0 0 1.6.8v1.6H9v-1.6a5.5 5.5 0 0 0 1.6-.8l1.7.7 1.5-2.6-1.4-1.1c.1-.3.1-.7.1-1.1Z" stroke="currentColor" stroke-width="1.5"/></svg>
+                                </div>
+                                <span class="nav-label">App Settings</span>
+                            </NavLink>
+                        </div>
+                    }
+                }
             </div>
         </div>
-    </div>
-}
+    }
 
-@* Finance Admin section *@
-@if (CurrentUser.Role == UserRole.Finance)
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Admin</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
-            <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/users" title="Users">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Users</span> }
-                </NavLink>
+    @* Reports — hidden for Support and standard Employee (unless Dept Head) *@
+    @if (CurrentUser.Role != UserRole.Support && (CurrentUser.Role != UserRole.Employee || CurrentUser.IsDepartmentHead) && ShouldShowGroup("Budget Requests"))
+    {
+        <div class="nav-group">
+            <div class="nav-group-header-wrap">
+                <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.parentElement.nextElementSibling.classList.toggle('collapsed')">
+                    <span class="nav-group-title">Reports</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
             </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="finance/budget-plan" title="Budget Plan">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="11" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14M5 3V1M11 3V1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Budget Plan</span> }
-                </NavLink>
+            <div class="menu-separater"></div>
+            <div class="nav-group-items">
+                @if (Matches("Budget Requests"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="reports/budget-requests" title="Budget Requests">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="10" width="3" height="4" rx="0.5" fill="currentColor"/><rect x="6" y="6" width="3" height="8" rx="0.5" fill="currentColor"/><rect x="11" y="2" width="3" height="12" rx="0.5" fill="currentColor"/></svg>
+                            </div>
+                            <span class="nav-label">Budget Requests</span>
+                        </NavLink>
+                    </div>
+                }
             </div>
         </div>
-    </div>
-}
+    }
 
-@* Full Admin section *@
-@if (CurrentUser.Role == UserRole.Admin)
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Admin</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
+    @* Finance Admin section *@
+    @if (CurrentUser.Role == UserRole.Finance && ShouldShowGroup("Users", "Budget Plan"))
+    {
+        <div class="nav-group">
+            <div class="nav-group-header-wrap">
+                <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.parentElement.nextElementSibling.classList.toggle('collapsed')">
+                    <span class="nav-group-title">Admin</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+            </div>
             <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/departments" title="Departments">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="6" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M5 6V4a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/></svg>
-                    @if (!Collapsed) { <span>Departments</span> }
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/department-heads" title="Dept. Heads">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-2.8 2.2-5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 9l1.5 1.5L15 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    @if (!Collapsed) { <span>Dept. Heads</span> }
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/users" title="Users">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Users</span> }
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/currencies" title="Currencies">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v6M6 6.5h3a1 1 0 0 1 0 2H7a1 1 0 0 0 0 2h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Currencies</span> }
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/budget-categories" title="Budget Categories">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h3l2 2h7a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/></svg>
-                    @if (!Collapsed) { <span>Budget Categories</span> }
-                </NavLink>
-            </div>
-            <div class="nav-item">
-                <NavLink class="nav-link" href="tags" title="Tags">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5l6.5 6.5-5.5 5.5L2 7.5V2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="5" cy="5" r="1.25" fill="currentColor"/></svg>
-                    @if (!Collapsed) { <span>Tags</span> }
-                </NavLink>
-            </div>
-
-            <div class="nav-item">
-                <NavLink class="nav-link" href="vendors" title="Vendors">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/><path d="M5 7h6M5 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Vendors</span> }
-                </NavLink>
+            <div class="nav-group-items">
+                @if (Matches("Users"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/users" title="Users">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Users</span>
+                        </NavLink>
+                    </div>
+                }
+                @if (Matches("Budget Plan"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="finance/budget-plan" title="Budget Plan">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="3" width="14" height="11" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M1 7h14M5 3V1M11 3V1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Budget Plan</span>
+                        </NavLink>
+                    </div>
+                }
             </div>
         </div>
-    </div>
-}
+    }
 
-
-
-@* Support Admin section — Users only *@
-@if (CurrentUser.Role == UserRole.Support)
-{
-    <div class="nav-group">
-        @if (!Collapsed)
-        {
-            <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.nextElementSibling.classList.toggle('collapsed')">
-                <span>Admin</span>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            </button>
-        }
-        else
-        {
+    @* Full Admin section *@
+    @if (CurrentUser.Role == UserRole.Admin && ShouldShowGroup("Departments", "Dept. Heads", "Users", "Currencies", "Budget Categories"))
+    {
+        <div class="nav-group">
+            <div class="nav-group-header-wrap">
+                <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.parentElement.nextElementSibling.classList.toggle('collapsed')">
+                    <span class="nav-group-title">Admin</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+            </div>
             <div class="menu-separater"></div>
-        }
-        <div class="nav-group-items @(Collapsed ? "collapsed" : "")">
-            <div class="nav-item">
-                <NavLink class="nav-link" href="admin/users" title="Users">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                    @if (!Collapsed) { <span>Users</span> }
-                </NavLink>
+            <div class="nav-group-items">
+                @if (Matches("Departments"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/departments" title="Departments">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="6" width="12" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M5 6V4a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.5"/></svg>
+                            </div>
+                            <span class="nav-label">Departments</span>
+                        </NavLink>
+                    </div>
+                }
+                @if (Matches("Dept. Heads"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/department-heads" title="Dept. Heads">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M1 14c0-2.8 2.2-5 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11 9l1.5 1.5L15 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </div>
+                            <span class="nav-label">Dept. Heads</span>
+                        </NavLink>
+                    </div>
+                }
+                @if (Matches("Users"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/users" title="Users">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Users</span>
+                        </NavLink>
+                    </div>
+                }
+                @if (Matches("Currencies"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/currencies" title="Currencies">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v6M6 6.5h3a1 1 0 0 1 0 2H7a1 1 0 0 0 0 2h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Currencies</span>
+                        </NavLink>
+                    </div>
+                }
+                @if (Matches("Budget Categories"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/budget-categories" title="Budget Categories">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h3l2 2h7a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.5"/></svg>
+                            </div>
+                            <span class="nav-label">Budget Categories</span>
+                        </NavLink>
+                    </div>
+                }
             </div>
         </div>
-    </div>
-}
+    }
 
+    @* Support Admin section — Users only *@
+    @if (CurrentUser.Role == UserRole.Support && ShouldShowGroup("Users"))
+    {
+        <div class="nav-group">
+            <div class="nav-group-header-wrap">
+                <button class="nav-group-header" onclick="this.classList.toggle('collapsed');this.parentElement.nextElementSibling.classList.toggle('collapsed')">
+                    <span class="nav-group-title">Admin</span>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+            <div class="menu-separater"></div>
+            <div class="nav-group-items">
+                @if (Matches("Users"))
+                {
+                    <div class="nav-item">
+                        <NavLink class="nav-link" href="admin/users" title="Users">
+                            <div class="nav-icon-wrap">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                            </div>
+                            <span class="nav-label">Users</span>
+                        </NavLink>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 
+    @if (!HasAnyMatches())
+    {
+        <div class="nav-empty-search">
+            <span>No matching menu</span>
+        </div>
+    }
+</div>
 
 @code {
     [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public EventCallback OnExpandRequested { get; set; }
+
+    private string _searchQuery = "";
+
+    private bool Matches(string title)
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return true;
+        return title.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool ShouldShowGroup(params string[] items)
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return true;
+        return items.Any(Matches);
+    }
+
+    private bool HasAnyMatches()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return true;
+        return Matches("Home") || Matches("My Requests") || Matches("Inbox") || Matches("Tags") ||
+               Matches("Vendors") || Matches("Outstanding Payments") || Matches("Accounting Categories") ||
+               Matches("Chart Of Accounts") || Matches("Withdraw Methods") || Matches("Bank Accounts") ||
+               Matches("App Settings") || Matches("Budget Requests") || Matches("Users") ||
+               Matches("Budget Plan") || Matches("Departments") || Matches("Dept. Heads") ||
+               Matches("Currencies") || Matches("Budget Categories");
+    }
+
+    private void ClearSearch()
+    {
+        _searchQuery = "";
+    }
+
+    private async Task HandleSearchBoxClick()
+    {
+        if (Collapsed && OnExpandRequested.HasDelegate)
+        {
+            await OnExpandRequested.InvokeAsync();
+        }
+    }
 }
