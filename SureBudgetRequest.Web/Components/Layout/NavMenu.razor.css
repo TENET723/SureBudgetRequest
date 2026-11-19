@@ -1,8 +1,26 @@
+/* ── Menu Root ────────────────────────────────────────────────────────────── */
+.nav-menu-root {
+    padding-bottom: 24px;
+}
+
 /* ── Menu Search Box ──────────────────────────────────────────────────────── */
 .nav-search-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #ffffff;
     padding: 8px 10px 6px;
     white-space: nowrap;
-    overflow: hidden;
+}
+.nav-search-wrap::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 18px;
+    background: linear-gradient(to bottom, #ffffff 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
 }
 .nav-search-box {
     display: flex;
