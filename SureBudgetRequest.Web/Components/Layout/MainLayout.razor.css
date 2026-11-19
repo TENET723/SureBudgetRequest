@@ -1,13 +1,19 @@
 .app-shell { display: flex; height: 100vh; overflow: hidden; }
 
-/* Expanded sidebar */
+/* Expanded floating sidebar */
 .sidebar {
     width: 228px;
     min-width: 228px;
-    height: 100vh;
+    height: calc(100vh - 24px);
+    margin: 12px;
+    margin-right: 0;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
     transition: width 180ms cubic-bezier(0.4, 0, 0.2, 1), min-width 180ms cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
     white-space: nowrap;
@@ -119,15 +125,6 @@
     background: var(--color-bg-row-alt, #f1f5f9);
 }
 
-.sidebar-profile-trigger.delegated {
-    background: #fffbeb;
-    border: 1px solid #fef3c7;
-}
-
-.sidebar-profile-trigger.delegated:hover,
-.sidebar-profile-trigger.delegated.active {
-    background: #fef3c7;
-}
 
 .profile-avatar-wrap {
     position: relative;

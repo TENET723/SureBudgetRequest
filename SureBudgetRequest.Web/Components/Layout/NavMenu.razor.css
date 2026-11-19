@@ -136,6 +136,7 @@
 /* ── Nav Items & Links (Anchored Geometry) ───────────────────────────────── */
 .nav-home {
     padding: 2px 10px;
+    margin-top:10px;
 }
 .nav-item {
     padding: 1px 10px;
